@@ -1,22 +1,24 @@
 [package]
-name    = "mnemosyne-cli"
+name    = "mnemosyne-api"
 version.workspace = true
 edition.workspace = true
 authors.workspace = true
 license.workspace = true
 
 [[bin]]
-name = "mnemosyne"
+name = "mnemosyne-server"
 path = "src/main.rs"
 
 [dependencies]
 mnemosyne-retrieval.workspace = true
 mnemosyne-core.workspace      = true
-clap.workspace                = true
+axum.workspace                = true
+tower.workspace               = true
+tower-http.workspace          = true
 tokio.workspace               = true
+serde.workspace               = true
 serde_json.workspace          = true
 tracing.workspace             = true
 tracing-subscriber.workspace  = true
 anyhow.workspace              = true
-# API server (for `serve` sub-command)
-mnemosyne-api                 = { path = "../api" }
+thiserror.workspace           = true

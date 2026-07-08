@@ -61,6 +61,28 @@ enum Commands {
         /// File ID.
         id: String,
     },
+
+    /// Start the REST API server.
+    Serve {
+        /// TCP port to listen on.
+        #[arg(short, long, default_value = "8080")]
+        port: u16,
+    },
+
+    /// Watch a directory and auto-index changes.
+    Watch {
+        /// Directory to watch.
+        path: String,
+    },
+
+    /// Download a model from HuggingFace Hub.
+    ModelDownload {
+        /// HuggingFace model ID (e.g. sentence-transformers/all-MiniLM-L6-v2)
+        model_id: String,
+    },
+
+    /// List downloaded models.
+    Models,
 }
 
 #[tokio::main]
@@ -73,10 +95,11 @@ async fn main() -> Result<()> {
         .init();
 
     let cli = Cli::parse();
+    let db_path = cli.db.clone(); // save before move into builder
 
     let mut builder = SearchEngine::builder();
-    if let Some(db) = cli.db {
-        builder = builder.db_path(&db);
+    if let Some(ref db) = db_path {
+        builder = builder.db_path(db);
     }
     let engine = builder.build().await?;
 
@@ -139,6 +162,42 @@ async fn main() -> Result<()> {
         Commands::Remove { id } => {
             engine.remove_file(&id).await?;
             println!("Removed: {id}");
+        }
+
+        Commands::Serve { port } => {
+            std::env::set_var("MNEMOSYNE_PORT", port.to_string());
+            if let Some(db) = db_path {
+                std::env::set_var("MNEMOSYNE_DB", db);
+            }
+            drop(engine); // API server creates its own engine
+            mnemosyne_api::run().await?;
+        }
+
+        Commands::Watch { path } => {
+            use mnemosyne_retrieval::watcher::FileWatcher;
+            use std::sync::Arc;
+            println!("Watching: {path} (Ctrl-C to stop)");
+            let engine = Arc::new(engine);
+            let _w = FileWatcher::watch(&path, Arc::clone(&engine)).await?;
+            tokio::signal::ctrl_c().await?;
+            println!("Stopped.");
+        }
+
+        Commands::ModelDownload { model_id } => {
+            println!("Downloading model: {model_id}");
+            engine.download_model(&model_id).await?;
+            println!("Done.");
+        }
+
+        Commands::Models => {
+            let models = engine.list_models().await?;
+            if models.is_empty() {
+                println!("No models downloaded yet.");
+            } else {
+                for m in &models {
+                    println!("  {} → {}", m.model_id, m.local_path);
+                }
+            }
         }
     }
 

@@ -3,7 +3,9 @@ use mnemosyne_core::Error;
 use rusqlite::params;
 use chrono::Utc;
 
-#[derive(Debug, Clone)]
+use serde::{Deserialize, Serialize};
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ModelRecord {
     pub model_id: String,
     pub local_path: String,

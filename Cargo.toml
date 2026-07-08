@@ -8,6 +8,7 @@ members = [
     "crates/mnemosyne-retrieval",
     "src-tauri",
     "cli",
+    "api",
 ]
 resolver = "2"
 
@@ -64,5 +65,10 @@ hf-hub = { version = "0.3", features = ["tokio"] }
 clap = { version = "4", features = ["derive", "color"] }
 
 # ── HTTP (API server) ─────────────────────────────────────────────────────────
-axum    = "0.8"
-tower   = "0.5"
+axum    = { version = "0.8", features = ["macros"] }
+tower   = { version = "0.5", features = ["util"] }
+tower-http = { version = "0.6", features = ["cors", "trace"] }
+
+# ── File watching ─────────────────────────────────────────────────────────────
+notify           = { version = "6", features = ["serde"] }
+notify-debouncer-mini = "0.4"

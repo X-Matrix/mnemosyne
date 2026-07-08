@@ -335,13 +335,13 @@ POST /api/models/download body: { model_id }
 
 | 阶段 | 内容 | 状态 |
 |------|------|------|
-| Phase 0 | 项目骨架、Workspace、CI | ✅ 进行中 |
-| Phase 1 | 存储层 + 文本解析器 + 文本 Embedding | 待实施 |
-| Phase 2 | FTS5 关键词检索 + 基础 GUI | 待实施 |
-| Phase 3 | 向量检索 + 混合检索 RRF | 待实施 |
-| Phase 4 | 图像 CLIP Embedding + 音频 Whisper | 待实施 |
-| Phase 5 | 视频关键帧提取 + 性能优化 | 待实施 |
-| Phase 6 | CLI 完善 + REST API | 待实施 |
+| Phase 0 | 项目骨架、Workspace、CI | ✅ 完成 |
+| Phase 1 | 存储层 + 文本解析器 + 文本 Embedding（stub） | ✅ 完成 |
+| Phase 2 | FTS5 关键词检索 + REST API + 文件监听器 + GUI | ✅ 完成 |
+| Phase 3 | 向量检索（brute-force） + 混合检索 RRF | ✅ 完成 |
+| Phase 4 | 真实 BERT 推理（`candle-backend` feature） | 待实施 |
+| Phase 5 | 图像 CLIP Embedding + 音频 Whisper 转录 | 待实施 |
+| Phase 6 | 视频关键帧提取 + sqlite-vector 集成 + 性能优化 | 待实施 |
 
 ---
 

@@ -1,8 +1,8 @@
-use chrono::{TimeZone, Utc};
+use chrono::TimeZone;
 use mnemosyne_core::{
     traits::{EmbeddingModel, SearchIndex},
     types::{
-        FileRecord, FileType, IndexStats, IndexedChunk, ParsedContent, SearchQuery, SearchResult,
+        FileRecord, FileType, IndexStats, IndexedChunk, SearchQuery, SearchResult,
     },
     Error,
 };
@@ -254,6 +254,40 @@ impl SearchEngine {
     pub async fn remove_file(&self, file_id: &str) -> Result<(), Error> {
         self.index.remove_file(file_id).await
     }
-}
 
+    // ── Model management ─────────────────────────────────────────────────────
+
+    /// List all models registered in the local model registry.
+    pub async fn list_models(&self) -> Result<Vec<mnemosyne_storage::model_repo::ModelRecord>, Error> {
+        let db = self.db.clone();
+        tokio::task::spawn_blocking(move || {
+            mnemosyne_storage::ModelRepo::new(&db).list()
+        })
+        .await
+        .map_err(|e| Error::storage(e.to_string()))?
+    }
+
+    /// Download a model from HuggingFace Hub and register it locally.
+    pub async fn download_model(&self, model_id: &str) -> Result<(), Error> {
+        use mnemosyne_model::ModelDownloader;
+
+        let home = std::env::var("HOME").unwrap_or_else(|_| ".".into());
+        let cache_dir = std::path::PathBuf::from(home).join(".mnemosyne").join("models");
+        tokio::fs::create_dir_all(&cache_dir).await.map_err(Error::Io)?;
+
+        let downloader = ModelDownloader::new(cache_dir);
+        let local_path = downloader.download(model_id).await?;
+
+        let db = self.db.clone();
+        let model_id = model_id.to_string();
+        let path_str = local_path.to_string_lossy().to_string();
+        tokio::task::spawn_blocking(move || {
+            mnemosyne_storage::ModelRepo::new(&db).register(&model_id, &path_str, None)
+        })
+        .await
+        .map_err(|e| Error::storage(e.to_string()))??;
+
+        Ok(())
+    }
+}
 

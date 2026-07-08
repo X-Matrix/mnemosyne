@@ -1,1 +1,26 @@
 target/
+**/target/
+
+# Generated Tauri schemas
+src-tauri/gen/
+
+# Environment files
+.env
+.env.*
+
+# macOS
+.DS_Store
+**/.DS_Store
+
+# IDE
+.idea/
+.vscode/settings.json
+
+# Model cache & database
+*.sqlite
+*.sqlite-wal
+*.sqlite-shm
+*.log
+
+# Node
+node_modules/
