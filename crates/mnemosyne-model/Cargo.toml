@@ -1,0 +1,36 @@
+[package]
+name        = "mnemosyne-model"
+description = "Embedding model loading and inference for Mnemosyne (powered by Candle)"
+version.workspace   = true
+edition.workspace   = true
+authors.workspace   = true
+license.workspace   = true
+
+# ── Feature flags ─────────────────────────────────────────────────────────────
+# Default: stub embedder (random vectors). No native deps required.
+# Enable `candle-backend` for real BERT inference via Candle.
+[features]
+default = []
+candle-backend = [
+    "dep:candle-core",
+    "dep:candle-nn",
+    "dep:candle-transformers",
+    "dep:tokenizers",
+]
+
+[dependencies]
+mnemosyne-core.workspace       = true
+thiserror.workspace            = true
+serde.workspace                = true
+serde_json.workspace           = true
+anyhow.workspace               = true
+tokio.workspace                = true
+async-trait.workspace          = true
+tracing.workspace              = true
+hf-hub.workspace               = true
+
+# Optional: only when `candle-backend` feature is enabled
+candle-core          = { version = "0.9", optional = true }
+candle-nn            = { version = "0.9", optional = true }
+candle-transformers  = { version = "0.9", optional = true }
+tokenizers           = { version = "0.20", default-features = false, optional = true }

@@ -1,0 +1,20 @@
+[package]
+name    = "mnemosyne-cli"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+
+[[bin]]
+name = "mnemosyne"
+path = "src/main.rs"
+
+[dependencies]
+mnemosyne-retrieval.workspace = true
+mnemosyne-core.workspace      = true
+clap.workspace                = true
+tokio.workspace               = true
+serde_json.workspace          = true
+tracing.workspace             = true
+tracing-subscriber.workspace  = true
+anyhow.workspace              = true

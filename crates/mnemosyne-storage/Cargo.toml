@@ -1,0 +1,21 @@
+[package]
+name        = "mnemosyne-storage"
+description = "SQLite storage layer for Mnemosyne"
+version.workspace   = true
+edition.workspace   = true
+authors.workspace   = true
+license.workspace   = true
+
+[dependencies]
+mnemosyne-core.workspace = true
+rusqlite.workspace       = true
+thiserror.workspace      = true
+serde.workspace          = true
+serde_json.workspace     = true
+anyhow.workspace         = true
+tokio.workspace          = true
+tracing.workspace        = true
+uuid.workspace           = true
+chrono.workspace         = true
+sha2.workspace           = true
+hex.workspace            = true

@@ -1,0 +1,516 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Mnemosyne — 智能文件搜索</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:        #0f0f13;
+      --surface:   #1a1a24;
+      --border:    #2e2e42;
+      --accent:    #7c6af7;
+      --accent-2:  #5b52d6;
+      --text:      #e8e8f0;
+      --muted:     #8888aa;
+      --green:     #4ade80;
+      --red:       #f87171;
+      --radius:    10px;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    /* ── Header ── */
+    header {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 16px 24px;
+      border-bottom: 1px solid var(--border);
+      background: var(--surface);
+    }
+    .logo { font-size: 20px; font-weight: 700; letter-spacing: -0.5px; }
+    .logo span { color: var(--accent); }
+    .tagline { font-size: 12px; color: var(--muted); }
+
+    header .actions { margin-left: auto; display: flex; gap: 8px; }
+    .btn {
+      padding: 6px 14px;
+      border-radius: 6px;
+      border: 1px solid var(--border);
+      background: var(--bg);
+      color: var(--text);
+      font-size: 13px;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+    .btn:hover { background: var(--border); }
+    .btn-primary { background: var(--accent); border-color: var(--accent); }
+    .btn-primary:hover { background: var(--accent-2); }
+
+    /* ── Main layout ── */
+    .main { display: flex; flex: 1; min-height: 0; }
+
+    /* ── Sidebar ── */
+    .sidebar {
+      width: 240px;
+      border-right: 1px solid var(--border);
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      overflow-y: auto;
+    }
+    .sidebar h3 { font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); margin-bottom: 4px; }
+
+    .stat-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 12px;
+    }
+    .stat-value { font-size: 24px; font-weight: 700; color: var(--accent); }
+    .stat-label { font-size: 12px; color: var(--muted); margin-top: 2px; }
+
+    .filter-group { display: flex; flex-direction: column; gap: 4px; }
+    .filter-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 8px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 13px;
+      user-select: none;
+    }
+    .filter-item:hover { background: var(--surface); }
+    .filter-item.active { background: rgba(124,106,247,0.15); color: var(--accent); }
+    .filter-dot { width: 8px; height: 8px; border-radius: 50%; }
+
+    /* ── Content area ── */
+    .content { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+
+    /* ── Search bar ── */
+    .search-bar {
+      padding: 16px 24px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      gap: 10px;
+      align-items: center;
+    }
+    .search-input-wrap {
+      flex: 1;
+      position: relative;
+    }
+    .search-icon {
+      position: absolute;
+      left: 14px;
+      top: 50%;
+      transform: translateY(-50%);
+      color: var(--muted);
+      pointer-events: none;
+    }
+    #searchInput {
+      width: 100%;
+      padding: 10px 16px 10px 42px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--text);
+      font-size: 15px;
+      outline: none;
+      transition: border-color 0.15s;
+    }
+    #searchInput:focus { border-color: var(--accent); }
+    #searchInput::placeholder { color: var(--muted); }
+
+    .mode-select {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: var(--text);
+      padding: 8px 10px;
+      font-size: 13px;
+      outline: none;
+      cursor: pointer;
+    }
+
+    /* ── Results ── */
+    .results-area { flex: 1; overflow-y: auto; padding: 16px 24px; }
+
+    .results-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 12px;
+      font-size: 13px;
+      color: var(--muted);
+    }
+
+    .result-item {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 14px 16px;
+      margin-bottom: 10px;
+      cursor: pointer;
+      transition: border-color 0.15s;
+    }
+    .result-item:hover { border-color: var(--accent); }
+
+    .result-top { display: flex; align-items: center; gap: 10px; margin-bottom: 6px; }
+    .file-type-badge {
+      font-size: 10px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      padding: 2px 7px;
+      border-radius: 4px;
+    }
+    .badge-text  { background: rgba(74,222,128,0.15); color: var(--green); }
+    .badge-image { background: rgba(251,191,36,0.15);  color: #fbbf24; }
+    .badge-audio { background: rgba(167,139,250,0.15); color: #a78bfa; }
+    .badge-video { background: rgba(248,113,113,0.15); color: var(--red); }
+    .badge-unknown { background: rgba(136,136,170,0.1); color: var(--muted); }
+
+    .result-path { font-size: 13px; color: var(--text); font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .result-score { margin-left: auto; font-size: 12px; color: var(--accent); white-space: nowrap; }
+    .result-snippet { font-size: 13px; color: var(--muted); line-height: 1.5; }
+
+    /* ── Empty / loading state ── */
+    .empty-state {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100%;
+      gap: 12px;
+      color: var(--muted);
+      text-align: center;
+    }
+    .empty-icon { font-size: 48px; opacity: 0.4; }
+    .empty-title { font-size: 18px; font-weight: 600; color: var(--text); }
+
+    /* ── Toast ── */
+    #toast {
+      position: fixed;
+      bottom: 24px;
+      right: 24px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 12px 18px;
+      font-size: 13px;
+      opacity: 0;
+      transform: translateY(10px);
+      transition: opacity 0.2s, transform 0.2s;
+      pointer-events: none;
+      max-width: 320px;
+    }
+    #toast.show { opacity: 1; transform: translateY(0); }
+    #toast.error { border-color: var(--red); color: var(--red); }
+    #toast.success { border-color: var(--green); color: var(--green); }
+
+    /* ── Index modal overlay ── */
+    .modal-overlay {
+      display: none;
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,0.6);
+      align-items: center;
+      justify-content: center;
+      z-index: 100;
+    }
+    .modal-overlay.open { display: flex; }
+    .modal {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 24px;
+      width: 440px;
+    }
+    .modal h2 { font-size: 18px; margin-bottom: 16px; }
+    .modal input[type="text"] {
+      width: 100%;
+      padding: 10px 14px;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 7px;
+      color: var(--text);
+      font-size: 14px;
+      outline: none;
+      margin-bottom: 16px;
+    }
+    .modal input:focus { border-color: var(--accent); }
+    .modal-actions { display: flex; justify-content: flex-end; gap: 8px; }
+
+    /* Spinner */
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .spinner {
+      display: inline-block;
+      width: 14px; height: 14px;
+      border: 2px solid rgba(255,255,255,0.2);
+      border-top-color: white;
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+      vertical-align: middle;
+      margin-right: 6px;
+    }
+  </style>
+</head>
+<body>
+  <!-- Header -->
+  <header>
+    <div>
+      <div class="logo">Mnemo<span>syne</span></div>
+      <div class="tagline">智能本地文件搜索</div>
+    </div>
+    <div class="actions">
+      <button class="btn" onclick="openIndexModal()">+ 索引目录</button>
+      <button class="btn" onclick="refreshStats()">刷新统计</button>
+    </div>
+  </header>
+
+  <!-- Main -->
+  <div class="main">
+    <!-- Sidebar -->
+    <aside class="sidebar">
+      <div>
+        <h3>统计</h3>
+        <div class="stat-card">
+          <div class="stat-value" id="statFiles">—</div>
+          <div class="stat-label">已索引文件</div>
+        </div>
+        <br/>
+        <div class="stat-card">
+          <div class="stat-value" id="statChunks">—</div>
+          <div class="stat-label">内容分块</div>
+        </div>
+      </div>
+
+      <div>
+        <h3>文件类型</h3>
+        <div class="filter-group" id="filterGroup">
+          <div class="filter-item active" data-type="all" onclick="setFilter('all', this)">
+            <span class="filter-dot" style="background:#7c6af7"></span> 全部
+          </div>
+          <div class="filter-item" data-type="text" onclick="setFilter('text', this)">
+            <span class="filter-dot" style="background:#4ade80"></span> 文本
+          </div>
+          <div class="filter-item" data-type="image" onclick="setFilter('image', this)">
+            <span class="filter-dot" style="background:#fbbf24"></span> 图片
+          </div>
+          <div class="filter-item" data-type="audio" onclick="setFilter('audio', this)">
+            <span class="filter-dot" style="background:#a78bfa"></span> 音频
+          </div>
+          <div class="filter-item" data-type="video" onclick="setFilter('video', this)">
+            <span class="filter-dot" style="background:#f87171"></span> 视频
+          </div>
+        </div>
+      </div>
+    </aside>
+
+    <!-- Content -->
+    <div class="content">
+      <!-- Search Bar -->
+      <div class="search-bar">
+        <div class="search-input-wrap">
+          <svg class="search-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
+          </svg>
+          <input id="searchInput" type="text" placeholder="搜索文件内容…（Enter 执行）" />
+        </div>
+        <select class="mode-select" id="modeSelect">
+          <option value="hybrid">混合搜索</option>
+          <option value="vector">向量搜索</option>
+          <option value="keyword">关键词搜索</option>
+        </select>
+        <button class="btn btn-primary" onclick="doSearch()">搜索</button>
+      </div>
+
+      <!-- Results -->
+      <div class="results-area" id="resultsArea">
+        <div class="empty-state" id="emptyState">
+          <div class="empty-icon">🔍</div>
+          <div class="empty-title">开始搜索</div>
+          <div>输入关键词或自然语言描述来搜索本地文件</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Index Modal -->
+  <div class="modal-overlay" id="indexModal">
+    <div class="modal">
+      <h2>索引目录</h2>
+      <input type="text" id="indexPath" placeholder="/Users/you/Documents" />
+      <div class="modal-actions">
+        <button class="btn" onclick="closeIndexModal()">取消</button>
+        <button class="btn btn-primary" id="indexBtn" onclick="startIndex()">开始索引</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast -->
+  <div id="toast"></div>
+
+  <script type="module">
+    // Tauri IPC bridge
+    const invoke = window.__TAURI__?.core?.invoke ?? window.__TAURI__?.invoke;
+
+    let currentFilter = 'all';
+
+    // ── Expose functions to inline handlers ───────────────────────────────────
+    window.setFilter = function(type, el) {
+      currentFilter = type;
+      document.querySelectorAll('.filter-item').forEach(i => i.classList.remove('active'));
+      el.classList.add('active');
+      if (document.getElementById('searchInput').value.trim()) doSearch();
+    };
+
+    window.openIndexModal = () => {
+      document.getElementById('indexModal').classList.add('open');
+      document.getElementById('indexPath').focus();
+    };
+    window.closeIndexModal = () => {
+      document.getElementById('indexModal').classList.remove('open');
+    };
+
+    window.doSearch = async function() {
+      const text = document.getElementById('searchInput').value.trim();
+      if (!text) return;
+
+      const mode = document.getElementById('modeSelect').value;
+      const query = {
+        text,
+        mode,
+        limit: 30,
+        offset: 0,
+        file_types: currentFilter === 'all' ? null : [currentFilter],
+      };
+
+      const area = document.getElementById('resultsArea');
+      area.innerHTML = '<div class="empty-state"><div class="spinner"></div> 搜索中…</div>';
+
+      try {
+        const results = await invoke('search_files', { query });
+        renderResults(results, text);
+      } catch (e) {
+        toast(e?.message ?? String(e), 'error');
+        area.innerHTML = '<div class="empty-state"><div class="empty-icon">⚠️</div><div>搜索出错</div></div>';
+      }
+    };
+
+    window.startIndex = async function() {
+      const path = document.getElementById('indexPath').value.trim();
+      if (!path) return;
+      const btn = document.getElementById('indexBtn');
+      btn.disabled = true;
+      btn.innerHTML = '<span class="spinner"></span>索引中…';
+
+      try {
+        const stats = await invoke('index_directory', { path });
+        toast(`索引完成：${stats.total_files} 个文件`, 'success');
+        closeIndexModal();
+        refreshStats();
+      } catch (e) {
+        toast(e?.message ?? String(e), 'error');
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = '开始索引';
+      }
+    };
+
+    window.refreshStats = async function() {
+      try {
+        const stats = await invoke('get_stats');
+        document.getElementById('statFiles').textContent  = stats.total_files.toLocaleString();
+        document.getElementById('statChunks').textContent = stats.total_chunks.toLocaleString();
+      } catch (e) {
+        console.warn('stats failed', e);
+      }
+    };
+
+    // ── Render results ────────────────────────────────────────────────────────
+    function renderResults(results, query) {
+      const area = document.getElementById('resultsArea');
+
+      if (!results || results.length === 0) {
+        area.innerHTML = `
+          <div class="empty-state">
+            <div class="empty-icon">📭</div>
+            <div class="empty-title">无匹配结果</div>
+            <div>尝试不同的关键词，或先索引更多目录</div>
+          </div>`;
+        return;
+      }
+
+      const header = `<div class="results-header">
+        <span>共 ${results.length} 条结果</span>
+        <span>查询：${escHtml(query)}</span>
+      </div>`;
+
+      const items = results.map(r => {
+        const name = r.file_record.path.split('/').pop() ?? r.file_record.path;
+        const ft = (r.file_record.file_type ?? 'unknown').toLowerCase();
+        const badgeClass = `badge-${ft}`;
+        const scorePercent = (r.score * 100).toFixed(1);
+        const snippet = r.snippet ? escHtml(r.snippet.slice(0, 200)) : '';
+
+        return `<div class="result-item">
+          <div class="result-top">
+            <span class="file-type-badge ${badgeClass}">${ft}</span>
+            <span class="result-path" title="${escHtml(r.file_record.path)}">${escHtml(name)}</span>
+            <span class="result-score">${scorePercent}%</span>
+          </div>
+          <div class="result-snippet">${snippet}</div>
+          <div style="margin-top:6px;font-size:11px;color:var(--muted)">${escHtml(r.file_record.path)}</div>
+        </div>`;
+      }).join('');
+
+      area.innerHTML = header + items;
+    }
+
+    // ── Toast ─────────────────────────────────────────────────────────────────
+    let toastTimer;
+    function toast(msg, type = '') {
+      const el = document.getElementById('toast');
+      el.textContent = msg;
+      el.className = `show ${type}`;
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => { el.className = ''; }, 3000);
+    }
+    window.toast = toast;
+
+    function escHtml(s) {
+      return String(s)
+        .replace(/&/g,'&amp;').replace(/</g,'&lt;')
+        .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    }
+
+    // ── Keyboard shortcuts ────────────────────────────────────────────────────
+    document.getElementById('searchInput').addEventListener('keydown', e => {
+      if (e.key === 'Enter') window.doSearch();
+    });
+    document.getElementById('indexPath').addEventListener('keydown', e => {
+      if (e.key === 'Enter') window.startIndex();
+      if (e.key === 'Escape') window.closeIndexModal();
+    });
+    document.getElementById('indexModal').addEventListener('click', e => {
+      if (e.target === e.currentTarget) window.closeIndexModal();
+    });
+
+    // Initial stats load.
+    refreshStats();
+  </script>
+</body>
+</html>

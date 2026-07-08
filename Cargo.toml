@@ -1,0 +1,68 @@
+[workspace]
+members = [
+    "crates/mnemosyne-core",
+    "crates/mnemosyne-storage",
+    "crates/mnemosyne-model",
+    "crates/mnemosyne-parser",
+    "crates/mnemosyne-index",
+    "crates/mnemosyne-retrieval",
+    "src-tauri",
+    "cli",
+]
+resolver = "2"
+
+[workspace.package]
+version      = "0.1.0"
+edition      = "2021"
+authors      = ["Mnemosyne Contributors"]
+license      = "MIT"
+repository   = "https://github.com/mnemosyne/mnemosyne"
+
+[workspace.dependencies]
+# ── Internal crates ──────────────────────────────────────────────────────────
+mnemosyne-core      = { path = "crates/mnemosyne-core" }
+mnemosyne-storage   = { path = "crates/mnemosyne-storage" }
+mnemosyne-model     = { path = "crates/mnemosyne-model" }
+mnemosyne-parser    = { path = "crates/mnemosyne-parser" }
+mnemosyne-index     = { path = "crates/mnemosyne-index" }
+mnemosyne-retrieval = { path = "crates/mnemosyne-retrieval" }
+
+# ── Async runtime ─────────────────────────────────────────────────────────────
+tokio       = { version = "1", features = ["full"] }
+async-trait = "0.1"
+futures     = "0.3"
+
+# ── Serialization ─────────────────────────────────────────────────────────────
+serde      = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+# ── Error handling ────────────────────────────────────────────────────────────
+thiserror = "2"
+anyhow    = "1"
+
+# ── Logging / tracing ─────────────────────────────────────────────────────────
+tracing            = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter", "fmt"] }
+
+# ── Utilities ─────────────────────────────────────────────────────────────────
+uuid    = { version = "1", features = ["v4"] }
+chrono  = { version = "0.4", features = ["serde"] }
+sha2    = "0.10"
+hex     = "0.4"
+walkdir = "2"
+
+# ── Storage ───────────────────────────────────────────────────────────────────
+rusqlite = { version = "0.32", features = ["bundled"] }
+
+# ── ML / Model ────────────────────────────────────────────────────────────────
+# candle-core / candle-nn / candle-transformers / tokenizers are optional
+# deps in mnemosyne-model (behind `candle-backend` feature). They are NOT
+# workspace-level deps so they don't pollute the default build.
+hf-hub = { version = "0.3", features = ["tokio"] }
+
+# ── CLI ───────────────────────────────────────────────────────────────────────
+clap = { version = "4", features = ["derive", "color"] }
+
+# ── HTTP (API server) ─────────────────────────────────────────────────────────
+axum    = "0.8"
+tower   = "0.5"

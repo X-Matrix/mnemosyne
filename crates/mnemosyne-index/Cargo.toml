@@ -1,0 +1,19 @@
+[package]
+name        = "mnemosyne-index"
+description = "Hybrid (vector + FTS5) search index for Mnemosyne"
+version.workspace   = true
+edition.workspace   = true
+authors.workspace   = true
+license.workspace   = true
+
+[dependencies]
+mnemosyne-core.workspace    = true
+mnemosyne-storage.workspace = true
+rusqlite.workspace          = true
+thiserror.workspace         = true
+serde.workspace             = true
+serde_json.workspace        = true
+anyhow.workspace            = true
+tokio.workspace             = true
+async-trait.workspace       = true
+tracing.workspace           = true

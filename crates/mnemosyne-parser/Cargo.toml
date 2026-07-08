@@ -1,0 +1,16 @@
+[package]
+name        = "mnemosyne-parser"
+description = "Pluggable file content parsers for Mnemosyne"
+version.workspace   = true
+edition.workspace   = true
+authors.workspace   = true
+license.workspace   = true
+
+[dependencies]
+mnemosyne-core.workspace = true
+thiserror.workspace      = true
+serde.workspace          = true
+anyhow.workspace         = true
+tokio.workspace          = true
+async-trait.workspace    = true
+tracing.workspace        = true
