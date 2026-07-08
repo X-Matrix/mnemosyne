@@ -11,12 +11,16 @@
 
 pub mod audio;
 pub mod image;
+#[cfg(feature = "pdf")]
+pub mod pdf;
 pub mod registry;
 pub mod text;
 pub mod video;
 
 pub use audio::AudioParser;
 pub use image::ImageParser;
+#[cfg(feature = "pdf")]
+pub use pdf::PdfParser;
 pub use registry::ParserRegistry;
 pub use text::TextParser;
 pub use video::VideoParser;

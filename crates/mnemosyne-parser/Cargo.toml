@@ -6,6 +6,11 @@ edition.workspace   = true
 authors.workspace   = true
 license.workspace   = true
 
+[features]
+default = ["pdf", "image-meta"]
+pdf        = ["dep:pdf-extract"]
+image-meta = ["dep:image"]
+
 [dependencies]
 mnemosyne-core.workspace = true
 thiserror.workspace      = true
@@ -14,3 +19,6 @@ anyhow.workspace         = true
 tokio.workspace          = true
 async-trait.workspace    = true
 tracing.workspace        = true
+
+image       = { version = "0.25", default-features = false, features = ["jpeg", "png", "gif", "bmp", "webp"], optional = true }
+pdf-extract = { version = "0.7", optional = true }

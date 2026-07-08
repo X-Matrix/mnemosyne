@@ -4,10 +4,12 @@
 //! fuses vector-similarity results with FTS5 BM25 results using
 //! **Reciprocal Rank Fusion** (RRF).
 
+pub mod ann;
 pub mod cosine;
 pub mod hybrid;
 pub mod rrf;
 
+pub use ann::AnnCache;
 pub use hybrid::HybridIndex;
 
 pub type Result<T> = std::result::Result<T, mnemosyne_core::Error>;

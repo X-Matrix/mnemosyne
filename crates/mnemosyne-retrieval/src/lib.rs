@@ -22,11 +22,13 @@
 //! # }
 //! ```
 
+pub mod background;
 pub mod builder;
 pub mod engine;
 pub mod indexer;
 pub mod watcher;
 
+pub use background::BackgroundIndexer;
 pub use builder::SearchEngineBuilder;
 pub use engine::SearchEngine;
 

@@ -1,36 +1,52 @@
 [package]
 name        = "mnemosyne-model"
-description = "Embedding model loading and inference for Mnemosyne (powered by Candle)"
+description = "Embedding model loading and inference for Mnemosyne"
 version.workspace   = true
 edition.workspace   = true
 authors.workspace   = true
 license.workspace   = true
 
-# ── Feature flags ─────────────────────────────────────────────────────────────
-# Default: stub embedder (random vectors). No native deps required.
-# Enable `candle-backend` for real BERT inference via Candle.
+# ── Feature flags ──────────────────────────────────────────────────────────────
+# default   : stub embedder, no native deps
+# candle-backend  : BERT text embeddings via Candle
+# clip-backend    : CLIP image embeddings (requires candle-backend)
+# whisper-backend : Whisper audio transcription (requires candle-backend)
+# full            : all three above
 [features]
 default = []
 candle-backend = [
-    "dep:candle-core",
-    "dep:candle-nn",
-    "dep:candle-transformers",
-    "dep:tokenizers",
+    "dep:candle-core", "dep:candle-nn", "dep:candle-transformers", "dep:tokenizers",
 ]
+clip-backend = [
+    "candle-backend", "dep:image",
+]
+whisper-backend = [
+    "candle-backend", "dep:hound",
+]
+full = ["candle-backend", "clip-backend", "whisper-backend"]
 
 [dependencies]
-mnemosyne-core.workspace       = true
-thiserror.workspace            = true
-serde.workspace                = true
-serde_json.workspace           = true
-anyhow.workspace               = true
-tokio.workspace                = true
-async-trait.workspace          = true
-tracing.workspace              = true
-hf-hub.workspace               = true
+mnemosyne-core.workspace  = true
+thiserror.workspace       = true
+serde.workspace           = true
+serde_json.workspace      = true
+anyhow.workspace          = true
+tokio.workspace           = true
+async-trait.workspace     = true
+tracing.workspace         = true
+hf-hub.workspace          = true
+# Direct HTTP downloader — bypasses hf-hub URL construction bugs.
+# Uses rustls to avoid system-proxy interference.
+reqwest = { version = "0.11", default-features = false, features = ["rustls-tls", "blocking", "json", "stream"] }
 
-# Optional: only when `candle-backend` feature is enabled
-candle-core          = { version = "0.9", optional = true }
-candle-nn            = { version = "0.9", optional = true }
-candle-transformers  = { version = "0.9", optional = true }
-tokenizers           = { version = "0.20", default-features = false, optional = true }
+# candle-backend
+candle-core         = { version = "0.9", optional = true }
+candle-nn           = { version = "0.9", optional = true }
+candle-transformers = { version = "0.9", optional = true }
+tokenizers          = { version = "0.20", default-features = false, optional = true }
+
+# clip-backend
+image = { version = "0.25", default-features = false, features = ["jpeg", "png", "gif", "bmp", "webp"], optional = true }
+
+# whisper-backend
+hound = { version = "3", optional = true }

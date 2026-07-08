@@ -17,3 +17,5 @@ anyhow.workspace            = true
 tokio.workspace             = true
 async-trait.workspace       = true
 tracing.workspace           = true
+# Pure-Rust HNSW for ANN vector search
+instant-distance = "0.6"

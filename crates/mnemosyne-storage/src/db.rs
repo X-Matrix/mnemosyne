@@ -2,43 +2,81 @@ use mnemosyne_core::Error;
 use rusqlite::Connection;
 use std::path::Path;
 use std::sync::{Arc, Mutex};
+use tracing::{info, warn};
 
 /// Thread-safe wrapper around a single SQLite connection.
-///
-/// All repositories borrow a `Database` reference.
 #[derive(Clone)]
 pub struct Database {
     pub conn: Arc<Mutex<Connection>>,
 }
 
 impl Database {
-    /// Open (or create) the Mnemosyne database at `path`.
     pub fn open(path: &Path) -> Result<Self, Error> {
         let conn = Connection::open(path)
             .map_err(|e| Error::storage(e.to_string()))?;
-
-        // Enable WAL for better concurrent read performance.
         conn.execute_batch("PRAGMA journal_mode=WAL; PRAGMA foreign_keys=ON;")
             .map_err(|e| Error::storage(e.to_string()))?;
-
-        let db = Self {
-            conn: Arc::new(Mutex::new(conn)),
-        };
+        let db = Self { conn: Arc::new(Mutex::new(conn)) };
+        db.try_load_sqlite_vector();
         db.migrate()?;
         Ok(db)
     }
 
-    /// Open an in-memory database (useful for tests).
     pub fn open_in_memory() -> Result<Self, Error> {
         let conn = Connection::open_in_memory()
             .map_err(|e| Error::storage(e.to_string()))?;
         conn.execute_batch("PRAGMA foreign_keys=ON;")
             .map_err(|e| Error::storage(e.to_string()))?;
-        let db = Self {
-            conn: Arc::new(Mutex::new(conn)),
-        };
+        let db = Self { conn: Arc::new(Mutex::new(conn)) };
         db.migrate()?;
         Ok(db)
+    }
+
+    /// Try to load the sqlite-vector extension from well-known locations.
+    ///
+    /// Locations tried (in order):
+    ///  1. `~/.mnemosyne/lib/sqlite_vector.dylib` (macOS) / `.so` (Linux) / `.dll` (Windows)
+    ///  2. `./sqlite_vector` (current directory)
+    ///
+    /// Silently skips if not found — the system falls back to Rust-side
+    /// brute-force cosine similarity.
+    fn try_load_sqlite_vector(&self) {
+        let ext_name = if cfg!(target_os = "macos") {
+            "sqlite_vector.dylib"
+        } else if cfg!(target_os = "windows") {
+            "sqlite_vector.dll"
+        } else {
+            "sqlite_vector.so"
+        };
+
+        let home = std::env::var("HOME").unwrap_or_else(|_| ".".into());
+        let candidates = [
+            format!("{home}/.mnemosyne/lib/{ext_name}"),
+            format!("./{ext_name}"),
+        ];
+
+        let conn = self.conn.lock().unwrap();
+        // rusqlite requires enabling extension loading first.
+        // SAFETY: we call this only during database initialisation.
+        unsafe {
+            if conn.load_extension_enable().is_err() {
+                return;
+            }
+        }
+        for path in &candidates {
+            if !std::path::Path::new(path).exists() {
+                continue;
+            }
+            let result = unsafe { conn.load_extension(path, None) };
+            match result {
+                Ok(_) => {
+                    info!("sqlite-vector extension loaded from {path}");
+                    break;
+                }
+                Err(e) => warn!("Failed to load sqlite-vector from {path}: {e}"),
+            }
+        }
+        let _ = unsafe { conn.load_extension_disable() };
     }
 
     fn migrate(&self) -> Result<(), Error> {

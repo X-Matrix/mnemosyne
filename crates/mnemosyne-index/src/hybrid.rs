@@ -1,4 +1,4 @@
-use crate::{cosine, rrf};
+use crate::{ann::AnnCache, cosine, rrf};
 use mnemosyne_core::{
     traits::SearchIndex,
     types::{Embedding, IndexedChunk, MatchType, SearchQuery, SearchResult},
@@ -8,14 +8,15 @@ use mnemosyne_storage::{ChunkRepo, Database, EmbeddingRepo, FileRepo};
 use async_trait::async_trait;
 use rusqlite::params;
 
-/// Hybrid search index backed by SQLite.
+/// Hybrid search index backed by SQLite + optional HNSW ANN.
 pub struct HybridIndex {
     db: Database,
+    ann: AnnCache,
 }
 
 impl HybridIndex {
     pub fn new(db: Database) -> Self {
-        Self { db }
+        Self { db, ann: AnnCache::new() }
     }
 }
 
@@ -24,7 +25,7 @@ impl SearchIndex for HybridIndex {
     async fn upsert(&self, chunk: &IndexedChunk) -> mnemosyne_core::Result<()> {
         let db = self.db.clone();
         let chunk = chunk.clone();
-        tokio::task::spawn_blocking(move || {
+        tokio::task::spawn_blocking(move || -> mnemosyne_core::Result<()> {
             let chunk_repo = ChunkRepo::new(&db);
             chunk_repo.upsert(
                 &chunk.chunk_id,
@@ -39,7 +40,11 @@ impl SearchIndex for HybridIndex {
             Ok(())
         })
         .await
-        .map_err(|e| Error::index(e.to_string()))?
+        .map_err(|e| Error::index(e.to_string()))??;
+
+        // Invalidate ANN cache so it rebuilds on next search.
+        self.ann.invalidate().await;
+        Ok::<(), mnemosyne_core::Error>(())
     }
 
     async fn remove_file(&self, file_id: &str) -> mnemosyne_core::Result<()> {
@@ -63,12 +68,56 @@ impl SearchIndex for HybridIndex {
         let db = self.db.clone();
         let query_emb = query_embedding.clone();
 
+        // ── Try ANN path first ────────────────────────────────────────────────
+        let db_for_load = db.clone();
+        if let Some(ann_idx) = self
+            .ann
+            .get_or_build(async move {
+                Ok(EmbeddingRepo::new(&db_for_load)
+                    .all_with_metadata()?
+                    .into_iter()
+                    .map(|(cid, _fid, _cidx, _content, emb)| (cid, emb))
+                    .collect())
+            })
+            .await?
+        {
+            let file_repo = mnemosyne_storage::FileRepo::new(&db);
+            let hits = ann_idx.search(&query_emb, limit);
+            let mut results = Vec::with_capacity(hits.len());
+
+            // Resolve FileRecord and snippet for ANN hits.
+            let conn = db.conn.lock().unwrap();
+            for (chunk_id, dist) in hits {
+                let score = 1.0 - dist; // distance → similarity
+                let row: Option<(String, i64, String)> = {
+                    let mut st = conn
+                        .prepare("SELECT file_id, chunk_index, content FROM document_chunks WHERE id = ?1")
+                        .map_err(|e| Error::storage(e.to_string()))?;
+                    st.query_row(rusqlite::params![chunk_id], |r| {
+                        Ok((r.get::<_, String>(0)?, r.get::<_, i64>(1)?, r.get::<_, String>(2)?))
+                    })
+                    .ok()
+                };
+                if let Some((fid, cidx, content)) = row {
+                    if let Some(fr) = file_repo.get(&fid)? {
+                        results.push(SearchResult {
+                            file_record: fr,
+                            score,
+                            snippet: Some(content.chars().take(200).collect()),
+                            match_type: MatchType::Vector,
+                            chunk_index: cidx as usize,
+                        });
+                    }
+                }
+            }
+            return Ok(results);
+        }
+
+        // ── Brute-force fallback ──────────────────────────────────────────────
         tokio::task::spawn_blocking(move || -> mnemosyne_core::Result<Vec<SearchResult>> {
-            // Step 1: load all embeddings with metadata (storage API — no lifetime issues).
             let all_rows = EmbeddingRepo::new(&db).all_with_metadata()?;
             let file_repo = FileRepo::new(&db);
 
-            // Step 2: score and sort.
             let mut scored: Vec<(String, String, usize, String, f32)> = all_rows
                 .into_iter()
                 .map(|(cid, fid, cidx, content, emb)| {
@@ -80,7 +129,6 @@ impl SearchIndex for HybridIndex {
             scored.sort_by(|a, b| b.4.partial_cmp(&a.4).unwrap_or(std::cmp::Ordering::Equal));
             scored.truncate(limit);
 
-            // Step 3: resolve FileRecord.
             let mut results = Vec::with_capacity(scored.len());
             for (_, file_id, chunk_index, content, score) in scored {
                 if let Some(fr) = file_repo.get(&file_id)? {

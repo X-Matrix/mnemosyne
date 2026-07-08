@@ -46,6 +46,8 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             commands::search::search_files,
             commands::index::index_directory,
+            commands::index::watch_directory,
+            commands::index::stop_watching,
             commands::index::get_stats,
             commands::index::list_files,
             commands::index::remove_file,

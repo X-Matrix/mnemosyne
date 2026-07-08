@@ -53,7 +53,7 @@ hex     = "0.4"
 walkdir = "2"
 
 # ── Storage ───────────────────────────────────────────────────────────────────
-rusqlite = { version = "0.32", features = ["bundled"] }
+rusqlite = { version = "0.32", features = ["bundled", "load_extension"] }
 
 # ── ML / Model ────────────────────────────────────────────────────────────────
 # candle-core / candle-nn / candle-transformers / tokenizers are optional
@@ -72,3 +72,17 @@ tower-http = { version = "0.6", features = ["cors", "trace"] }
 # ── File watching ─────────────────────────────────────────────────────────────
 notify           = { version = "6", features = ["serde"] }
 notify-debouncer-mini = "0.4"
+
+# ── Image / PDF processing ───────────────────────────────────────────────
+image       = { version = "0.25", default-features = false, features = ["jpeg", "png", "gif", "bmp", "webp"] }
+# pdf-extract is declared directly in mnemosyne-parser (optional dep, not workspace-level)
+
+[profile.release]
+opt-level     = 3
+lto           = "thin"
+codegen-units = 1
+strip         = "symbols"
+
+[profile.release.package."*"]
+opt-level = 3
+

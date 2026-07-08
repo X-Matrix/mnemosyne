@@ -21,6 +21,8 @@ impl ParserRegistry {
         registry.register(Arc::new(ImageParser));
         registry.register(Arc::new(AudioParser));
         registry.register(Arc::new(VideoParser));
+        #[cfg(feature = "pdf")]
+        registry.register(Arc::new(crate::PdfParser));
         registry
     }
 

@@ -1,7 +1,8 @@
-//! Image parser stub.
+//! Image parser.
 //!
-//! Full implementation will use the CLIP model for image captioning
-//! and tag generation. Currently returns a placeholder description.
+//! With the `image-meta` feature (default): reads image dimensions via the
+//! `image` crate without decoding pixels.
+//! Without the feature: returns a placeholder description.
 
 use mnemosyne_core::{traits::FileParser, types::ParsedContent, Error, Result};
 use async_trait::async_trait;
@@ -17,14 +18,39 @@ impl FileParser for ImageParser {
     }
 
     async fn parse(&self, path: &Path) -> Result<Vec<ParsedContent>> {
-        debug!("ImageParser (stub): {}", path.display());
+        debug!("ImageParser: {}", path.display());
 
         let filename = path
             .file_name()
             .and_then(|n| n.to_str())
-            .unwrap_or("unknown");
+            .unwrap_or("unknown")
+            .to_string();
 
-        // TODO: integrate CLIP model for real captioning.
+        #[cfg(feature = "image-meta")]
+        {
+            let path = path.to_path_buf();
+            let caption = tokio::task::spawn_blocking(move || {
+                match image::image_dimensions(&path) {
+                    Ok((w, h)) => format!(
+                        "Image: {} ({}×{} pixels)",
+                        path.file_name()
+                            .and_then(|n| n.to_str())
+                            .unwrap_or("unknown"),
+                        w, h
+                    ),
+                    Err(_) => format!("Image file: {}", filename),
+                }
+            })
+            .await
+            .map_err(|e| Error::parse(e.to_string()))?;
+
+            return Ok(vec![ParsedContent::Image {
+                caption,
+                tags: vec![],
+            }]);
+        }
+
+        #[cfg(not(feature = "image-meta"))]
         Ok(vec![ParsedContent::Image {
             caption: format!("Image file: {filename}"),
             tags: vec![],
