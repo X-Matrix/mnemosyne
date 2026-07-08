@@ -16,6 +16,17 @@ impl From<mnemosyne_core::Error> for CommandError {
     }
 }
 
+/// Open the native folder picker and return the selected path (or null).
+#[tauri::command]
+pub fn pick_directory(app: tauri::AppHandle) -> Option<String> {
+    use tauri_plugin_dialog::DialogExt;
+    app.dialog()
+        .file()
+        .blocking_pick_folder()
+        .and_then(|fp| fp.into_path().ok())
+        .map(|p| p.to_string_lossy().to_string())
+}
+
 #[tauri::command]
 pub async fn index_directory(
     state: State<'_, AppState>,

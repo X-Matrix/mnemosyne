@@ -1,516 +1,1369 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
+
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Mnemosyne — 智能文件搜索</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Mnemosyne</title>
   <style>
-    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    /* ── Reset ─────────────────────────────────────────────────────────────────── */
+    *,
+    *::before,
+    *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0
+    }
 
     :root {
-      --bg:        #0f0f13;
-      --surface:   #1a1a24;
-      --border:    #2e2e42;
-      --accent:    #7c6af7;
-      --accent-2:  #5b52d6;
-      --text:      #e8e8f0;
-      --muted:     #8888aa;
-      --green:     #4ade80;
-      --red:       #f87171;
-      --radius:    10px;
+      --bg: #0e0e14;
+      --surface: #15151f;
+      --surface2: #1c1c2a;
+      --border: #262636;
+      --accent: #7c6af7;
+      --accent2: #5b4fd6;
+      --accent-glow: rgba(124, 106, 247, .18);
+      --text: #e4e4f0;
+      --muted: #7070a0;
+      --muted2: #50507a;
+      --green: #4ade80;
+      --yellow: #fbbf24;
+      --red: #f87171;
+      --blue: #60a5fa;
+      --purple: #a78bfa;
+      --r: 10px;
+      --r-sm: 6px;
+      --shadow: 0 8px 32px rgba(0, 0, 0, .5);
     }
 
+    html,
     body {
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      height: 100%;
+      overflow: hidden;
       background: var(--bg);
       color: var(--text);
-      height: 100vh;
-      display: flex;
-      flex-direction: column;
-      overflow: hidden;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      font-size: 14px;
+      line-height: 1.5
     }
 
-    /* ── Header ── */
+    button {
+      font: inherit;
+      cursor: pointer;
+      border: none;
+      background: none;
+      color: inherit
+    }
+
+    input,
+    select {
+      font: inherit;
+      color: inherit;
+      background: none;
+      border: none;
+      outline: none
+    }
+
+    ::-webkit-scrollbar {
+      width: 5px;
+      height: 5px
+    }
+
+    ::-webkit-scrollbar-track {
+      background: transparent
+    }
+
+    ::-webkit-scrollbar-thumb {
+      background: var(--border);
+      border-radius: 3px
+    }
+
+    /* ── Layout ─────────────────────────────────────────────────────────────────── */
+    #app {
+      display: flex;
+      flex-direction: column;
+      height: 100vh
+    }
+
     header {
+      flex-shrink: 0;
       display: flex;
       align-items: center;
       gap: 12px;
-      padding: 16px 24px;
+      padding: 10px 16px;
       border-bottom: 1px solid var(--border);
       background: var(--surface);
+      -webkit-app-region: drag;
+      z-index: 10
     }
-    .logo { font-size: 20px; font-weight: 700; letter-spacing: -0.5px; }
-    .logo span { color: var(--accent); }
-    .tagline { font-size: 12px; color: var(--muted); }
 
-    header .actions { margin-left: auto; display: flex; gap: 8px; }
-    .btn {
-      padding: 6px 14px;
-      border-radius: 6px;
-      border: 1px solid var(--border);
-      background: var(--bg);
-      color: var(--text);
-      font-size: 13px;
-      cursor: pointer;
-      transition: background 0.15s;
+    .no-drag {
+      -webkit-app-region: no-drag
     }
-    .btn:hover { background: var(--border); }
-    .btn-primary { background: var(--accent); border-color: var(--accent); }
-    .btn-primary:hover { background: var(--accent-2); }
 
-    /* ── Main layout ── */
-    .main { display: flex; flex: 1; min-height: 0; }
+    .body {
+      display: flex;
+      flex: 1;
+      min-height: 0
+    }
 
-    /* ── Sidebar ── */
-    .sidebar {
-      width: 240px;
+    aside {
+      width: 220px;
+      flex-shrink: 0;
       border-right: 1px solid var(--border);
-      padding: 16px;
       display: flex;
       flex-direction: column;
-      gap: 12px;
-      overflow-y: auto;
-    }
-    .sidebar h3 { font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); margin-bottom: 4px; }
-
-    .stat-card {
       background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
-      padding: 12px;
+      overflow-y: auto
     }
-    .stat-value { font-size: 24px; font-weight: 700; color: var(--accent); }
-    .stat-label { font-size: 12px; color: var(--muted); margin-top: 2px; }
 
-    .filter-group { display: flex; flex-direction: column; gap: 4px; }
-    .filter-item {
+    main {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      min-width: 0;
+      background: var(--bg)
+    }
+
+    /* ── Header ─────────────────────────────────────────────────────────────────── */
+    .logo {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-shrink: 0
+    }
+
+    .logo-icon {
+      width: 26px;
+      height: 26px;
+      border-radius: 7px;
+      background: linear-gradient(135deg, var(--accent), #4f3ec8);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 14px
+    }
+
+    .logo-text {
+      font-size: 15px;
+      font-weight: 700;
+      letter-spacing: -.3px
+    }
+
+    .logo-text span {
+      color: var(--accent)
+    }
+
+    .search-wrap {
+      flex: 1;
+      max-width: 600px;
+      position: relative;
+      display: flex;
+      align-items: center
+    }
+
+    .search-wrap svg.ico {
+      position: absolute;
+      left: 12px;
+      color: var(--muted);
+      pointer-events: none
+    }
+
+    #q {
+      width: 100%;
+      padding: 8px 12px 8px 36px;
+      background: var(--surface2);
+      border: 1.5px solid var(--border);
+      border-radius: 8px;
+      font-size: 14px;
+      transition: .15s
+    }
+
+    #q:focus {
+      border-color: var(--accent);
+      background: rgba(124, 106, 247, .06)
+    }
+
+    #q::placeholder {
+      color: var(--muted)
+    }
+
+    .kbd {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 1px 5px;
+      font-size: 10px;
+      color: var(--muted);
+      flex-shrink: 0
+    }
+
+    .mode-sel {
+      padding: 7px 10px;
+      background: var(--surface2);
+      border: 1.5px solid var(--border);
+      border-radius: 7px;
+      cursor: pointer;
+      color: var(--text);
+      flex-shrink: 0;
+      transition: .15s
+    }
+
+    .mode-sel:hover {
+      border-color: var(--accent)
+    }
+
+    .hdr-actions {
+      margin-left: auto;
+      display: flex;
+      gap: 6px;
+      align-items: center
+    }
+
+    .btn {
+      padding: 7px 14px;
+      border-radius: 7px;
+      font-size: 13px;
+      transition: .12s;
+      border: 1.5px solid transparent;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px
+    }
+
+    .btn-ghost {
+      border-color: var(--border);
+      background: var(--surface2)
+    }
+
+    .btn-ghost:hover {
+      border-color: var(--accent);
+      color: var(--accent)
+    }
+
+    .btn-primary {
+      background: var(--accent);
+      color: #fff
+    }
+
+    .btn-primary:hover {
+      background: var(--accent2);
+      transform: translateY(-1px)
+    }
+
+    /* ── Sidebar ─────────────────────────────────────────────────────────────────── */
+    .sb-section {
+      padding: 12px;
+      border-bottom: 1px solid var(--border)
+    }
+
+    .sb-title {
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: .8px;
+      color: var(--muted);
+      margin-bottom: 8px;
+      font-weight: 600
+    }
+
+    .stat-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 3px 0;
+      font-size: 13px
+    }
+
+    .stat-val {
+      font-weight: 700;
+      color: var(--accent)
+    }
+
+    .filter-list {
+      display: flex;
+      flex-direction: column;
+      gap: 2px
+    }
+
+    .filter-btn {
       display: flex;
       align-items: center;
       gap: 8px;
       padding: 6px 8px;
       border-radius: 6px;
-      cursor: pointer;
       font-size: 13px;
-      user-select: none;
-    }
-    .filter-item:hover { background: var(--surface); }
-    .filter-item.active { background: rgba(124,106,247,0.15); color: var(--accent); }
-    .filter-dot { width: 8px; height: 8px; border-radius: 50%; }
-
-    /* ── Content area ── */
-    .content { flex: 1; display: flex; flex-direction: column; min-width: 0; }
-
-    /* ── Search bar ── */
-    .search-bar {
-      padding: 16px 24px;
-      border-bottom: 1px solid var(--border);
-      display: flex;
-      gap: 10px;
-      align-items: center;
-    }
-    .search-input-wrap {
-      flex: 1;
-      position: relative;
-    }
-    .search-icon {
-      position: absolute;
-      left: 14px;
-      top: 50%;
-      transform: translateY(-50%);
-      color: var(--muted);
-      pointer-events: none;
-    }
-    #searchInput {
       width: 100%;
-      padding: 10px 16px 10px 42px;
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      color: var(--text);
-      font-size: 15px;
-      outline: none;
-      transition: border-color 0.15s;
-    }
-    #searchInput:focus { border-color: var(--accent); }
-    #searchInput::placeholder { color: var(--muted); }
-
-    .mode-select {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: 6px;
-      color: var(--text);
-      padding: 8px 10px;
-      font-size: 13px;
-      outline: none;
-      cursor: pointer;
+      text-align: left;
+      transition: .1s;
+      color: var(--muted)
     }
 
-    /* ── Results ── */
-    .results-area { flex: 1; overflow-y: auto; padding: 16px 24px; }
+    .filter-btn:hover {
+      background: var(--surface2);
+      color: var(--text)
+    }
 
-    .results-header {
+    .filter-btn.active {
+      background: var(--accent-glow);
+      color: var(--accent)
+    }
+
+    .filter-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      flex-shrink: 0
+    }
+
+    .filter-count {
+      margin-left: auto;
+      font-size: 11px;
+      color: var(--muted2)
+    }
+
+    .watcher-item {
       display: flex;
       align-items: center;
-      justify-content: space-between;
-      margin-bottom: 12px;
-      font-size: 13px;
-      color: var(--muted);
+      gap: 6px;
+      padding: 4px 0;
+      font-size: 12px;
+      color: var(--muted)
     }
 
-    .result-item {
+    .watcher-item .dot-live {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--green);
+      animation: pulse 2s infinite
+    }
+
+    @keyframes pulse {
+
+      0%,
+      100% {
+        opacity: 1
+      }
+
+      50% {
+        opacity: .4
+      }
+    }
+
+    .model-badge {
+      padding: 3px 8px;
+      border-radius: 20px;
+      font-size: 11px;
+      font-weight: 600;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px
+    }
+
+    .model-badge.ok {
+      background: rgba(74, 222, 128, .12);
+      color: var(--green)
+    }
+
+    .model-badge.stub {
+      background: rgba(251, 191, 36, .12);
+      color: var(--yellow)
+    }
+
+    /* ── Search bar area ─────────────────────────────────────────────────────────── */
+    .search-area {
+      padding: 0 20px 16px;
+      flex-shrink: 0
+    }
+
+    .result-meta {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 0 20px 10px;
+      font-size: 12px;
+      color: var(--muted)
+    }
+
+    /* ── Results ─────────────────────────────────────────────────────────────────── */
+    .results {
+      flex: 1;
+      overflow-y: auto;
+      padding: 0 20px 20px
+    }
+
+    .result-card {
       background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
+      border: 1.5px solid var(--border);
+      border-radius: var(--r);
       padding: 14px 16px;
       margin-bottom: 10px;
       cursor: pointer;
-      transition: border-color 0.15s;
+      transition: .15s;
+      display: flex;
+      flex-direction: column;
+      gap: 6px
     }
-    .result-item:hover { border-color: var(--accent); }
 
-    .result-top { display: flex; align-items: center; gap: 10px; margin-bottom: 6px; }
-    .file-type-badge {
+    .result-card:hover {
+      border-color: var(--accent);
+      transform: translateY(-1px);
+      box-shadow: 0 4px 16px rgba(124, 106, 247, .12)
+    }
+
+    .result-top {
+      display: flex;
+      align-items: center;
+      gap: 8px
+    }
+
+    .type-badge {
+      padding: 2px 8px;
+      border-radius: 20px;
       font-size: 10px;
-      font-weight: 600;
+      font-weight: 700;
       text-transform: uppercase;
-      letter-spacing: 0.5px;
+      letter-spacing: .4px;
+      flex-shrink: 0
+    }
+
+    .tb-text {
+      background: rgba(74, 222, 128, .13);
+      color: var(--green)
+    }
+
+    .tb-pdf {
+      background: rgba(248, 113, 113, .13);
+      color: var(--red)
+    }
+
+    .tb-image {
+      background: rgba(251, 191, 36, .13);
+      color: var(--yellow)
+    }
+
+    .tb-audio {
+      background: rgba(167, 139, 250, .13);
+      color: var(--purple)
+    }
+
+    .tb-video {
+      background: rgba(96, 165, 250, .13);
+      color: var(--blue)
+    }
+
+    .tb-unknown {
+      background: rgba(112, 112, 160, .13);
+      color: var(--muted)
+    }
+
+    .result-name {
+      font-size: 13px;
+      font-weight: 600;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      min-width: 0
+    }
+
+    .result-score {
+      margin-left: auto;
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--accent);
+      background: var(--accent-glow);
       padding: 2px 7px;
       border-radius: 4px;
+      flex-shrink: 0
     }
-    .badge-text  { background: rgba(74,222,128,0.15); color: var(--green); }
-    .badge-image { background: rgba(251,191,36,0.15);  color: #fbbf24; }
-    .badge-audio { background: rgba(167,139,250,0.15); color: #a78bfa; }
-    .badge-video { background: rgba(248,113,113,0.15); color: var(--red); }
-    .badge-unknown { background: rgba(136,136,170,0.1); color: var(--muted); }
 
-    .result-path { font-size: 13px; color: var(--text); font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .result-score { margin-left: auto; font-size: 12px; color: var(--accent); white-space: nowrap; }
-    .result-snippet { font-size: 13px; color: var(--muted); line-height: 1.5; }
+    .result-path {
+      font-size: 11px;
+      color: var(--muted);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis
+    }
 
-    /* ── Empty / loading state ── */
-    .empty-state {
+    .result-snippet {
+      font-size: 12px;
+      color: var(--muted);
+      line-height: 1.6;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden
+    }
+
+    /* ── Empty / loading states ─────────────────────────────────────────────────── */
+    .empty {
       display: flex;
       flex-direction: column;
       align-items: center;
       justify-content: center;
       height: 100%;
-      gap: 12px;
+      gap: 14px;
       color: var(--muted);
       text-align: center;
+      padding: 40px
     }
-    .empty-icon { font-size: 48px; opacity: 0.4; }
-    .empty-title { font-size: 18px; font-weight: 600; color: var(--text); }
 
-    /* ── Toast ── */
-    #toast {
-      position: fixed;
-      bottom: 24px;
-      right: 24px;
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      padding: 12px 18px;
+    .empty-icon {
+      font-size: 52px;
+      opacity: .35
+    }
+
+    .empty-title {
+      font-size: 20px;
+      font-weight: 700;
+      color: var(--text)
+    }
+
+    .empty p {
       font-size: 13px;
-      opacity: 0;
-      transform: translateY(10px);
-      transition: opacity 0.2s, transform 0.2s;
-      pointer-events: none;
-      max-width: 320px;
+      max-width: 340px;
+      line-height: 1.7
     }
-    #toast.show { opacity: 1; transform: translateY(0); }
-    #toast.error { border-color: var(--red); color: var(--red); }
-    #toast.success { border-color: var(--green); color: var(--green); }
 
-    /* ── Index modal overlay ── */
-    .modal-overlay {
+    .empty-actions {
+      display: flex;
+      gap: 8px;
+      margin-top: 4px
+    }
+
+    .loading {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 16px;
+      height: 100%;
+      justify-content: center;
+      color: var(--muted)
+    }
+
+    .loader {
+      width: 32px;
+      height: 32px;
+      border: 3px solid var(--border);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin .7s linear infinite
+    }
+
+    @keyframes spin {
+      to {
+        transform: rotate(360deg)
+      }
+    }
+
+    /* ── Index modal ─────────────────────────────────────────────────────────────── */
+    .overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, .65);
+      z-index: 100;
       display: none;
-      position: fixed; inset: 0;
-      background: rgba(0,0,0,0.6);
       align-items: center;
       justify-content: center;
-      z-index: 100;
+      backdrop-filter: blur(4px)
     }
-    .modal-overlay.open { display: flex; }
+
+    .overlay.open {
+      display: flex
+    }
+
     .modal {
       background: var(--surface);
-      border: 1px solid var(--border);
+      border: 1.5px solid var(--border);
       border-radius: 14px;
-      padding: 24px;
-      width: 440px;
+      width: 480px;
+      max-width: calc(100vw - 32px);
+      box-shadow: var(--shadow)
     }
-    .modal h2 { font-size: 18px; margin-bottom: 16px; }
-    .modal input[type="text"] {
+
+    .modal-header {
+      padding: 20px 24px 0;
+      display: flex;
+      align-items: center;
+      justify-content: space-between
+    }
+
+    .modal-header h2 {
+      font-size: 17px;
+      font-weight: 700
+    }
+
+    .modal-close {
+      width: 28px;
+      height: 28px;
+      border-radius: 6px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--muted)
+    }
+
+    .modal-close:hover {
+      background: var(--surface2);
+      color: var(--text)
+    }
+
+    .modal-body {
+      padding: 16px 24px
+    }
+
+    .modal-footer {
+      padding: 0 24px 20px;
+      display: flex;
+      justify-content: flex-end;
+      gap: 8px
+    }
+
+    .field-label {
+      font-size: 12px;
+      color: var(--muted);
+      margin-bottom: 6px;
+      font-weight: 600
+    }
+
+    .text-input {
       width: 100%;
-      padding: 10px 14px;
+      padding: 10px 12px;
       background: var(--bg);
-      border: 1px solid var(--border);
-      border-radius: 7px;
+      border: 1.5px solid var(--border);
+      border-radius: 8px;
       color: var(--text);
       font-size: 14px;
-      outline: none;
-      margin-bottom: 16px;
+      transition: .15s
     }
-    .modal input:focus { border-color: var(--accent); }
-    .modal-actions { display: flex; justify-content: flex-end; gap: 8px; }
 
-    /* Spinner */
-    @keyframes spin { to { transform: rotate(360deg); } }
-    .spinner {
-      display: inline-block;
-      width: 14px; height: 14px;
-      border: 2px solid rgba(255,255,255,0.2);
-      border-top-color: white;
-      border-radius: 50%;
-      animation: spin 0.7s linear infinite;
-      vertical-align: middle;
-      margin-right: 6px;
+    .text-input:focus {
+      border-color: var(--accent)
+    }
+
+    .hint {
+      font-size: 11px;
+      color: var(--muted);
+      margin-top: 6px
+    }
+
+    .progress-wrap {
+      margin-top: 12px;
+      display: none
+    }
+
+    .progress-bar {
+      height: 4px;
+      background: var(--border);
+      border-radius: 2px;
+      overflow: hidden;
+      margin-top: 6px
+    }
+
+    .progress-fill {
+      height: 100%;
+      background: linear-gradient(90deg, var(--accent), var(--accent2));
+      width: 0;
+      transition: width .3s;
+      border-radius: 2px
+    }
+
+    .progress-text {
+      font-size: 12px;
+      color: var(--muted);
+      display: flex;
+      justify-content: space-between
+    }
+
+    /* ── Toast ─────────────────────────────────────────────────────────────────── */
+    #toast-wrap {
+      position: fixed;
+      bottom: 20px;
+      right: 20px;
+      z-index: 200;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      pointer-events: none
+    }
+
+    .toast {
+      padding: 11px 16px;
+      border-radius: 9px;
+      font-size: 13px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      max-width: 320px;
+      transform: translateX(110%);
+      transition: transform .25s;
+      pointer-events: auto;
+      background: var(--surface);
+      border: 1.5px solid var(--border);
+      box-shadow: var(--shadow)
+    }
+
+    .toast.show {
+      transform: translateX(0)
+    }
+
+    .toast.success {
+      border-color: var(--green);
+      color: var(--green)
+    }
+
+    .toast.error {
+      border-color: var(--red);
+      color: var(--red)
+    }
+
+    .toast.info {
+      border-color: var(--accent);
+      color: var(--accent)
+    }
+
+    .toast.warn {
+      border-color: var(--yellow);
+      color: var(--yellow)
+    }
+
+    /* ── Misc ────────────────────────────────────────────────────────────────────── */
+    .divider {
+      height: 1px;
+      background: var(--border);
+      margin: 4px 12px
+    }
+
+    .tag {
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-size: 10px;
+      background: var(--surface2);
+      color: var(--muted)
+    }
+
+    .truncate {
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis
+    }
+
+    .icon-btn {
+      width: 30px;
+      height: 30px;
+      border-radius: 7px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: .12s;
+      color: var(--muted)
+    }
+
+    .icon-btn:hover {
+      background: var(--surface2);
+      color: var(--text)
+    }
+
+    #q-clear {
+      position: absolute;
+      right: 10px;
+      color: var(--muted);
+      display: none;
+      cursor: pointer
     }
   </style>
 </head>
+
 <body>
-  <!-- Header -->
-  <header>
-    <div>
-      <div class="logo">Mnemo<span>syne</span></div>
-      <div class="tagline">智能本地文件搜索</div>
-    </div>
-    <div class="actions">
-      <button class="btn" onclick="openIndexModal()">+ 索引目录</button>
-      <button class="btn" onclick="refreshStats()">刷新统计</button>
-    </div>
-  </header>
+  <div id="app">
 
-  <!-- Main -->
-  <div class="main">
-    <!-- Sidebar -->
-    <aside class="sidebar">
-      <div>
-        <h3>统计</h3>
-        <div class="stat-card">
-          <div class="stat-value" id="statFiles">—</div>
-          <div class="stat-label">已索引文件</div>
-        </div>
-        <br/>
-        <div class="stat-card">
-          <div class="stat-value" id="statChunks">—</div>
-          <div class="stat-label">内容分块</div>
-        </div>
+    <!-- ── Header ────────────────────────────────────────────────────────────────── -->
+    <header>
+      <div class="logo no-drag">
+        <div class="logo-icon">🧠</div>
+        <div class="logo-text">Mnemo<span>syne</span></div>
       </div>
 
-      <div>
-        <h3>文件类型</h3>
-        <div class="filter-group" id="filterGroup">
-          <div class="filter-item active" data-type="all" onclick="setFilter('all', this)">
-            <span class="filter-dot" style="background:#7c6af7"></span> 全部
-          </div>
-          <div class="filter-item" data-type="text" onclick="setFilter('text', this)">
-            <span class="filter-dot" style="background:#4ade80"></span> 文本
-          </div>
-          <div class="filter-item" data-type="image" onclick="setFilter('image', this)">
-            <span class="filter-dot" style="background:#fbbf24"></span> 图片
-          </div>
-          <div class="filter-item" data-type="audio" onclick="setFilter('audio', this)">
-            <span class="filter-dot" style="background:#a78bfa"></span> 音频
-          </div>
-          <div class="filter-item" data-type="video" onclick="setFilter('video', this)">
-            <span class="filter-dot" style="background:#f87171"></span> 视频
-          </div>
-        </div>
-      </div>
-    </aside>
-
-    <!-- Content -->
-    <div class="content">
-      <!-- Search Bar -->
-      <div class="search-bar">
-        <div class="search-input-wrap">
-          <svg class="search-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
+      <div class="search-wrap no-drag" style="margin-left:20px">
+        <svg class="ico" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="11" cy="11" r="8" />
+          <path d="m21 21-4.35-4.35" />
+        </svg>
+        <input id="q" type="text" placeholder="搜索文件内容… （/）" autocomplete="off" />
+        <button id="q-clear" class="icon-btn" onclick="clearSearch()" title="清空">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+            <path d="M18 6 6 18M6 6l12 12" />
           </svg>
-          <input id="searchInput" type="text" placeholder="搜索文件内容…（Enter 执行）" />
-        </div>
-        <select class="mode-select" id="modeSelect">
-          <option value="hybrid">混合搜索</option>
-          <option value="vector">向量搜索</option>
-          <option value="keyword">关键词搜索</option>
+        </button>
+      </div>
+
+      <div class="no-drag" style="display:flex;align-items:center;gap:8px">
+        <select id="mode" class="mode-sel" onchange="triggerSearch()">
+          <option value="hybrid">混合</option>
+          <option value="vector">向量</option>
+          <option value="keyword">关键词</option>
         </select>
-        <button class="btn btn-primary" onclick="doSearch()">搜索</button>
+        <span class="kbd">/</span>
       </div>
 
-      <!-- Results -->
-      <div class="results-area" id="resultsArea">
-        <div class="empty-state" id="emptyState">
-          <div class="empty-icon">🔍</div>
-          <div class="empty-title">开始搜索</div>
-          <div>输入关键词或自然语言描述来搜索本地文件</div>
+      <div class="hdr-actions no-drag">
+        <button class="btn btn-ghost" onclick="openIndexModal()" title="索引目录 (⌘I)">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+            <polyline points="17 8 12 3 7 8" />
+            <line x1="12" y1="3" x2="12" y2="15" />
+          </svg>
+          索引目录
+        </button>
+        <button class="icon-btn" onclick="refreshAll()" title="刷新">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="23 4 23 10 17 10" />
+            <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10" />
+          </svg>
+        </button>
+      </div>
+    </header>
+
+    <!-- ── Body ──────────────────────────────────────────────────────────────────── -->
+    <div class="body">
+
+      <!-- Sidebar -->
+      <aside>
+        <!-- Stats -->
+        <div class="sb-section">
+          <div class="sb-title">索引统计</div>
+          <div class="stat-row"><span>文件数</span><span class="stat-val" id="s-files">—</span></div>
+          <div class="stat-row"><span>内容分块</span><span class="stat-val" id="s-chunks">—</span></div>
+        </div>
+
+        <!-- Filters -->
+        <div class="sb-section">
+          <div class="sb-title">文件类型</div>
+          <div class="filter-list" id="filter-list">
+            <button class="filter-btn active" data-type="all" onclick="setFilter('all',this)">
+              <span class="filter-dot" style="background:var(--accent)"></span>
+              全部 <span class="filter-count" id="fc-all"></span>
+            </button>
+            <button class="filter-btn" data-type="text" onclick="setFilter('text',this)">
+              <span class="filter-dot" style="background:var(--green)"></span>
+              文本 <span class="filter-count" id="fc-text"></span>
+            </button>
+            <button class="filter-btn" data-type="pdf" onclick="setFilter('pdf',this)">
+              <span class="filter-dot" style="background:var(--red)"></span>
+              PDF <span class="filter-count" id="fc-pdf"></span>
+            </button>
+            <button class="filter-btn" data-type="image" onclick="setFilter('image',this)">
+              <span class="filter-dot" style="background:var(--yellow)"></span>
+              图片 <span class="filter-count" id="fc-image"></span>
+            </button>
+            <button class="filter-btn" data-type="audio" onclick="setFilter('audio',this)">
+              <span class="filter-dot" style="background:var(--purple)"></span>
+              音频 <span class="filter-count" id="fc-audio"></span>
+            </button>
+            <button class="filter-btn" data-type="video" onclick="setFilter('video',this)">
+              <span class="filter-dot" style="background:var(--blue)"></span>
+              视频 <span class="filter-count" id="fc-video"></span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Watchers -->
+        <div class="sb-section">
+          <div class="sb-title" style="display:flex;justify-content:space-between;align-items:center">
+            实时监听
+            <span id="watcher-count" class="tag" style="display:none">0</span>
+          </div>
+          <div id="watcher-list" style="display:flex;flex-direction:column;gap:4px">
+            <div style="font-size:12px;color:var(--muted2)">暂无监听目录</div>
+          </div>
+        </div>
+
+        <!-- Model -->
+        <div class="sb-section" style="margin-top:auto">
+          <div class="sb-title">嵌入模型</div>
+          <div id="model-status" class="model-badge stub">
+            <span>⚙</span> Stub 模式
+          </div>
+          <div style="font-size:11px;color:var(--muted2);margin-top:6px;line-height:1.5">
+            运行 <code style="color:var(--muted)">model-download</code> 下载真实模型
+          </div>
+        </div>
+      </aside>
+
+      <!-- Main -->
+      <main>
+        <!-- Result meta bar -->
+        <div class="result-meta" id="result-meta" style="display:none">
+          <span id="result-count-text"></span>
+          <span id="search-time" style="color:var(--muted2)"></span>
+        </div>
+
+        <!-- Content area -->
+        <div class="results" id="results-area">
+          <!-- Default empty state -->
+          <div class="empty" id="empty-state">
+            <div class="empty-icon">🗂️</div>
+            <div class="empty-title">开始使用 Mnemosyne</div>
+            <p>索引本地文件后，即可用自然语言搜索文本、图片、音频、视频。</p>
+            <div class="empty-actions">
+              <button class="btn btn-primary" onclick="openIndexModal()">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                  <polyline points="17 8 12 3 7 8" />
+                  <line x1="12" y1="3" x2="12" y2="15" />
+                </svg>
+                索引目录
+              </button>
+              <button class="btn btn-ghost" onclick="browseFiles()">浏览已索引文件</button>
+            </div>
+          </div>
+        </div>
+      </main>
+    </div><!-- end .body -->
+
+    <!-- ── Index Modal ────────────────────────────────────────────────────────────── -->
+    <div class="overlay" id="index-modal">
+      <div class="modal">
+        <div class="modal-header">
+          <h2>索引目录</h2>
+          <button class="modal-close icon-btn" onclick="closeIndexModal()">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+              <path d="M18 6 6 18M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+        <div class="modal-body">
+          <div class="field-label">目录路径</div>
+          <div style="display:flex;gap:8px;align-items:center">
+            <input class="text-input" id="index-path" placeholder="/Users/you/Documents" type="text" style="flex:1" />
+            <button class="btn btn-ghost" id="pick-btn" onclick="pickDir()" title="用系统文件选择器选择"
+              style="flex-shrink:0;white-space:nowrap">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
+              </svg>
+              浏览…
+            </button>
+          </div>
+          <div class="hint">将递归扫描所有支持的文件类型（txt、md、pdf、jpg、mp3、mp4…）</div>
+
+          <div class="progress-wrap" id="progress-wrap">
+            <div class="progress-text">
+              <span id="progress-label">正在索引…</span>
+              <span id="progress-num"></span>
+            </div>
+            <div class="progress-bar">
+              <div class="progress-fill" id="progress-fill"></div>
+            </div>
+          </div>
+
+          <div style="margin-top:14px;display:flex;align-items:center;gap:8px">
+            <input type="checkbox" id="watch-toggle" style="accent-color:var(--accent)" />
+            <label for="watch-toggle" style="font-size:13px;cursor:pointer">
+              索引完成后持续监听此目录的文件变更
+            </label>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-ghost" onclick="closeIndexModal()">取消</button>
+          <button class="btn btn-primary" id="index-btn" onclick="startIndex()">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="12" cy="12" r="10" />
+              <polyline points="12 6 12 12 16 14" />
+            </svg>
+            开始索引
+          </button>
         </div>
       </div>
     </div>
-  </div>
 
-  <!-- Index Modal -->
-  <div class="modal-overlay" id="indexModal">
-    <div class="modal">
-      <h2>索引目录</h2>
-      <input type="text" id="indexPath" placeholder="/Users/you/Documents" />
-      <div class="modal-actions">
-        <button class="btn" onclick="closeIndexModal()">取消</button>
-        <button class="btn btn-primary" id="indexBtn" onclick="startIndex()">开始索引</button>
-      </div>
-    </div>
-  </div>
+    <!-- ── Toast Container ────────────────────────────────────────────────────────── -->
+    <div id="toast-wrap"></div>
 
-  <!-- Toast -->
-  <div id="toast"></div>
+    <!-- ── JS ────────────────────────────────────────────────────────────────────── -->
+    <script type="module">
+      // ── Tauri IPC bridge ────────────────────────────────────────────────────────
+      const invoke = window.__TAURI__?.core?.invoke
+        ?? window.__TAURI__?.invoke
+        ?? (async (cmd, args) => {
+          console.log('[mock]', cmd, args);
+          return null;
+        });
 
-  <script type="module">
-    // Tauri IPC bridge
-    const invoke = window.__TAURI__?.core?.invoke ?? window.__TAURI__?.invoke;
+      // ── State ───────────────────────────────────────────────────────────────────
+      let currentFilter = 'all';
+      let watchedDirs = [];
+      let searchTimer = null;
+      let lastQueryMs = 0;
 
-    let currentFilter = 'all';
+      // ── Expose to inline handlers ────────────────────────────────────────────────
+      const g = window;
 
-    // ── Expose functions to inline handlers ───────────────────────────────────
-    window.setFilter = function(type, el) {
-      currentFilter = type;
-      document.querySelectorAll('.filter-item').forEach(i => i.classList.remove('active'));
-      el.classList.add('active');
-      if (document.getElementById('searchInput').value.trim()) doSearch();
-    };
-
-    window.openIndexModal = () => {
-      document.getElementById('indexModal').classList.add('open');
-      document.getElementById('indexPath').focus();
-    };
-    window.closeIndexModal = () => {
-      document.getElementById('indexModal').classList.remove('open');
-    };
-
-    window.doSearch = async function() {
-      const text = document.getElementById('searchInput').value.trim();
-      if (!text) return;
-
-      const mode = document.getElementById('modeSelect').value;
-      const query = {
-        text,
-        mode,
-        limit: 30,
-        offset: 0,
-        file_types: currentFilter === 'all' ? null : [currentFilter],
+      g.setFilter = function (type, el) {
+        currentFilter = type;
+        document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+        el.classList.add('active');
+        const q = document.getElementById('q').value.trim();
+        if (q) search(q);
       };
 
-      const area = document.getElementById('resultsArea');
-      area.innerHTML = '<div class="empty-state"><div class="spinner"></div> 搜索中…</div>';
+      g.openIndexModal = () => { document.getElementById('index-modal').classList.add('open'); document.getElementById('index-path').focus(); };
+      g.closeIndexModal = () => {
+        document.getElementById('index-modal').classList.remove('open');
+        document.getElementById('progress-wrap').style.display = 'none';
+        document.getElementById('index-btn').disabled = false;
+        document.getElementById('index-btn').textContent = '开始索引';
+      };
 
-      try {
-        const results = await invoke('search_files', { query });
-        renderResults(results, text);
-      } catch (e) {
-        toast(e?.message ?? String(e), 'error');
-        area.innerHTML = '<div class="empty-state"><div class="empty-icon">⚠️</div><div>搜索出错</div></div>';
+      // Native folder picker
+      g.pickDir = async function () {
+        const btn = document.getElementById('pick-btn');
+        btn.disabled = true;
+        try {
+          const dir = await invoke('pick_directory');
+          if (dir) document.getElementById('index-path').value = dir;
+        } catch (e) {
+          console.warn('pick_directory:', e);
+        } finally {
+          btn.disabled = false;
+        }
+      };
+
+      g.triggerSearch = () => { const v = document.getElementById('q').value.trim(); if (v) search(v); };
+
+      g.clearSearch = function () {
+        document.getElementById('q').value = '';
+        document.getElementById('q-clear').style.display = 'none';
+        showEmpty();
+        document.getElementById('result-meta').style.display = 'none';
+      };
+
+      g.refreshAll = async function () {
+        await loadStats();
+        const q = document.getElementById('q').value.trim();
+        if (q) search(q);
+        toast('已刷新', 'info');
+      };
+
+      g.browseFiles = async function () {
+        showLoading('加载文件列表…');
+        try {
+          const files = await invoke('list_files', { limit: 100, offset: 0 });
+          renderFiles(files || []);
+        } catch (e) {
+          toast('加载失败: ' + (e?.message ?? e), 'error');
+          showEmpty();
+        }
+      };
+
+      g.startIndex = async function () {
+        const path = document.getElementById('index-path').value.trim();
+        if (!path) { toast('请输入目录路径', 'warn'); return; }
+
+        const btn = document.getElementById('index-btn');
+        btn.disabled = true;
+        btn.innerHTML = '<div class="loader" style="width:14px;height:14px;border-width:2px"></div> 索引中…';
+
+        const pw = document.getElementById('progress-wrap');
+        pw.style.display = 'block';
+        animateProgress();
+
+        try {
+          const stats = await invoke('index_directory', { path });
+          clearInterval(progTimer);
+          document.getElementById('progress-fill').style.width = '100%';
+
+          // Fetch overall DB stats to show accurate totals
+          const dbStats = await invoke('get_stats').catch(() => null);
+          const newFiles = stats?.total_files ?? 0;
+          const totalFiles = dbStats?.total_files ?? newFiles;
+
+          if (newFiles === 0 && totalFiles > 0) {
+            document.getElementById('progress-label').textContent = '索引已是最新';
+            document.getElementById('progress-num').textContent = `（${totalFiles} 个文件已在索引中）`;
+            toast(`索引已是最新 · 共 ${totalFiles} 个文件`, 'info');
+          } else {
+            document.getElementById('progress-label').textContent = '索引完成';
+            document.getElementById('progress-num').textContent = `+${newFiles} 个新文件`;
+            toast(`索引完成：新增 ${newFiles} 个文件 · 共 ${totalFiles} 个`, 'success');
+          }
+
+          await loadStats();
+          if (document.getElementById('watch-toggle').checked) {
+            await startWatcher(path);
+          }
+          setTimeout(() => g.closeIndexModal(), 1800);
+        } catch (e) {
+          toast('索引失败: ' + (e?.message ?? e), 'error');
+          btn.disabled = false;
+          btn.textContent = '重试';
+          pw.style.display = 'none';
+        }
+      };
+
+      // ── Search ─────────────────────────────────────────────────────────────────
+      async function search(text) {
+        if (!text.trim()) return;
+        showLoading();
+        const t0 = Date.now();
+
+        const fileTypes = currentFilter === 'all' ? null
+          : currentFilter === 'pdf' ? ['text']  // PDF parsed as text
+            : [currentFilter];
+
+        try {
+          const results = await invoke('search_files', {
+            query: {
+              text,
+              mode: document.getElementById('mode').value,
+              limit: 50,
+              offset: 0,
+              file_types: fileTypes,
+            }
+          });
+          const ms = Date.now() - t0;
+          renderResults(results || [], text, ms);
+        } catch (e) {
+          toast('搜索失败: ' + (e?.message ?? e), 'error');
+          showEmpty();
+        }
       }
-    };
 
-    window.startIndex = async function() {
-      const path = document.getElementById('indexPath').value.trim();
-      if (!path) return;
-      const btn = document.getElementById('indexBtn');
-      btn.disabled = true;
-      btn.innerHTML = '<span class="spinner"></span>索引中…';
+      // ── Render results ──────────────────────────────────────────────────────────
+      function renderResults(results, query, ms) {
+        const area = document.getElementById('results-area');
+        const meta = document.getElementById('result-meta');
 
-      try {
-        const stats = await invoke('index_directory', { path });
-        toast(`索引完成：${stats.total_files} 个文件`, 'success');
-        closeIndexModal();
-        refreshStats();
-      } catch (e) {
-        toast(e?.message ?? String(e), 'error');
-      } finally {
-        btn.disabled = false;
-        btn.innerHTML = '开始索引';
-      }
-    };
+        if (!results || results.length === 0) {
+          area.innerHTML = `<div class="empty"><div class="empty-icon">📭</div>
+      <div class="empty-title">无匹配结果</div>
+      <p>尝试不同关键词，或先<button class="btn btn-ghost" style="padding:4px 10px;font-size:12px" onclick="openIndexModal()">索引更多目录</button></p></div>`;
+          meta.innerHTML = `<span>未找到 "${esc(query)}" 的结果</span><span style="color:var(--muted2)">${ms}ms</span>`;
+          meta.style.display = 'flex';
+          return;
+        }
 
-    window.refreshStats = async function() {
-      try {
-        const stats = await invoke('get_stats');
-        document.getElementById('statFiles').textContent  = stats.total_files.toLocaleString();
-        document.getElementById('statChunks').textContent = stats.total_chunks.toLocaleString();
-      } catch (e) {
-        console.warn('stats failed', e);
-      }
-    };
+        meta.innerHTML = `<span><strong style="color:var(--text)">${results.length}</strong> 条结果</span>
+    <span style="color:var(--muted2)">${ms}ms · ${esc(query)}</span>`;
+        meta.style.display = 'flex';
 
-    // ── Render results ────────────────────────────────────────────────────────
-    function renderResults(results, query) {
-      const area = document.getElementById('resultsArea');
+        area.innerHTML = results.map(r => {
+          const ft = (r.file_record?.file_type ?? 'unknown').toLowerCase();
+          const name = (r.file_record?.path ?? '').split('/').pop() ?? 'unknown';
+          const pct = ((r.score ?? 0) * 100).toFixed(0);
+          const snip = r.snippet ? esc(r.snippet.slice(0, 220)) : '';
+          const cls = { text: 'tb-text', image: 'tb-image', audio: 'tb-audio', video: 'tb-video', unknown: 'tb-unknown' }[ft] ?? 'tb-unknown';
+          const label = { text: 'TEXT', image: 'IMG', audio: 'AUDIO', video: 'VIDEO', unknown: '?' }[ft] ?? ft.toUpperCase();
+          // Detect PDF by extension
+          const isPdf = name.toLowerCase().endsWith('.pdf');
+          const badgeCls = isPdf ? 'tb-pdf' : cls;
+          const badgeLbl = isPdf ? 'PDF' : label;
 
-      if (!results || results.length === 0) {
-        area.innerHTML = `
-          <div class="empty-state">
-            <div class="empty-icon">📭</div>
-            <div class="empty-title">无匹配结果</div>
-            <div>尝试不同的关键词，或先索引更多目录</div>
-          </div>`;
-        return;
+          return `<div class="result-card" onclick="openResult('${esc(r.file_record?.path ?? '')}')">
+      <div class="result-top">
+        <span class="type-badge ${badgeCls}">${badgeLbl}</span>
+        <span class="result-name" title="${esc(r.file_record?.path ?? '')}">${esc(name)}</span>
+        <span class="result-score">${pct}%</span>
+      </div>
+      ${snip ? `<div class="result-snippet">${snip}</div>` : ''}
+      <div class="result-path">${esc(r.file_record?.path ?? '')}</div>
+    </div>`;
+        }).join('');
       }
 
-      const header = `<div class="results-header">
-        <span>共 ${results.length} 条结果</span>
-        <span>查询：${escHtml(query)}</span>
-      </div>`;
+      function renderFiles(files) {
+        const area = document.getElementById('results-area');
+        document.getElementById('result-meta').innerHTML =
+          `<span><strong style="color:var(--text)">${files.length}</strong> 个已索引文件</span><span></span>`;
+        document.getElementById('result-meta').style.display = 'flex';
 
-      const items = results.map(r => {
-        const name = r.file_record.path.split('/').pop() ?? r.file_record.path;
-        const ft = (r.file_record.file_type ?? 'unknown').toLowerCase();
-        const badgeClass = `badge-${ft}`;
-        const scorePercent = (r.score * 100).toFixed(1);
-        const snippet = r.snippet ? escHtml(r.snippet.slice(0, 200)) : '';
+        if (files.length === 0) {
+          showEmpty();
+          return;
+        }
 
-        return `<div class="result-item">
-          <div class="result-top">
-            <span class="file-type-badge ${badgeClass}">${ft}</span>
-            <span class="result-path" title="${escHtml(r.file_record.path)}">${escHtml(name)}</span>
-            <span class="result-score">${scorePercent}%</span>
-          </div>
-          <div class="result-snippet">${snippet}</div>
-          <div style="margin-top:6px;font-size:11px;color:var(--muted)">${escHtml(r.file_record.path)}</div>
-        </div>`;
-      }).join('');
+        area.innerHTML = files.map(f => {
+          const ft = (f.file_type ?? 'unknown').toLowerCase();
+          const name = (f.path ?? '').split('/').pop() ?? '?';
+          const isPdf = name.toLowerCase().endsWith('.pdf');
+          const cls = isPdf ? 'tb-pdf' : { text: 'tb-text', image: 'tb-image', audio: 'tb-audio', video: 'tb-video', unknown: 'tb-unknown' }[ft] ?? 'tb-unknown';
+          const lbl = isPdf ? 'PDF' : ft.toUpperCase();
+          return `<div class="result-card" onclick="openResult('${esc(f.path ?? '')}')">
+      <div class="result-top">
+        <span class="type-badge ${cls}">${lbl}</span>
+        <span class="result-name">${esc(name)}</span>
+        <span style="margin-left:auto;font-size:11px;color:var(--muted)">${fmtSize(f.size ?? 0)}</span>
+      </div>
+      <div class="result-path">${esc(f.path ?? '')}</div>
+    </div>`;
+        }).join('');
+      }
 
-      area.innerHTML = header + items;
-    }
+      // ── Stats ───────────────────────────────────────────────────────────────────
+      async function loadStats() {
+        try {
+          const s = await invoke('get_stats');
+          if (!s) return;
+          document.getElementById('s-files').textContent = (s.total_files ?? 0).toLocaleString();
+          document.getElementById('s-chunks').textContent = (s.total_chunks ?? 0).toLocaleString();
 
-    // ── Toast ─────────────────────────────────────────────────────────────────
-    let toastTimer;
-    function toast(msg, type = '') {
-      const el = document.getElementById('toast');
-      el.textContent = msg;
-      el.className = `show ${type}`;
-      clearTimeout(toastTimer);
-      toastTimer = setTimeout(() => { el.className = ''; }, 3000);
-    }
-    window.toast = toast;
+          // Update file type counts from stats
+          const ft = s.files_by_type ?? {};
+          document.getElementById('fc-all').textContent = (s.total_files ?? 0);
+          document.getElementById('fc-text').textContent = ft['Text'] ?? '';
+          document.getElementById('fc-image').textContent = ft['Image'] ?? '';
+          document.getElementById('fc-audio').textContent = ft['Audio'] ?? '';
+          document.getElementById('fc-video').textContent = ft['Video'] ?? '';
+        } catch (e) { /* ignore — engine may not be ready yet */ }
+      }
 
-    function escHtml(s) {
-      return String(s)
-        .replace(/&/g,'&amp;').replace(/</g,'&lt;')
-        .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
-    }
+      // ── Watcher ─────────────────────────────────────────────────────────────────
+      async function startWatcher(path) {
+        try {
+          await invoke('watch_directory', { path });
+          watchedDirs.push(path);
+          renderWatchers();
+          toast(`监听中: ${path.split('/').pop()}`, 'success');
+        } catch (e) {
+          toast('监听启动失败: ' + (e?.message ?? e), 'error');
+        }
+      }
 
-    // ── Keyboard shortcuts ────────────────────────────────────────────────────
-    document.getElementById('searchInput').addEventListener('keydown', e => {
-      if (e.key === 'Enter') window.doSearch();
-    });
-    document.getElementById('indexPath').addEventListener('keydown', e => {
-      if (e.key === 'Enter') window.startIndex();
-      if (e.key === 'Escape') window.closeIndexModal();
-    });
-    document.getElementById('indexModal').addEventListener('click', e => {
-      if (e.target === e.currentTarget) window.closeIndexModal();
-    });
+      function renderWatchers() {
+        const list = document.getElementById('watcher-list');
+        const cnt = document.getElementById('watcher-count');
+        if (watchedDirs.length === 0) {
+          list.innerHTML = '<div style="font-size:12px;color:var(--muted2)">暂无监听目录</div>';
+          cnt.style.display = 'none';
+          return;
+        }
+        cnt.textContent = watchedDirs.length;
+        cnt.style.display = 'inline';
+        list.innerHTML = watchedDirs.map(d =>
+          `<div class="watcher-item"><span class="dot-live"></span><span class="truncate" title="${esc(d)}">${esc(d.split('/').pop())}</span></div>`
+        ).join('');
+      }
 
-    // Initial stats load.
-    refreshStats();
-  </script>
+      // ── UI helpers ───────────────────────────────────────────────────────────────
+      function showEmpty() {
+        document.getElementById('results-area').innerHTML = document.getElementById('results-area').querySelector('#empty-state')?.outerHTML || `
+    <div class="empty" id="empty-state">
+      <div class="empty-icon">🗂️</div>
+      <div class="empty-title">开始使用 Mnemosyne</div>
+      <p>索引本地文件后，即可用自然语言搜索文本、图片、音频、视频。</p>
+      <div class="empty-actions">
+        <button class="btn btn-primary" onclick="openIndexModal()">索引目录</button>
+        <button class="btn btn-ghost" onclick="browseFiles()">浏览已索引文件</button>
+      </div>
+    </div>`;
+        document.getElementById('result-meta').style.display = 'none';
+      }
+
+      function showLoading(text = '搜索中…') {
+        document.getElementById('results-area').innerHTML =
+          `<div class="loading"><div class="loader"></div><div style="font-size:13px">${text}</div></div>`;
+      }
+
+      async function openResult(path) {
+        if (!path) return;
+        try {
+          await window.__TAURI__?.shell?.open?.(path);
+        } catch (_) {
+          // Fallback: copy path to clipboard
+          navigator.clipboard?.writeText(path).then(() => toast('路径已复制', 'info'));
+        }
+      }
+
+      let progTimer;
+      function animateProgress() {
+        let v = 0;
+        document.getElementById('progress-fill').style.width = '0%';
+        clearInterval(progTimer);
+        progTimer = setInterval(() => {
+          v = Math.min(v + Math.random() * 8, 85);
+          document.getElementById('progress-fill').style.width = v + '%';
+        }, 300);
+      }
+
+      // ── Toast ───────────────────────────────────────────────────────────────────
+      function toast(msg, type = 'info') {
+        const wrap = document.getElementById('toast-wrap');
+        const el = document.createElement('div');
+        const icons = { success: '✓', error: '✗', warn: '⚠', info: 'ℹ' };
+        el.className = `toast ${type}`;
+        el.innerHTML = `<span>${icons[type] ?? ''}</span><span>${esc(msg)}</span>`;
+        wrap.appendChild(el);
+        requestAnimationFrame(() => el.classList.add('show'));
+        setTimeout(() => {
+          el.classList.remove('show');
+          setTimeout(() => el.remove(), 300);
+        }, 3500);
+      }
+      g.toast = toast;
+
+      // ── Utils ────────────────────────────────────────────────────────────────────
+      function esc(s) {
+        return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+      }
+      function fmtSize(n) {
+        if (n < 1024) return n + ' B';
+        if (n < 1048576) return (n / 1024).toFixed(1) + ' KB';
+        return (n / 1048576).toFixed(1) + ' MB';
+      }
+
+      // ── Keyboard shortcuts ────────────────────────────────────────────────────────
+      const qEl = document.getElementById('q');
+      document.addEventListener('keydown', e => {
+        // / → focus search
+        if (e.key === '/' && document.activeElement !== qEl) {
+          e.preventDefault(); qEl.focus(); qEl.select(); return;
+        }
+        // Escape → clear or close modal
+        if (e.key === 'Escape') {
+          if (document.getElementById('index-modal').classList.contains('open')) {
+            g.closeIndexModal(); return;
+          }
+          if (qEl.value) { g.clearSearch(); return; }
+        }
+        // ⌘I → index
+        if ((e.metaKey || e.ctrlKey) && e.key === 'i') {
+          e.preventDefault(); g.openIndexModal(); return;
+        }
+      });
+
+      // Search with debounce
+      qEl.addEventListener('input', () => {
+        const v = qEl.value.trim();
+        document.getElementById('q-clear').style.display = v ? 'flex' : 'none';
+        clearTimeout(searchTimer);
+        if (!v) { g.clearSearch(); return; }
+        searchTimer = setTimeout(() => search(v), 320);
+      });
+
+      // Close modal on backdrop click
+      document.getElementById('index-modal').addEventListener('click', e => {
+        if (e.target === e.currentTarget) g.closeIndexModal();
+      });
+
+      document.getElementById('index-path').addEventListener('keydown', e => {
+        if (e.key === 'Enter') g.startIndex();
+      });
+
+      // ── Init ────────────────────────────────────────────────────────────────────
+      (async () => {
+        // Wait a bit for the Tauri engine to initialise
+        setTimeout(async () => {
+          await loadStats();
+          // Auto-browse files if any exist
+          try {
+            const s = await invoke('get_stats');
+            if (s && (s.total_files ?? 0) > 0) {
+              await g.browseFiles();
+            }
+          } catch (_) { }
+        }, 800);
+      })();
+    </script>
 </body>
+
 </html>

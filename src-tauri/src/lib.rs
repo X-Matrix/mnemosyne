@@ -16,6 +16,7 @@ pub fn run() {
         .init();
 
     tauri::Builder::default()
+        .plugin(tauri_plugin_dialog::init())
         .setup(|app| {
             let data_dir = app
                 .path()
@@ -46,6 +47,7 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             commands::search::search_files,
             commands::index::index_directory,
+            commands::index::pick_directory,
             commands::index::watch_directory,
             commands::index::stop_watching,
             commands::index::get_stats,
