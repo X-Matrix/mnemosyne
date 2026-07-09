@@ -16,23 +16,23 @@
 
     :root {
       --bg: #0d0d14;
-      --sf: #141420;
-      --sf2: #1b1b2c;
-      --bd: #252538;
+      --sf: #13131e;
+      --sf2: #191926;
+      --bd: #23233a;
       --acc: #7c6af7;
       --acc2: #5b4fd6;
-      --glow: rgba(124, 106, 247, .15);
-      --tx: #e0e0f0;
-      --mu: #6a6a96;
-      --mu2: #454568;
+      --glow: rgba(124, 106, 247, .14);
+      --tx: #ddddf0;
+      --mu: #6868a0;
+      --mu2: #42426a;
       --green: #4ade80;
       --yellow: #fbbf24;
       --red: #f87171;
       --blue: #60a5fa;
       --purple: #a78bfa;
-      --r: 10px;
+      --r: 9px;
       --rs: 6px;
-      --sh: 0 8px 32px rgba(0, 0, 0, .5);
+      --sh: 0 8px 32px rgba(0, 0, 0, .6);
     }
 
     html,
@@ -41,8 +41,8 @@
       overflow: hidden;
       background: var(--bg);
       color: var(--tx);
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-      font-size: 14px;
+      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", sans-serif;
+      font-size: 13px;
       line-height: 1.5
     }
 
@@ -55,7 +55,8 @@
     }
 
     input,
-    select {
+    select,
+    textarea {
       font: inherit;
       color: inherit;
       background: none;
@@ -64,7 +65,8 @@
     }
 
     ::-webkit-scrollbar {
-      width: 4px
+      width: 4px;
+      height: 4px
     }
 
     ::-webkit-scrollbar-thumb {
@@ -72,110 +74,79 @@
       border-radius: 2px
     }
 
-    /* Layout */
+    /* ── App Shell ──────────────────────────────────────────────────────────────── */
     #app {
       display: flex;
       flex-direction: column;
       height: 100vh
     }
 
-    .hdr {
-      flex-shrink: 0;
+    /* ── Title bar ──────────────────────────────────────────────────────────────── */
+    .tbar {
       display: flex;
       align-items: center;
-      gap: 10px;
-      padding: 9px 14px;
+      gap: 0;
+      height: 44px;
+      background: var(--sf);
       border-bottom: 1px solid var(--bd);
-      background: var(--sf);
       -webkit-app-region: drag;
-      z-index: 10
-    }
-
-    .nd {
-      -webkit-app-region: no-drag
-    }
-
-    .body {
-      display: flex;
-      flex: 1;
-      min-height: 0
-    }
-
-    aside {
-      width: 230px;
-      flex-shrink: 0;
-      border-right: 1px solid var(--bd);
-      display: flex;
-      flex-direction: column;
-      background: var(--sf);
-      overflow-y: auto
-    }
-
-    main {
-      flex: 1;
-      display: flex;
-      flex-direction: column;
-      min-width: 0
-    }
-
-    /* Header */
-    .logo {
-      display: flex;
-      align-items: center;
-      gap: 7px;
       flex-shrink: 0
     }
 
-    .logo-ico {
-      width: 24px;
-      height: 24px;
+    .tbar-logo {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 0 16px;
+      font-size: 14px;
+      font-weight: 700;
+      flex-shrink: 0
+    }
+
+    .tbar-logo span {
+      color: var(--acc)
+    }
+
+    .tbar-ico {
+      width: 22px;
+      height: 22px;
       border-radius: 6px;
       background: linear-gradient(135deg, var(--acc), #4b3cb0);
       display: flex;
       align-items: center;
       justify-content: center;
-      font-size: 13px
+      font-size: 12px
     }
 
-    .logo-tx {
-      font-size: 14px;
-      font-weight: 700;
-      letter-spacing: -.3px
-    }
-
-    .logo-tx b {
-      color: var(--acc)
-    }
-
-    .sw {
+    /* Search bar in title bar */
+    .tbar-sw {
       flex: 1;
-      max-width: 560px;
+      max-width: 500px;
       position: relative;
       display: flex;
-      align-items: center
+      align-items: center;
+      -webkit-app-region: no-drag
     }
 
-    .sw svg {
+    .tbar-sw svg {
       position: absolute;
-      left: 11px;
+      left: 10px;
       color: var(--mu);
-      pointer-events: none;
-      flex-shrink: 0
+      pointer-events: none
     }
 
     #q {
       width: 100%;
-      padding: 7px 36px 7px 34px;
+      padding: 6px 32px 6px 30px;
       background: var(--sf2);
       border: 1.5px solid var(--bd);
       border-radius: var(--rs);
-      font-size: 14px;
+      font-size: 13px;
       transition: .15s
     }
 
     #q:focus {
-      border-color: var(--acc);
-      background: rgba(124, 106, 247, .05)
+      border-color: var(--acc)
     }
 
     #q::placeholder {
@@ -184,93 +155,120 @@
 
     #qc {
       position: absolute;
-      right: 9px;
+      right: 8px;
       color: var(--mu);
       display: none;
-      align-items: center
-    }
-
-    .ms {
-      padding: 6px 9px;
-      background: var(--sf2);
-      border: 1.5px solid var(--bd);
-      border-radius: var(--rs);
       cursor: pointer;
-      color: var(--tx);
-      flex-shrink: 0;
-      font-size: 13px
-    }
-
-    .ms:hover {
-      border-color: var(--acc)
-    }
-
-    .ha {
-      margin-left: auto;
-      display: flex;
-      gap: 6px;
-      align-items: center
-    }
-
-    .btn {
-      padding: 6px 13px;
-      border-radius: var(--rs);
-      font-size: 13px;
-      transition: .12s;
-      border: 1.5px solid transparent;
-      display: inline-flex;
+      -webkit-app-region: no-drag;
+      width: 18px;
+      height: 18px;
+      border-radius: 3px;
+      display: none;
       align-items: center;
-      gap: 5px;
-      white-space: nowrap
+      justify-content: center
     }
 
-    .bg {
-      border-color: var(--bd);
-      background: var(--sf2)
-    }
-
-    .bg:hover {
-      border-color: var(--acc);
-      color: var(--acc)
-    }
-
-    .bp {
-      background: var(--acc);
-      color: #fff
-    }
-
-    .bp:hover {
-      background: var(--acc2);
-      transform: translateY(-1px)
-    }
-
-    .br {
-      background: rgba(248, 113, 113, .15);
-      border-color: var(--red);
-      color: var(--red)
-    }
-
-    .br:hover {
-      background: rgba(248, 113, 113, .25)
-    }
-
-    .ib {
-      width: 28px;
-      height: 28px;
-      border-radius: var(--rs);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      transition: .12s;
-      color: var(--mu)
-    }
-
-    .ib:hover {
+    #qc:hover {
       background: var(--sf2);
       color: var(--tx)
     }
 
-    /* Sidebar */
+    /* Nav tabs */
+    .tabs {
+      display: flex;
+      align-items: center;
+      gap: 2px;
+      padding: 0 12px;
+      -webkit-app-region: no-drag;
+      flex-shrink: 0
+    }
+
+    .tab {
+      padding: 6px 12px;
+      border-radius: var(--rs);
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--mu);
+      transition: .15s;
+      cursor: pointer;
+      white-space: nowrap;
+      display: flex;
+      align-items: center;
+      gap: 5px
+    }
+
+    .tab:hover {
+      color: var(--tx);
+      background: var(--sf2)
+    }
+
+    .tab.on {
+      color: var(--tx);
+      background: var(--glow)
+    }
+
+    .tab.on svg {
+      color: var(--acc)
+    }
+
+    /* Engine status dot */
+    .eng-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: var(--mu);
+      margin-left: auto;
+      -webkit-app-region: no-drag;
+      flex-shrink: 0;
+      margin-right: 14px;
+      transition: background .3s
+    }
+
+    .eng-dot.ready {
+      background: var(--green);
+      animation: pulse2 3s infinite
+    }
+
+    .eng-dot.loading {
+      background: var(--yellow);
+      animation: pulse2 1s infinite
+    }
+
+    .eng-dot.error {
+      background: var(--red)
+    }
+
+    @keyframes pulse2 {
+
+      0%,
+      100% {
+        opacity: 1
+      }
+
+      50% {
+        opacity: .5
+      }
+    }
+
+    /* ── Body ───────────────────────────────────────────────────────────────────── */
+    .body {
+      flex: 1;
+      display: flex;
+      min-height: 0;
+      overflow: hidden
+    }
+
+    /* ── Sidebar ────────────────────────────────────────────────────────────────── */
+    .side {
+      width: 200px;
+      flex-shrink: 0;
+      border-right: 1px solid var(--bd);
+      background: var(--sf);
+      display: flex;
+      flex-direction: column;
+      overflow-y: auto
+    }
+
     .sec {
       padding: 10px 12px;
       border-bottom: 1px solid var(--bd)
@@ -281,7 +279,7 @@
       text-transform: uppercase;
       letter-spacing: .8px;
       color: var(--mu);
-      margin-bottom: 7px;
+      margin-bottom: 6px;
       font-weight: 600;
       display: flex;
       justify-content: space-between;
@@ -291,17 +289,17 @@
     .sr {
       display: flex;
       justify-content: space-between;
-      align-items: center;
       padding: 2px 0;
-      font-size: 12px
+      font-size: 12px;
+      color: var(--mu)
     }
 
-    .sv {
-      font-weight: 700;
+    .sr b {
       color: var(--acc);
-      font-size: 14px
+      font-size: 13px
     }
 
+    /* filter */
     .fl {
       display: flex;
       flex-direction: column;
@@ -311,8 +309,8 @@
     .fb {
       display: flex;
       align-items: center;
-      gap: 7px;
-      padding: 5px 7px;
+      gap: 6px;
+      padding: 4px 6px;
       border-radius: 5px;
       font-size: 12px;
       width: 100%;
@@ -344,169 +342,102 @@
       color: var(--mu2)
     }
 
-    .tag {
-      padding: 1px 6px;
-      border-radius: 4px;
-      font-size: 10px;
-      background: var(--sf2);
-      color: var(--mu)
+    /* ── Main panel ─────────────────────────────────────────────────────────────── */
+    .panel {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      min-width: 0;
+      min-height: 0;
+      overflow: hidden
     }
 
-    /* dir row */
-    .dr {
+    .pview {
+      flex: 1;
+      display: none;
+      flex-direction: column;
+      min-height: 0;
+      overflow: hidden
+    }
+
+    .pview.on {
+      display: flex
+    }
+
+    /* ── Search view ─────────────────────────────────────────────────────────────── */
+    .smode {
+      padding: 8px 16px;
+      border-bottom: 1px solid var(--bd);
+      flex-shrink: 0;
       display: flex;
       align-items: center;
-      gap: 6px;
-      padding: 4px 0;
-      font-size: 12px
+      gap: 8px
     }
 
-    .dr .dp {
-      flex: 1;
-      color: var(--tx);
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      min-width: 0
-    }
-
-    .dr .dd {
-      font-size: 10px;
-      color: var(--mu2);
-      flex-shrink: 0
-    }
-
-    .dr .dlive {
-      width: 6px;
-      height: 6px;
-      border-radius: 50%;
-      background: var(--green);
-      animation: pulse 2s infinite;
-      flex-shrink: 0
-    }
-
-    @keyframes pulse {
-
-      0%,
-      100% {
-        opacity: 1
-      }
-
-      50% {
-        opacity: .4
-      }
-    }
-
-    /* progress */
-    .pb {
-      height: 3px;
-      background: var(--bd);
-      border-radius: 2px;
-      overflow: hidden;
-      margin-top: 5px
-    }
-
-    .pf {
-      height: 100%;
-      background: linear-gradient(90deg, var(--acc), var(--acc2));
-      border-radius: 2px;
-      transition: width .4s
-    }
-
-    /* model badges */
-    .mb {
-      padding: 2px 7px;
+    .pill {
+      padding: 4px 12px;
       border-radius: 20px;
       font-size: 11px;
       font-weight: 600;
-      display: inline-flex;
-      align-items: center;
-      gap: 3px
+      cursor: pointer;
+      border: 1.5px solid var(--bd);
+      color: var(--mu);
+      transition: .12s
     }
 
-    .mb.ok {
-      background: rgba(74, 222, 128, .12);
-      color: var(--green)
-    }
-
-    .mb.stub {
-      background: rgba(251, 191, 36, .12);
-      color: var(--yellow)
-    }
-
-    .mb.dl {
-      background: rgba(124, 106, 247, .15);
+    .pill:hover {
+      border-color: var(--acc);
       color: var(--acc)
     }
 
-    .ml-row {
+    .pill.on {
+      border-color: var(--acc);
+      background: var(--glow);
+      color: var(--acc)
+    }
+
+    .rmeta {
       display: flex;
-      align-items: center;
-      gap: 6px;
-      padding: 4px 0;
-      font-size: 12px;
+      justify-content: space-between;
+      padding: 6px 16px;
+      font-size: 11px;
+      color: var(--mu);
+      flex-shrink: 0;
       border-bottom: 1px solid var(--bd)
     }
 
-    .ml-row:last-child {
-      border-bottom: none
-    }
-
-    .ml-name {
-      flex: 1;
-      font-weight: 500
-    }
-
-    .ml-info {
-      font-size: 10px;
-      color: var(--mu2)
-    }
-
-    /* Main area */
-    .rm {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      padding: 8px 18px 6px;
-      font-size: 12px;
-      color: var(--mu);
-      flex-shrink: 0;
-      display: none
-    }
-
-    .res {
+    .rscroll {
       flex: 1;
       overflow-y: auto;
-      padding: 0 18px 16px
+      padding: 12px 16px
     }
 
     .rc {
       background: var(--sf);
       border: 1.5px solid var(--bd);
       border-radius: var(--r);
-      padding: 12px 14px;
+      padding: 11px 13px;
       margin-bottom: 8px;
       cursor: pointer;
       transition: .15s;
       display: flex;
       flex-direction: column;
-      gap: 5px
+      gap: 4px
     }
 
     .rc:hover {
       border-color: var(--acc);
-      transform: translateY(-1px);
-      box-shadow: 0 4px 16px rgba(124, 106, 247, .1)
+      box-shadow: 0 3px 12px rgba(124, 106, 247, .1)
     }
 
     .rt {
       display: flex;
       align-items: center;
-      gap: 7px
+      gap: 6px
     }
 
     .tb {
-      padding: 2px 7px;
+      padding: 1px 7px;
       border-radius: 20px;
       font-size: 10px;
       font-weight: 700;
@@ -516,32 +447,32 @@
     }
 
     .tb-t {
-      background: rgba(74, 222, 128, .13);
+      background: rgba(74, 222, 128, .12);
       color: var(--green)
     }
 
     .tb-p {
-      background: rgba(248, 113, 113, .13);
+      background: rgba(248, 113, 113, .12);
       color: var(--red)
     }
 
     .tb-i {
-      background: rgba(251, 191, 36, .13);
+      background: rgba(251, 191, 36, .12);
       color: var(--yellow)
     }
 
     .tb-a {
-      background: rgba(167, 139, 250, .13);
+      background: rgba(167, 139, 250, .12);
       color: var(--purple)
     }
 
     .tb-v {
-      background: rgba(96, 165, 250, .13);
+      background: rgba(96, 165, 250, .12);
       color: var(--blue)
     }
 
     .tb-u {
-      background: rgba(100, 100, 160, .13);
+      background: rgba(100, 100, 160, .1);
       color: var(--mu)
     }
 
@@ -567,7 +498,7 @@
 
     .rp {
       font-size: 11px;
-      color: var(--mu);
+      color: var(--mu2);
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis
@@ -581,6 +512,376 @@
       -webkit-line-clamp: 2;
       -webkit-box-orient: vertical;
       overflow: hidden
+    }
+
+    /* ── Index view ──────────────────────────────────────────────────────────────── */
+    .toolbar {
+      padding: 10px 16px;
+      border-bottom: 1px solid var(--bd);
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      gap: 8px
+    }
+
+    .h2 {
+      font-size: 14px;
+      font-weight: 700;
+      flex: 1
+    }
+
+    .iscroll {
+      flex: 1;
+      overflow-y: auto;
+      padding: 12px 16px
+    }
+
+    /* dir card */
+    .dc {
+      background: var(--sf);
+      border: 1.5px solid var(--bd);
+      border-radius: var(--r);
+      padding: 12px 14px;
+      margin-bottom: 8px;
+      transition: .15s
+    }
+
+    .dc:hover {
+      border-color: var(--bd)
+    }
+
+    .dc-top {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 6px
+    }
+
+    .dc-path {
+      font-size: 13px;
+      font-weight: 600;
+      flex: 1;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis
+    }
+
+    .dc-meta {
+      font-size: 11px;
+      color: var(--mu);
+      display: flex;
+      gap: 12px
+    }
+
+    .dc-actions {
+      display: flex;
+      gap: 6px;
+      flex-shrink: 0
+    }
+
+    .pb {
+      height: 3px;
+      background: var(--bd);
+      border-radius: 2px;
+      overflow: hidden;
+      margin-top: 8px;
+      display: none
+    }
+
+    .pf {
+      height: 100%;
+      background: var(--acc);
+      border-radius: 2px;
+      transition: width .4s
+    }
+
+    .pf.ani {
+      animation: indeterminate 1.5s linear infinite;
+      background: linear-gradient(90deg, transparent, var(--acc), transparent);
+      background-size: 200% 100%
+    }
+
+    @keyframes indeterminate {
+      0% {
+        background-position: 100% 0
+      }
+
+      100% {
+        background-position: -100% 0
+      }
+    }
+
+    /* file list */
+    .file-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 7px 10px;
+      border-radius: 6px;
+      font-size: 12px;
+      transition: .1s;
+      border-bottom: 1px solid var(--bd)
+    }
+
+    .file-row:hover {
+      background: var(--sf2)
+    }
+
+    .file-name {
+      flex: 1;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      font-weight: 500
+    }
+
+    .file-path {
+      color: var(--mu);
+      font-size: 11px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      max-width: 240px
+    }
+
+    .file-sz {
+      color: var(--mu2);
+      font-size: 10px;
+      flex-shrink: 0
+    }
+
+    /* ── Models view ─────────────────────────────────────────────────────────────── */
+    .mcard {
+      background: var(--sf);
+      border: 1.5px solid var(--bd);
+      border-radius: var(--r);
+      padding: 14px 16px;
+      margin-bottom: 10px
+    }
+
+    .mcard-top {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 10px
+    }
+
+    .mcard-name {
+      font-size: 14px;
+      font-weight: 700
+    }
+
+    .mcard-id {
+      font-size: 11px;
+      color: var(--mu);
+      margin-top: 2px
+    }
+
+    .mcard-desc {
+      font-size: 12px;
+      color: var(--mu);
+      margin-top: 8px;
+      line-height: 1.55
+    }
+
+    .mcard-tags {
+      display: flex;
+      gap: 6px;
+      margin-top: 8px;
+      flex-wrap: wrap
+    }
+
+    .mtag {
+      padding: 2px 8px;
+      border-radius: 20px;
+      font-size: 10px;
+      background: var(--sf2);
+      color: var(--mu)
+    }
+
+    .mprog {
+      display: none;
+      margin-top: 10px
+    }
+
+    .mpbar {
+      height: 3px;
+      background: var(--bd);
+      border-radius: 2px;
+      overflow: hidden
+    }
+
+    .mpfill {
+      height: 100%;
+      background: var(--acc);
+      border-radius: 2px;
+      animation: indeterminate 1.5s linear infinite;
+      background-size: 200% 100%;
+      background: linear-gradient(90deg, transparent, var(--acc), transparent)
+    }
+
+    .badge {
+      padding: 2px 8px;
+      border-radius: 20px;
+      font-size: 11px;
+      font-weight: 600;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px
+    }
+
+    .badge-ok {
+      background: rgba(74, 222, 128, .12);
+      color: var(--green)
+    }
+
+    .badge-stub {
+      background: rgba(251, 191, 36, .12);
+      color: var(--yellow)
+    }
+
+    .badge-dl {
+      background: rgba(124, 106, 247, .12);
+      color: var(--acc)
+    }
+
+    /* ── Settings view ───────────────────────────────────────────────────────────── */
+    .sfm {
+      padding: 20px 20px 0
+    }
+
+    .sfm-sec {
+      margin-bottom: 24px
+    }
+
+    .sfm-title {
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--tx);
+      margin-bottom: 12px;
+      padding-bottom: 8px;
+      border-bottom: 1px solid var(--bd)
+    }
+
+    .sfm-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 8px 0;
+      border-bottom: 1px solid rgba(35, 35, 58, .5)
+    }
+
+    .sfm-label {
+      font-size: 12px;
+      font-weight: 600;
+      min-width: 120px;
+      color: var(--mu)
+    }
+
+    .sfm-val {
+      flex: 1;
+      font-size: 12px;
+      color: var(--tx)
+    }
+
+    .sfm-input {
+      flex: 1;
+      padding: 6px 10px;
+      background: var(--sf2);
+      border: 1.5px solid var(--bd);
+      border-radius: 5px;
+      color: var(--tx);
+      font-size: 12px;
+      transition: .15s
+    }
+
+    .sfm-input:focus {
+      border-color: var(--acc)
+    }
+
+    .code-block {
+      background: var(--sf2);
+      border: 1px solid var(--bd);
+      border-radius: 6px;
+      padding: 10px 14px;
+      font-size: 12px;
+      font-family: monospace;
+      color: var(--mu);
+      white-space: pre-wrap;
+      word-break: break-all;
+      line-height: 1.6
+    }
+
+    /* ── Shared ──────────────────────────────────────────────────────────────────── */
+    .btn {
+      padding: 5px 13px;
+      border-radius: var(--rs);
+      font-size: 12px;
+      transition: .12s;
+      border: 1.5px solid transparent;
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      white-space: nowrap
+    }
+
+    .bg {
+      border-color: var(--bd);
+      background: var(--sf2)
+    }
+
+    .bg:hover {
+      border-color: var(--acc);
+      color: var(--acc)
+    }
+
+    .bp {
+      background: var(--acc);
+      color: #fff
+    }
+
+    .bp:hover {
+      background: var(--acc2)
+    }
+
+    .br {
+      background: rgba(248, 113, 113, .1);
+      border-color: var(--red);
+      color: var(--red)
+    }
+
+    .br:hover {
+      background: rgba(248, 113, 113, .2)
+    }
+
+    .by {
+      background: rgba(251, 191, 36, .1);
+      border-color: var(--yellow);
+      color: var(--yellow)
+    }
+
+    .ib {
+      width: 26px;
+      height: 26px;
+      border-radius: 5px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: .12s;
+      color: var(--mu)
+    }
+
+    .ib:hover {
+      background: var(--sf2);
+      color: var(--tx)
+    }
+
+    .ibr {
+      color: var(--red)
+    }
+
+    .ibr:hover {
+      background: rgba(248, 113, 113, .1)
     }
 
     /* Empty/Loading */
@@ -597,41 +898,31 @@
     }
 
     .em-ico {
-      font-size: 50px;
-      opacity: .3
+      font-size: 48px;
+      opacity: .25
     }
 
     .em-t {
-      font-size: 19px;
+      font-size: 18px;
       font-weight: 700;
       color: var(--tx)
     }
 
     .em p {
-      font-size: 13px;
-      max-width: 320px;
+      font-size: 12px;
+      max-width: 300px;
       line-height: 1.7
     }
 
-    .em-act {
+    .em-acts {
       display: flex;
       gap: 8px;
       margin-top: 4px
     }
 
-    .ld {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 12px;
-      height: 100%;
-      justify-content: center;
-      color: var(--mu)
-    }
-
     .spin {
-      width: 28px;
-      height: 28px;
+      width: 24px;
+      height: 24px;
       border: 2.5px solid var(--bd);
       border-top-color: var(--acc);
       border-radius: 50%;
@@ -639,8 +930,8 @@
     }
 
     .sspin {
-      width: 13px;
-      height: 13px;
+      width: 12px;
+      height: 12px;
       border: 2px solid rgba(255, 255, 255, .3);
       border-top-color: #fff;
       border-radius: 50%;
@@ -653,16 +944,16 @@
       }
     }
 
-    /* Overlay / Modal */
+    /* Overlay */
     .ov {
       position: fixed;
       inset: 0;
-      background: rgba(0, 0, 0, .6);
-      z-index: 100;
+      background: rgba(0, 0, 0, .65);
+      z-index: 200;
       display: none;
       align-items: center;
       justify-content: center;
-      backdrop-filter: blur(3px)
+      backdrop-filter: blur(4px)
     }
 
     .ov.open {
@@ -672,30 +963,30 @@
     .mo {
       background: var(--sf);
       border: 1.5px solid var(--bd);
-      border-radius: 14px;
+      border-radius: 12px;
       width: 440px;
       max-width: calc(100vw - 32px);
       box-shadow: var(--sh)
     }
 
-    .mh {
-      padding: 18px 22px 0;
+    .moh {
+      padding: 16px 20px 0;
       display: flex;
       align-items: center;
       justify-content: space-between
     }
 
-    .mh h2 {
-      font-size: 16px;
+    .moh h2 {
+      font-size: 15px;
       font-weight: 700
     }
 
-    .mb2 {
-      padding: 14px 22px
+    .mob {
+      padding: 14px 20px
     }
 
-    .mf {
-      padding: 0 22px 18px;
+    .mof {
+      padding: 0 20px 16px;
       display: flex;
       justify-content: flex-end;
       gap: 7px
@@ -710,12 +1001,12 @@
 
     .ti {
       width: 100%;
-      padding: 9px 11px;
+      padding: 8px 10px;
       background: var(--bg);
       border: 1.5px solid var(--bd);
-      border-radius: var(--rs);
+      border-radius: 5px;
       color: var(--tx);
-      font-size: 14px;
+      font-size: 13px;
       transition: .15s
     }
 
@@ -726,60 +1017,68 @@
     .hi {
       font-size: 11px;
       color: var(--mu);
-      margin-top: 5px
+      margin-top: 4px
     }
 
-    .pw {
+    /* Progress banner */
+    #ipb {
       display: none;
-      margin-top: 10px
+      background: rgba(124, 106, 247, .1);
+      border-bottom: 1px solid rgba(124, 106, 247, .2);
+      padding: 7px 16px;
+      flex-shrink: 0
     }
 
-    .pbar {
-      height: 3px;
-      background: var(--bd);
-      border-radius: 2px;
-      overflow: hidden;
-      margin-top: 5px
-    }
-
-    .pfill {
-      height: 100%;
-      background: linear-gradient(90deg, var(--acc), var(--acc2));
-      width: 0;
-      transition: width .4s;
-      border-radius: 2px
-    }
-
-    .pt {
-      font-size: 12px;
-      color: var(--mu);
+    .ipb-in {
       display: flex;
-      justify-content: space-between;
-      margin-bottom: 3px
+      align-items: center;
+      gap: 8px;
+      font-size: 12px
+    }
+
+    .ipb-t {
+      flex: 1;
+      color: var(--tx)
+    }
+
+    .ipb-bar {
+      width: 100px;
+      height: 3px;
+      background: rgba(124, 106, 247, .2);
+      border-radius: 2px;
+      overflow: hidden
+    }
+
+    .ipb-f {
+      height: 100%;
+      background: var(--acc);
+      animation: indeterminate 1.5s linear infinite;
+      background: linear-gradient(90deg, transparent, var(--acc), transparent);
+      background-size: 200% 100%
     }
 
     /* Toast */
     #tw {
       position: fixed;
-      bottom: 18px;
-      right: 18px;
-      z-index: 200;
+      bottom: 16px;
+      right: 16px;
+      z-index: 300;
       display: flex;
       flex-direction: column;
-      gap: 7px;
+      gap: 6px;
       pointer-events: none
     }
 
     .to {
-      padding: 10px 14px;
+      padding: 9px 13px;
       border-radius: 8px;
-      font-size: 13px;
+      font-size: 12px;
       display: flex;
       align-items: center;
-      gap: 7px;
-      max-width: 300px;
+      gap: 6px;
+      max-width: 280px;
       transform: translateX(110%);
-      transition: transform .25s;
+      transition: transform .22s;
       pointer-events: auto;
       background: var(--sf);
       border: 1.5px solid var(--bd);
@@ -809,234 +1108,301 @@
       border-color: var(--yellow);
       color: var(--yellow)
     }
-
-    /* Indexing progress banner in main */
-    #ipb {
-      display: none;
-      background: var(--sf2);
-      border-bottom: 1px solid var(--bd);
-      padding: 8px 18px;
-      flex-shrink: 0
-    }
-
-    .ipb-inner {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      font-size: 12px
-    }
-
-    .ipb-txt {
-      flex: 1;
-      color: var(--mu)
-    }
-
-    .ipb-bar {
-      width: 120px;
-      height: 3px;
-      background: var(--bd);
-      border-radius: 2px;
-      overflow: hidden
-    }
-
-    .ipb-fill {
-      height: 100%;
-      background: var(--acc);
-      animation: ipanim 1.5s linear infinite;
-      border-radius: 2px
-    }
-
-    @keyframes ipanim {
-      0% {
-        transform: translateX(-100%)
-      }
-
-      100% {
-        transform: translateX(200%)
-      }
-    }
   </style>
 </head>
 
 <body>
   <div id="app">
-    <!-- Header -->
-    <header class="hdr">
-      <div class="logo nd">
-        <div class="logo-ico">🧠</div>
-        <div class="logo-tx">Mnemo<b>syne</b></div>
+
+    <!-- ── Title Bar ──────────────────────────────────────────────────────────────── -->
+    <header class="tbar">
+      <div class="tbar-logo">
+        <div class="tbar-ico">🧠</div>
+        Mnemo<span>syne</span>
       </div>
-      <div class="sw nd" style="margin-left:16px">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+
+      <!-- Search (only visible on search tab) -->
+      <div class="tbar-sw" id="tsw" style="display:none">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <circle cx="11" cy="11" r="8" />
           <path d="m21 21-4.35-4.35" />
         </svg>
-        <input id="q" type="text" placeholder="搜索文件内容… (按 / 聚焦)" autocomplete="off" />
-        <button id="qc" class="ib nd" onclick="g.clearQ()"><svg width="12" height="12" viewBox="0 0 24 24" fill="none"
+        <input id="q" type="text" placeholder="搜索文件内容… (按 /)" autocomplete="off" />
+        <button id="qc" class="ib" onclick="g.clearQ()"><svg width="11" height="11" viewBox="0 0 24 24" fill="none"
             stroke="currentColor" stroke-width="2.5">
             <path d="M18 6 6 18M6 6l12 12" />
           </svg></button>
       </div>
-      <div class="nd" style="display:flex;gap:7px;align-items:center">
-        <select id="mode" class="ms nd" onchange="g.doSearch()">
-          <option value="hybrid">混合搜索</option>
-          <option value="vector">向量搜索</option>
-          <option value="keyword">关键词</option>
-        </select>
-      </div>
-      <div class="ha nd">
-        <button class="btn bg" onclick="g.openIdx()" title="⌘I">
+
+      <!-- Tabs -->
+      <nav class="tabs" id="nav">
+        <button class="tab on" data-v="search" onclick="g.nav('search',this)">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="11" cy="11" r="8" />
+            <path d="m21 21-4.35-4.35" />
+          </svg>搜索
+        </button>
+        <button class="tab" data-v="index" onclick="g.nav('index',this)">
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
             <polyline points="17 8 12 3 7 8" />
             <line x1="12" y1="3" x2="12" y2="15" />
-          </svg>
-          索引目录
+          </svg>索引
         </button>
-        <button class="btn bg" onclick="g.openModels()" title="模型管理">
+        <button class="tab" data-v="models" onclick="g.nav('models',this)">
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M12 2L2 7l10 5 10-5-10-5z" />
-            <path d="M2 17l10 5 10-5" />
-            <path d="M2 12l10 5 10-5" />
-          </svg>
-          模型
+            <path d="M2 17l10 5 10-5M2 12l10 5 10-5" />
+          </svg>模型
         </button>
-        <button class="ib" onclick="g.refresh()" title="刷新">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <polyline points="23 4 23 10 17 10" />
-            <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10" />
-          </svg>
+        <button class="tab" data-v="settings" onclick="g.nav('settings',this)">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="3" />
+            <path d="M19.07 4.93a10 10 0 0 1 0 14.14M4.93 4.93a10 10 0 0 0 0 14.14" />
+          </svg>设置
         </button>
-      </div>
+      </nav>
+
+      <!-- Engine status -->
+      <div id="eng" class="eng-dot loading" title="引擎初始化中…"></div>
     </header>
 
-    <!-- Indexing progress banner -->
+    <!-- ── Progress Banner ────────────────────────────────────────────────────────── -->
     <div id="ipb">
-      <div class="ipb-inner">
+      <div class="ipb-in">
         <div class="sspin"></div>
-        <div class="ipb-txt" id="ipb-txt">正在索引…</div>
+        <div class="ipb-t" id="ipb-t">正在索引…</div>
         <div class="ipb-bar">
-          <div class="ipb-fill"></div>
+          <div class="ipb-f"></div>
         </div>
-        <button class="btn bg" style="padding:3px 9px;font-size:11px" onclick="g.stopIndexing()">停止</button>
+        <button class="btn bg" style="padding:3px 8px;font-size:11px" onclick="g.hideProgress()">隐藏</button>
       </div>
     </div>
 
-    <!-- Body -->
+    <!-- ── Body ──────────────────────────────────────────────────────────────────── -->
     <div class="body">
-      <!-- Sidebar -->
-      <aside>
+
+      <!-- Sidebar (shared) -->
+      <aside class="side">
         <!-- Stats -->
         <div class="sec">
           <div class="st">统计</div>
-          <div class="sr"><span>文件</span><span class="sv" id="sf">—</span></div>
-          <div class="sr"><span>分块</span><span class="sv" id="sc">—</span></div>
+          <div class="sr"><span>文件</span><b id="sf">—</b></div>
+          <div class="sr"><span>分块</span><b id="sc">—</b></div>
         </div>
-
-        <!-- Filters -->
-        <div class="sec">
+        <!-- Filter (search tab only) -->
+        <div class="sec" id="filter-sec">
           <div class="st">文件类型</div>
-          <div class="fl" id="fl">
-            <button class="fb on" data-t="all" onclick="g.setF('all',this)"><span class="fdot"
-                style="background:var(--acc)"></span>全部<span class="fc" id="fc-a"></span></button>
-            <button class="fb" data-t="text" onclick="g.setF('text',this)"><span class="fdot"
-                style="background:var(--green)"></span>文本<span class="fc" id="fc-t"></span></button>
-            <button class="fb" data-t="pdf" onclick="g.setF('pdf',this)"><span class="fdot"
-                style="background:var(--red)"></span>PDF<span class="fc" id="fc-p"></span></button>
-            <button class="fb" data-t="image" onclick="g.setF('image',this)"><span class="fdot"
-                style="background:var(--yellow)"></span>图片<span class="fc" id="fc-i"></span></button>
-            <button class="fb" data-t="audio" onclick="g.setF('audio',this)"><span class="fdot"
-                style="background:var(--purple)"></span>音频<span class="fc" id="fc-au"></span></button>
-            <button class="fb" data-t="video" onclick="g.setF('video',this)"><span class="fdot"
-                style="background:var(--blue)"></span>视频<span class="fc" id="fc-v"></span></button>
-          </div>
-        </div>
-
-        <!-- Indexed dirs -->
-        <div class="sec">
-          <div class="st">已索引目录<button class="ib" style="width:20px;height:20px" onclick="g.openIdx()"
-              title="添加">+</button></div>
-          <div id="dirs-list" style="display:flex;flex-direction:column;gap:2px">
-            <div style="font-size:11px;color:var(--mu2)">暂无目录</div>
-          </div>
-        </div>
-
-        <!-- Models -->
-        <div class="sec">
-          <div class="st">嵌入模型<button class="ib" style="width:20px;height:20px" onclick="g.openModels()"
-              title="管理">⚙</button></div>
-          <div id="model-status" class="mb stub">⚙ Stub 模式</div>
-          <div style="font-size:10px;color:var(--mu2);margin-top:4px">点击「模型」下载真实 BERT</div>
-        </div>
-
-        <!-- Watchers -->
-        <div class="sec">
-          <div class="st">实时监听<span id="wc" class="tag" style="display:none">0</span></div>
-          <div id="wl" style="display:flex;flex-direction:column;gap:2px">
-            <div style="font-size:11px;color:var(--mu2)">暂无监听</div>
+          <div class="fl">
+            <button class="fb on" onclick="g.setF('all',this)"><span class="fdot"
+                style="background:var(--acc)"></span>全部<span class="fc" id="fa"></span></button>
+            <button class="fb" onclick="g.setF('text',this)"><span class="fdot"
+                style="background:var(--green)"></span>文本<span class="fc" id="ft_"></span></button>
+            <button class="fb" onclick="g.setF('pdf',this)"><span class="fdot"
+                style="background:var(--red)"></span>PDF<span class="fc" id="fp"></span></button>
+            <button class="fb" onclick="g.setF('image',this)"><span class="fdot"
+                style="background:var(--yellow)"></span>图片<span class="fc" id="fi"></span></button>
+            <button class="fb" onclick="g.setF('audio',this)"><span class="fdot"
+                style="background:var(--purple)"></span>音频<span class="fc" id="fau"></span></button>
+            <button class="fb" onclick="g.setF('video',this)"><span class="fdot"
+                style="background:var(--blue)"></span>视频<span class="fc" id="fv"></span></button>
           </div>
         </div>
       </aside>
 
-      <!-- Main -->
-      <main>
-        <div class="rm" id="rm"></div>
-        <div class="res" id="ra">
-          <div class="em" id="es">
-            <div class="em-ico">🗂️</div>
-            <div class="em-t">开始使用 Mnemosyne</div>
-            <p>索引本地文件后，即可用自然语言搜索文本、图片、音频、视频内容。</p>
-            <div class="em-act">
-              <button class="btn bp" onclick="g.openIdx()">
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                  <polyline points="17 8 12 3 7 8" />
-                  <line x1="12" y1="3" x2="12" y2="15" />
-                </svg>
-                选择目录索引
-              </button>
-              <button class="btn bg" onclick="g.browse()">浏览已索引文件</button>
+      <!-- Main Panel -->
+      <div class="panel">
+
+        <!-- ── SEARCH VIEW ──────────────────────────────────────────────────────── -->
+        <div class="pview on" id="v-search">
+          <div class="smode">
+            <span style="font-size:11px;color:var(--mu)">模式：</span>
+            <button class="pill on" id="pm-hybrid" onclick="g.setMode('hybrid',this)">混合</button>
+            <button class="pill" id="pm-vector" onclick="g.setMode('vector',this)">向量</button>
+            <button class="pill" id="pm-keyword" onclick="g.setMode('keyword',this)">关键词</button>
+            <span style="font-size:11px;color:var(--mu2);margin-left:auto">
+              Stub 嵌入 · 下载模型后启用语义搜索
+            </span>
+          </div>
+          <div class="rmeta" id="rmeta" style="display:none"></div>
+          <div class="rscroll" id="ra">
+            <div class="em" id="es">
+              <div class="em-ico">🔍</div>
+              <div class="em-t">智能文件搜索</div>
+              <p>先在「索引」标签页添加目录，然后用自然语言搜索任何文件内容。</p>
+              <div class="em-acts">
+                <button class="btn bp" onclick="g.nav('index',document.querySelector('[data-v=index]'))">前往索引</button>
+                <button class="btn bg" onclick="g.loadFiles()">浏览文件</button>
+              </div>
             </div>
           </div>
         </div>
-      </main>
-    </div>
 
-    <!-- Index Modal -->
-    <div class="ov" id="idx-modal">
+        <!-- ── INDEX VIEW ───────────────────────────────────────────────────────── -->
+        <div class="pview" id="v-index">
+          <div class="toolbar">
+            <div class="h2">索引目录</div>
+            <button class="btn bp" onclick="g.openAddDir()">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <line x1="12" y1="5" x2="12" y2="19" />
+                <line x1="5" y1="12" x2="19" y2="12" />
+              </svg>
+              添加目录
+            </button>
+          </div>
+          <div class="iscroll">
+            <div id="dirs-list">
+              <div class="em" style="height:auto;padding:30px 20px">
+                <div class="em-ico" style="font-size:36px">📂</div>
+                <div class="em-t" style="font-size:15px">还没有索引任何目录</div>
+                <p>点击「添加目录」选择要索引的文件夹。支持 txt/md/pdf/jpg/mp3/mp4 等格式。</p>
+                <div class="em-acts"><button class="btn bp" onclick="g.openAddDir()">添加目录</button></div>
+              </div>
+            </div>
+
+            <!-- File Browser Section -->
+            <div id="files-sec" style="display:none">
+              <div
+                style="display:flex;align-items:center;gap:8px;margin:16px 0 8px;padding-top:16px;border-top:1px solid var(--bd)">
+                <span style="font-size:13px;font-weight:700">已索引文件</span>
+                <span id="file-count" class="badge badge-stub" style="font-size:10px"></span>
+                <button class="btn bg" style="margin-left:auto;font-size:11px;padding:3px 9px"
+                  onclick="g.loadFiles()">刷新</button>
+              </div>
+              <div id="file-list"></div>
+              <div id="file-more" style="display:none;text-align:center;padding:12px">
+                <button class="btn bg" style="font-size:11px" onclick="g.loadMoreFiles()">加载更多</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ── MODELS VIEW ──────────────────────────────────────────────────────── -->
+        <div class="pview" id="v-models">
+          <div class="toolbar">
+            <div class="h2">嵌入模型管理</div>
+            <span id="cur-model" class="badge badge-stub">⚙ Stub 模式</span>
+          </div>
+          <div class="iscroll" style="padding:16px">
+            <div
+              style="background:var(--sf2);border:1px solid var(--bd);border-radius:var(--r);padding:12px 14px;margin-bottom:16px;font-size:12px;color:var(--mu);line-height:1.7">
+              <b style="color:var(--tx)">当前：Stub 伪向量模式</b><br>
+              向量搜索使用基于哈希的伪向量，不支持真正的语义理解。<br>
+              下载真实 BERT 模型（需要重新构建并启用 <code style="color:var(--acc)">candle-backend</code> feature）后可启用语义搜索。<br>
+              <b style="color:var(--yellow)">⚠ 下载不影响当前运行，需重新构建才能生效。</b>
+            </div>
+
+            <div id="model-cards">
+              <!-- Cards generated by JS -->
+            </div>
+
+            <div id="downloaded-models" style="display:none">
+              <div style="font-size:13px;font-weight:700;margin-bottom:10px;margin-top:8px">已下载</div>
+              <div id="dl-list"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ── SETTINGS VIEW ────────────────────────────────────────────────────── -->
+        <div class="pview" id="v-settings">
+          <div class="iscroll sfm">
+            <!-- DB -->
+            <div class="sfm-sec">
+              <div class="sfm-title">数据库</div>
+              <div class="sfm-row">
+                <span class="sfm-label">数据库路径</span>
+                <span class="sfm-val" id="s-db"
+                  style="font-family:monospace;font-size:11px;color:var(--acc)">~/.mnemosyne/db.sqlite</span>
+              </div>
+              <div class="sfm-row">
+                <span class="sfm-label">文件总数</span>
+                <span class="sfm-val" id="s-files">—</span>
+              </div>
+              <div class="sfm-row">
+                <span class="sfm-label">内容分块数</span>
+                <span class="sfm-val" id="s-chunks">—</span>
+              </div>
+              <div class="sfm-row" style="margin-top:4px">
+                <span class="sfm-label"></span>
+                <button class="btn br" onclick="g.confirmClear()">清空索引数据库</button>
+              </div>
+            </div>
+
+            <!-- CLI -->
+            <div class="sfm-sec">
+              <div class="sfm-title">CLI 快速参考</div>
+              <div style="margin-bottom:8px;font-size:12px;color:var(--mu)">所有 GUI 功能均可通过 CLI 操作：</div>
+              <div class="code-block" id="cli-ref"></div>
+            </div>
+
+            <!-- API Server -->
+            <div class="sfm-sec">
+              <div class="sfm-title">REST API 服务器</div>
+              <div style="font-size:12px;color:var(--mu);margin-bottom:10px;line-height:1.7">
+                在终端中运行以启动 REST API（GUI 与 API 共享同一数据库）：
+              </div>
+              <div class="code-block">mnemosyne serve --port 8080
+
+                # 或指定数据库路径
+                mnemosyne --db ~/.mnemosyne/db.sqlite serve --port 8080</div>
+              <div style="font-size:11px;color:var(--mu2);margin-top:8px">API 文档: GET /health · POST /api/search · POST
+                /api/index · GET /api/files</div>
+            </div>
+
+            <!-- HF Mirror -->
+            <div class="sfm-sec">
+              <div class="sfm-title">HuggingFace 镜像（网络问题）</div>
+              <div style="font-size:12px;color:var(--mu);margin-bottom:10px">如果模型下载失败，设置国内镜像站：</div>
+              <div class="code-block">export HF_ENDPOINT=https://hf-mirror.com
+                # 然后重启 app 或运行：
+                mnemosyne model-download sentence-transformers/all-MiniLM-L6-v2</div>
+            </div>
+
+            <!-- About -->
+            <div class="sfm-sec">
+              <div class="sfm-title">关于</div>
+              <div class="sfm-row"><span class="sfm-label">版本</span><span class="sfm-val">0.1.0</span></div>
+              <div class="sfm-row"><span class="sfm-label">技术栈</span><span class="sfm-val">Rust · Tauri2 · SQLite FTS5 ·
+                  Candle</span></div>
+              <div class="sfm-row"><span class="sfm-label">数据目录</span><span class="sfm-val"
+                  style="font-family:monospace;font-size:11px">~/.mnemosyne/</span></div>
+            </div>
+          </div>
+        </div>
+
+      </div><!-- panel -->
+    </div><!-- body -->
+
+    <!-- ── Add Directory Modal ────────────────────────────────────────────────────── -->
+    <div class="ov" id="add-modal">
       <div class="mo">
-        <div class="mh">
-          <h2>索引目录</h2><button class="ib" onclick="g.closeIdx()"><svg width="13" height="13" viewBox="0 0 24 24"
-              fill="none" stroke="currentColor" stroke-width="2.5">
+        <div class="moh">
+          <h2>添加索引目录</h2>
+          <button class="ib" onclick="g.closeAdd()"><svg width="12" height="12" viewBox="0 0 24 24" fill="none"
+              stroke="currentColor" stroke-width="2.5">
               <path d="M18 6 6 18M6 6l12 12" />
             </svg></button>
         </div>
-        <div class="mb2">
+        <div class="mob">
           <div class="fl2">目录路径</div>
-          <div style="display:flex;gap:7px">
-            <input class="ti" id="ip" placeholder="/Users/you/Documents" type="text" style="flex:1" />
-            <button class="btn bg" id="pb" onclick="g.pickDir()" style="flex-shrink:0">
+          <div style="display:flex;gap:7px;margin-bottom:10px">
+            <input class="ti" id="dir-input" placeholder="/Users/you/Documents" type="text" style="flex:1" />
+            <button class="btn bg" id="pick-btn" onclick="g.pickDir()" style="flex-shrink:0">
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
               </svg>
               浏览…
             </button>
           </div>
-          <div class="hi">递归扫描所有支持格式（txt/md/pdf/jpg/mp3/mp4…）</div>
-          <div class="pw" id="pw">
-            <div class="pt"><span id="pl">正在索引…</span><span id="pn" style="color:var(--acc)"></span></div>
-            <div class="pbar">
-              <div class="pfill" id="pf"></div>
-            </div>
-          </div>
-          <div style="margin-top:12px;display:flex;align-items:center;gap:7px">
-            <input type="checkbox" id="wt" style="accent-color:var(--acc)" />
-            <label for="wt" style="font-size:12px;cursor:pointer">索引完成后自动监听变更</label>
+          <div class="hi" style="margin-bottom:10px">将递归扫描：txt md pdf jpg png mp3 mp4 等格式</div>
+          <div style="display:flex;align-items:center;gap:7px">
+            <input type="checkbox" id="watch-cb" style="accent-color:var(--acc)" />
+            <label for="watch-cb" style="font-size:12px;cursor:pointer">索引完成后持续监听文件变更</label>
           </div>
         </div>
-        <div class="mf">
-          <button class="btn bg" onclick="g.closeIdx()">取消</button>
-          <button class="btn bp" id="ib2" onclick="g.startIdx()">
+        <div class="mof">
+          <button class="btn bg" onclick="g.closeAdd()">取消</button>
+          <button class="btn bp" id="add-btn" onclick="g.doAdd()">
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <circle cx="12" cy="12" r="10" />
               <polyline points="12 6 12 12 16 14" />
@@ -1047,285 +1413,95 @@
       </div>
     </div>
 
-    <!-- Models Modal -->
-    <div class="ov" id="mdl-modal">
-      <div class="mo" style="width:500px">
-        <div class="mh">
-          <h2>模型管理</h2><button class="ib" onclick="g.closeModels()"><svg width="13" height="13" viewBox="0 0 24 24"
-              fill="none" stroke="currentColor" stroke-width="2.5">
-              <path d="M18 6 6 18M6 6l12 12" />
-            </svg></button>
-        </div>
-        <div class="mb2">
-          <div style="font-size:12px;color:var(--mu);margin-bottom:12px">下载真实嵌入模型以启用语义向量搜索。默认 Stub 模式使用哈希伪向量，仅适合测试。
-          </div>
-          <div id="ml" style="margin-bottom:14px">
-            <div class="ml-row">
-              <div>
-                <div class="ml-name">all-MiniLM-L6-v2</div>
-                <div class="ml-info">sentence-transformers · 384维 · 90MB · 轻量推荐</div>
-              </div>
-              <button class="btn bg" style="font-size:12px;padding:4px 10px"
-                onclick="g.dlModel('sentence-transformers/all-MiniLM-L6-v2',this)">下载</button>
-            </div>
-            <div class="ml-row">
-              <div>
-                <div class="ml-name">all-mpnet-base-v2</div>
-                <div class="ml-info">sentence-transformers · 768维 · 420MB · 高质量</div>
-              </div>
-              <button class="btn bg" style="font-size:12px;padding:4px 10px"
-                onclick="g.dlModel('sentence-transformers/all-mpnet-base-v2',this)">下载</button>
-            </div>
-            <div class="ml-row">
-              <div>
-                <div class="ml-name">paraphrase-multilingual-MiniLM-L12-v2</div>
-                <div class="ml-info">sentence-transformers · 384维 · 470MB · 中文/多语言</div>
-              </div>
-              <button class="btn bg" style="font-size:12px;padding:4px 10px"
-                onclick="g.dlModel('sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2',this)">下载</button>
-            </div>
-          </div>
-          <div
-            style="background:var(--bg);border-radius:7px;padding:10px;font-size:11px;color:var(--mu);line-height:1.7">
-            <b style="color:var(--tx)">注意：</b> 下载需联网访问 HuggingFace。如在国内被屏蔽，
-            请设置环境变量 <code style="color:var(--acc)">HF_ENDPOINT=https://hf-mirror.com</code> 后重启 app。
-          </div>
-        </div>
-        <div class="mf"><button class="btn bg" onclick="g.closeModels()">关闭</button></div>
-      </div>
-    </div>
-
     <div id="tw"></div>
 
     <script type="module">
-      const invoke = window.__TAURI__?.core?.invoke
-        ?? window.__TAURI__?.invoke
-        ?? (async (cmd, args) => { console.log('[mock]', cmd, args); return null; });
+      // ── Bridge ────────────────────────────────────────────────────────────────────
+      // Tauri 2: __TAURI_INTERNALS__.invoke is the low-level bridge always available.
+      // __TAURI__.core.invoke requires @tauri-apps/api to be loaded (not the case here).
+      // Fall back chain: internals → legacy v1 → dev mock
+      function _rawInvoke(cmd, args) {
+        const fn = window.__TAURI_INTERNALS__?.invoke
+          ?? window.__TAURI__?.core?.invoke
+          ?? window.__TAURI__?.invoke;
+        if (!fn) {
+          console.warn('[bridge] __TAURI__ not available — using mock for:', cmd);
+          return Promise.resolve(null);
+        }
+        return fn(cmd, args);
+      }
+      const invoke = _rawInvoke;
 
-      // ── State ────────────────────────────────────────────────────────────────────
+      // Diagnostic: log which bridge is active
+      console.log('[bridge] __TAURI_INTERNALS__:', typeof window.__TAURI_INTERNALS__?.invoke);
+      console.log('[bridge] __TAURI__.core.invoke:', typeof window.__TAURI__?.core?.invoke);
+      console.log('[bridge] __TAURI__.invoke:', typeof window.__TAURI__?.invoke);
+
+      // ── State ─────────────────────────────────────────────────────────────────────
+      let curView = 'search';
+      let searchMode = 'hybrid';
       let filter = 'all';
-      let watchers = [];
+      let srTimer = null;
+      let iPolling = false;
+      let fileOffset = 0;
+      const PER_PAGE = 80;
+
+      // Directories stored in localStorage
       let dirs = JSON.parse(localStorage.getItem('mn-dirs') || '[]');
-      let stimer = null;  // search debounce
-      let ptimer = null;  // progress animation
-      let ipolling = false; // indexing in progress
 
+      // Expose to inline handlers (module scope is isolated from global)
       const g = window;
-      window.g = window; // expose to inline onclick handlers (module scope is isolated)
+      window.g = window;
 
-      // ── Sidebar ──────────────────────────────────────────────────────────────────
+      // ── Navigation ────────────────────────────────────────────────────────────────
+      g.nav = (view, btn) => {
+        curView = view;
+        document.querySelectorAll('.tab').forEach(t => t.classList.remove('on'));
+        document.querySelectorAll('.pview').forEach(p => p.classList.remove('on'));
+        btn.classList.add('on');
+        qs(`#v-${view}`).classList.add('on');
+
+        // Show/hide search bar
+        qs('#tsw').style.display = view === 'search' ? 'flex' : 'none';
+        qs('#filter-sec').style.display = view === 'search' ? 'block' : 'none';
+
+        if (view === 'index') { renderDirs(); g.loadFiles(); }
+        if (view === 'settings') updateSettings();
+        if (view === 'models') loadModelList();
+      };
+
+      // ── Search ────────────────────────────────────────────────────────────────────
+      g.setMode = (m, el) => {
+        searchMode = m;
+        document.querySelectorAll('.pill').forEach(p => p.classList.remove('on'));
+        el.classList.add('on');
+        const v = qs('#q').value.trim();
+        if (v) doSearch(v);
+      };
+
       g.setF = (t, el) => {
         filter = t;
         document.querySelectorAll('.fb').forEach(b => b.classList.remove('on'));
         el.classList.add('on');
         const v = qs('#q').value.trim();
-        if (v) search(v);
+        if (v) doSearch(v);
       };
 
-      function renderDirs() {
-        const el = qs('#dirs-list');
-        if (dirs.length === 0) { el.innerHTML = '<div style="font-size:11px;color:var(--mu2)">暂无目录</div>'; return; }
-        el.innerHTML = dirs.map((d, i) => {
-          const name = d.path.split('/').filter(Boolean).pop() ?? d.path;
-          const progress = d.progress ?? 0;
-          return `<div class="dr">
-      ${d.watching ? '<span class="dlive"></span>' : '<span style="width:6px;height:6px;border-radius:50%;background:var(--mu2);flex-shrink:0"></span>'}
-      <span class="dp" title="${esc(d.path)}">${esc(name)}</span>
-      <span class="dd">${d.files ?? 0}f</span>
-      <button class="ib" style="width:20px;height:20px;flex-shrink:0" onclick="g.reIndex(${i})" title="重新索引">↺</button>
-    </div>`;
-        }).join('');
-      }
-
-      function saveDirs() { localStorage.setItem('mn-dirs', JSON.stringify(dirs)); }
-
-      // ── Modal: Index ─────────────────────────────────────────────────────────────
-      g.openIdx = () => { qs('#idx-modal').classList.add('open'); qs('#ip').focus(); };
-      g.closeIdx = () => {
-        qs('#idx-modal').classList.remove('open');
-        qs('#pw').style.display = 'none';
-        qs('#ib2').disabled = false;
-        qs('#ib2').innerHTML = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg> 开始索引';
+      g.clearQ = () => {
+        qs('#q').value = ''; qs('#qc').style.display = 'none';
+        qs('#rmeta').style.display = 'none';
+        showEmpty();
       };
 
-      g.pickDir = async () => {
-        qs('#pb').disabled = true;
-        try {
-          const d = await invoke('pick_directory');
-          if (d) qs('#ip').value = d;
-        } catch (e) { console.warn(e); }
-        finally { qs('#pb').disabled = false; }
-      };
-
-      g.startIdx = async () => {
-        const path = qs('#ip').value.trim();
-        if (!path) { toast('请输入目录路径', 'wn'); return; }
-
-        const btn = qs('#ib2');
-        btn.disabled = true;
-        btn.innerHTML = '<div class="sspin"></div> 启动中…';
-        qs('#pw').style.display = 'block';
-        qs('#pl').textContent = '正在启动索引…';
-        qs('#pn').textContent = '';
-        qs('#pf').style.width = '5%';
-
-        try {
-          // Fire-and-forget: returns immediately, indexing runs in background
-          await invoke('index_directory_bg', { path });
-
-          // Add to dirs list
-          const idx = dirs.findIndex(d => d.path === path);
-          if (idx < 0) dirs.push({ path, files: 0, watching: false });
-          saveDirs(); renderDirs();
-
-          // Start polling
-          startIPolling(path);
-
-          if (qs('#wt').checked) startWatcher(path);
-
-          qs('#pl').textContent = '索引进行中（后台运行）';
-          qs('#pn').textContent = '请稍候…';
-          setTimeout(() => g.closeIdx(), 1500);
-          toast('索引已在后台启动', 'in');
-
-        } catch (e) {
-          toast('启动失败: ' + (e?.message ?? e), 'er');
-          btn.disabled = false;
-          btn.innerHTML = '重试';
-          qs('#pw').style.display = 'none';
-        }
-      };
-
-      g.reIndex = async (i) => {
-        const d = dirs[i];
-        if (!d) return;
-        try {
-          await invoke('index_directory_bg', { path: d.path });
-          startIPolling(d.path);
-          toast('重新索引已启动: ' + d.path.split('/').pop(), 'in');
-        } catch (e) {
-          toast('失败: ' + (e?.message ?? e), 'er');
-        }
-      };
-
-      g.stopIndexing = async () => {
-        ipolling = false;
-        qs('#ipb').style.display = 'none';
-        toast('已停止显示进度（索引在后台继续）', 'in');
-      };
-
-      // ── Indexing progress polling ─────────────────────────────────────────────────
-      function startIPolling(path) {
-        ipolling = true;
-        qs('#ipb').style.display = 'block';
-        pollIndexing();
-      }
-
-      async function pollIndexing() {
-        if (!ipolling) return;
-        try {
-          const jobs = await invoke('get_indexing_status');
-          const running = (jobs || []).filter(j => j.running);
-
-          if (running.length > 0) {
-            const j = running[0];
-            qs('#ipb-txt').textContent = `索引中: ${j.path.split('/').pop()} · ${j.new_files} 个新文件`;
-            await loadStats();
-            setTimeout(pollIndexing, 1500);
-          } else {
-            // All done
-            ipolling = false;
-            qs('#ipb').style.display = 'none';
-            await loadStats();
-
-            const done = (jobs || []).filter(j => !j.running);
-            for (const j of done) {
-              const idx = dirs.findIndex(d => d.path === j.path);
-              if (idx >= 0) {
-                dirs[idx].files = (dirs[idx].files ?? 0) + j.new_files;
-                saveDirs();
-              }
-              if (j.error) {
-                toast(`索引失败 ${j.path.split('/').pop()}: ${j.error}`, 'er');
-              } else if (j.new_files > 0) {
-                toast(`索引完成 · ${j.new_files} 个新文件`, 'ok');
-              } else {
-                toast('索引完成 · 文件均已是最新', 'in');
-              }
-            }
-            renderDirs();
-            const v = qs('#q').value.trim();
-            if (v) search(v); else browse();
-          }
-        } catch (e) {
-          setTimeout(pollIndexing, 3000);
-        }
-      }
-
-      // ── Watcher ───────────────────────────────────────────────────────────────────
-      async function startWatcher(path) {
-        try {
-          await invoke('watch_directory', { path });
-          watchers.push(path);
-          const idx = dirs.findIndex(d => d.path === path);
-          if (idx >= 0) { dirs[idx].watching = true; saveDirs(); renderDirs(); }
-          renderWatchers();
-          toast('实时监听已启动: ' + path.split('/').pop(), 'ok');
-        } catch (e) {
-          toast('监听失败: ' + (e?.message ?? e), 'wn');
-        }
-      }
-
-      function renderWatchers() {
-        const el = qs('#wl'), cnt = qs('#wc');
-        if (watchers.length === 0) {
-          el.innerHTML = '<div style="font-size:11px;color:var(--mu2)">暂无监听</div>';
-          cnt.style.display = 'none'; return;
-        }
-        cnt.textContent = watchers.length; cnt.style.display = 'inline';
-        el.innerHTML = watchers.map(w =>
-          `<div class="dr"><span class="dlive"></span><span class="dp" title="${esc(w)}">${esc(w.split('/').pop())}</span></div>`
-        ).join('');
-      }
-
-      // ── Models ────────────────────────────────────────────────────────────────────
-      g.openModels = () => qs('#mdl-modal').classList.add('open');
-      g.closeModels = () => qs('#mdl-modal').classList.remove('open');
-
-      g.dlModel = async (id, btn) => {
-        btn.disabled = true;
-        btn.innerHTML = '<div class="sspin"></div>';
-        try {
-          await invoke('download_model', { modelId: id });
-          btn.innerHTML = '✓ 已下载';
-          btn.className = 'btn ok';
-          toast(`模型下载完成: ${id.split('/').pop()}`, 'ok');
-          qs('#model-status').className = 'mb ok';
-          qs('#model-status').textContent = '✓ ' + id.split('/').pop();
-        } catch (e) {
-          btn.disabled = false;
-          btn.innerHTML = '重试';
-          toast('下载失败: ' + (e?.message ?? e), 'er');
-        }
-      };
-
-      // ── Search ─────────────────────────────────────────────────────────────────────
-      g.doSearch = () => {
-        const v = qs('#q').value.trim();
-        if (v) search(v);
-      };
-
-      async function search(text) {
-        if (!text.trim()) return;
-        showLoad();
+      async function doSearch(text) {
+        showLoad('搜索中…');
         const t0 = Date.now();
         const ft = filter === 'all' ? null : filter === 'pdf' ? ['text'] : [filter];
         try {
           const rs = await invoke('search_files', {
-            query: { text, mode: qs('#mode').value, limit: 50, offset: 0, file_types: ft }
+            query: { text, mode: searchMode, limit: 60, offset: 0, file_types: ft }
           });
-          const ms = Date.now() - t0;
-          renderResults(rs || [], text, ms);
+          renderResults(rs || [], text, Date.now() - t0);
         } catch (e) {
           toast('搜索失败: ' + (e?.message ?? e), 'er');
           showEmpty();
@@ -1333,12 +1509,12 @@
       }
 
       function renderResults(rs, q, ms) {
-        const ra = qs('#ra'), rm = qs('#rm');
-        if (!rs || rs.length === 0) {
+        const rm = qs('#rmeta'), ra = qs('#ra');
+        if (!rs.length) {
           ra.innerHTML = `<div class="em"><div class="em-ico">📭</div>
-      <div class="em-t">无匹配结果</div>
-      <p>尝试其他关键词，或<button class="btn bg" style="padding:3px 10px;font-size:12px;margin:0 4px" onclick="g.openIdx()">索引更多目录</button></p></div>`;
-          rm.innerHTML = `<span>未找到 "${esc(q)}" 的结果</span><span style="color:var(--mu2)">${ms}ms</span>`;
+      <div class="em-t">无结果</div>
+      <p>未找到「${esc(q)}」，尝试不同关键词或切换为关键词搜索模式。</p></div>`;
+          rm.innerHTML = `<span>0 条结果</span><span>${ms}ms</span>`;
           rm.style.display = 'flex'; return;
         }
         rm.innerHTML = `<span><b style="color:var(--tx)">${rs.length}</b> 条结果</span><span style="color:var(--mu2)">${ms}ms · ${esc(q)}</span>`;
@@ -1350,138 +1526,513 @@
           const cls = pdf ? 'tb-p' : { text: 'tb-t', image: 'tb-i', audio: 'tb-a', video: 'tb-v', unknown: 'tb-u' }[ft] ?? 'tb-u';
           const lbl = pdf ? 'PDF' : { text: 'TXT', image: 'IMG', audio: 'AUDIO', video: 'VIDEO', unknown: '?' }[ft] ?? ft.toUpperCase();
           const pct = ((r.score ?? 0) * 100).toFixed(0);
-          const snip = r.snippet ? esc(r.snippet.slice(0, 200)) : '';
-          return `<div class="rc" onclick="open('${esc(r.file_record?.path ?? '')}')">
+          const sn = r.snippet ? esc(r.snippet.slice(0, 200)) : '';
+          return `<div class="rc" onclick="openFile('${esc(r.file_record?.path ?? '')}')">
       <div class="rt"><span class="tb ${cls}">${lbl}</span>
         <span class="rn" title="${esc(r.file_record?.path ?? '')}">${esc(nm)}</span>
         <span class="rsc">${pct}%</span></div>
-      ${snip ? `<div class="rs2">${snip}</div>` : ''}
+      ${sn ? `<div class="rs2">${sn}</div>` : ''}
       <div class="rp">${esc(r.file_record?.path ?? '')}</div>
     </div>`;
         }).join('');
       }
 
-      // ── File browser ──────────────────────────────────────────────────────────────
-      g.browse = async () => {
-        showLoad('加载文件…');
-        try {
-          const fs = await invoke('list_files', { limit: 100, offset: 0 });
-          const rm = qs('#rm');
-          if (!fs || fs.length === 0) { showEmpty(); return; }
-          rm.innerHTML = `<span><b style="color:var(--tx)">${fs.length}</b> 个文件</span><span></span>`;
-          rm.style.display = 'flex';
-          qs('#ra').innerHTML = fs.map(f => {
-            const ft = (f.file_type ?? 'unknown').toLowerCase();
-            const nm = (f.path ?? '').split('/').pop() ?? '?';
-            const pdf = nm.toLowerCase().endsWith('.pdf');
-            const cls = pdf ? 'tb-p' : { text: 'tb-t', image: 'tb-i', audio: 'tb-a', video: 'tb-v', unknown: 'tb-u' }[ft] ?? 'tb-u';
-            return `<div class="rc" onclick="open('${esc(f.path ?? '')}')">
-        <div class="rt"><span class="tb ${cls}">${pdf ? 'PDF' : ft.toUpperCase()}</span>
-          <span class="rn">${esc(nm)}</span>
-          <span style="margin-left:auto;font-size:11px;color:var(--mu)">${fmtSz(f.size ?? 0)}</span></div>
-        <div class="rp">${esc(f.path ?? '')}</div>
-      </div>`;
-          }).join('');
-        } catch (e) { toast('加载失败: ' + (e?.message ?? e), 'er'); showEmpty(); }
+      // ── Index: directories ────────────────────────────────────────────────────────
+      g.openAddDir = () => { qs('#add-modal').classList.add('open'); qs('#dir-input').focus(); };
+      g.closeAdd = () => {
+        qs('#add-modal').classList.remove('open');
+        qs('#add-btn').disabled = false;
+        qs('#add-btn').innerHTML = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg> 开始索引';
       };
 
-      async function open(path) {
-        if (!path) return;
-        try { await window.__TAURI__?.shell?.open?.(path); }
-        catch (_) { navigator.clipboard?.writeText(path).then(() => toast('路径已复制', 'in')); }
+      g.pickDir = async () => {
+        const btn = qs('#pick-btn');
+        btn.disabled = true;
+        console.log('[pickDir] invoking pick_directory');
+        try {
+          const d = await invoke('pick_directory');
+          console.log('[pickDir] result:', d);
+          if (d) {
+            qs('#dir-input').value = d;
+          } else {
+            console.warn('[pickDir] returned null/undefined — user cancelled or dialog failed');
+            toast('文件夹选择已取消或失败，请手动输入路径', 'wn');
+          }
+        } catch (e) {
+          console.error('[pickDir] invoke error:', e);
+          toast('浏览失败: ' + (e?.message ?? JSON.stringify(e)), 'er');
+        }
+        finally { btn.disabled = false; }
+      };
+
+      g.doAdd = async () => {
+        const path = qs('#dir-input').value.trim();
+        if (!path) { toast('请输入或选择目录路径', 'wn'); return; }
+
+        const btn = qs('#add-btn');
+        btn.disabled = true;
+        btn.innerHTML = '<div class="sspin"></div> 启动中…';
+
+        console.log('[doAdd] invoking index_directory_bg with path:', path);
+        try {
+          await invoke('index_directory_bg', { path });
+          console.log('[doAdd] index_directory_bg returned OK');
+          // Register in localStorage
+          if (!dirs.find(d => d.path === path)) {
+            dirs.push({ path, files: 0, watching: false, state: 'indexing' });
+            saveDirs();
+          } else {
+            dirs.find(d => d.path === path).state = 'indexing';
+            saveDirs();
+          }
+          if (qs('#watch-cb').checked) startWatch(path);
+          g.closeAdd();
+          g.nav('index', document.querySelector('[data-v=index]'));
+          startIPolling();
+          toast('索引已在后台启动', 'in');
+        } catch (e) {
+          console.error('[doAdd] index_directory_bg failed:', e);
+          toast('失败: ' + (e?.message ?? JSON.stringify(e)), 'er');
+          btn.disabled = false;
+          btn.innerHTML = '重试';
+        }
+      };
+
+      function renderDirs() {
+        const el = qs('#dirs-list');
+        if (!dirs.length) {
+          el.innerHTML = `<div class="em" style="height:auto;padding:30px 20px">
+      <div class="em-ico" style="font-size:36px">📂</div>
+      <div class="em-t" style="font-size:15px">还没有索引任何目录</div>
+      <p>点击「添加目录」选择要索引的文件夹。</p>
+      <div class="em-acts"><button class="btn bp" onclick="g.openAddDir()">添加目录</button></div>
+    </div>`; return;
+        }
+        el.innerHTML = dirs.map((d, i) => {
+          const name = d.path.split('/').filter(Boolean).pop() ?? d.path;
+          const isIndexing = d.state === 'indexing';
+          const stateBadge = isIndexing
+            ? `<span class="badge badge-dl"><div class="sspin" style="border-top-color:var(--acc)"></div> 索引中</span>`
+            : `<span class="badge badge-ok">✓ ${d.files ?? 0} 个文件</span>`;
+          return `<div class="dc">
+      <div class="dc-top">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--mu)" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+        <span class="dc-path" title="${esc(d.path)}">${esc(name)}</span>
+        ${stateBadge}
+        <div class="dc-actions">
+          <button class="ib" onclick="g.reindex(${i})" title="重新索引">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+          </button>
+          <button class="ib" onclick="g.toggleWatch(${i})" title="${d.watching ? '停止监听' : '开始监听'}">
+            ${d.watching
+              ? `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--green)" stroke-width="2"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5M2 12l10 5 10-5"/></svg>`
+              : `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5M2 12l10 5 10-5"/></svg>`
+            }
+          </button>
+          <button class="ib ibr" onclick="g.removeDir(${i})" title="移除">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6M9 6V4h6v2"/></svg>
+          </button>
+        </div>
+      </div>
+      <div class="dc-meta">
+        <span>📁 ${esc(d.path)}</span>
+        ${d.watching ? '<span style="color:var(--green)">● 监听中</span>' : ''}
+      </div>
+      ${isIndexing ? '<div class="pb" style="display:block"><div class="pf ani" style="width:100%"></div></div>' : ''}
+    </div>`;
+        }).join('');
       }
+
+      g.reindex = async (i) => {
+        const d = dirs[i]; if (!d) return;
+        try {
+          await invoke('index_directory_bg', { path: d.path });
+          dirs[i].state = 'indexing'; saveDirs(); renderDirs();
+          startIPolling();
+          toast('重新索引已启动', 'in');
+        } catch (e) { toast('失败: ' + (e?.message ?? e), 'er'); }
+      };
+
+      g.toggleWatch = async (i) => {
+        const d = dirs[i]; if (!d) return;
+        if (d.watching) {
+          try { await invoke('stop_watching'); dirs[i].watching = false; saveDirs(); renderDirs(); toast('监听已停止', 'in'); }
+          catch (e) { toast('停止失败: ' + (e?.message ?? e), 'er'); }
+        } else {
+          startWatch(d.path, i);
+        }
+      };
+
+      async function startWatch(path, idx) {
+        try {
+          await invoke('watch_directory', { path });
+          const i = idx ?? dirs.findIndex(d => d.path === path);
+          if (i >= 0) { dirs[i].watching = true; saveDirs(); renderDirs(); }
+          toast('实时监听已启动', 'ok');
+        } catch (e) { toast('监听失败: ' + (e?.message ?? e), 'er'); }
+      }
+
+      g.removeDir = (i) => {
+        const d = dirs[i]; if (!d) return;
+        if (!confirm(`从列表中移除 ${d.path} ？\n（仅移除记录，不删除已索引数据）`)) return;
+        dirs.splice(i, 1); saveDirs(); renderDirs();
+      };
+
+      function saveDirs() { localStorage.setItem('mn-dirs', JSON.stringify(dirs)); }
+
+      // ── Index: file browser ───────────────────────────────────────────────────────
+      let allFiles = [];
+
+      g.loadFiles = async () => {
+        if (curView !== 'index') return;
+        fileOffset = 0; allFiles = [];
+        qs('#files-sec').style.display = 'none';
+        try {
+          const fs = await invoke('list_files', { limit: PER_PAGE, offset: 0 });
+          if (!fs || !fs.length) return;
+          allFiles = fs; fileOffset = fs.length;
+          qs('#files-sec').style.display = 'block';
+          qs('#file-count').textContent = fs.length + (fs.length >= PER_PAGE ? '+' : '') + ' 个文件';
+          renderFileList(fs);
+          qs('#file-more').style.display = fs.length >= PER_PAGE ? 'block' : 'none';
+        } catch (_) { }
+      };
+
+      g.loadMoreFiles = async () => {
+        try {
+          const fs = await invoke('list_files', { limit: PER_PAGE, offset: fileOffset });
+          if (!fs?.length) { qs('#file-more').style.display = 'none'; return; }
+          allFiles = [...allFiles, ...fs]; fileOffset += fs.length;
+          renderFileList(allFiles);
+          qs('#file-more').style.display = fs.length >= PER_PAGE ? 'block' : 'none';
+        } catch (_) { }
+      };
+
+      function renderFileList(files) {
+        qs('#file-list').innerHTML = files.map(f => {
+          const ft = (f.file_type ?? 'unknown').toLowerCase();
+          const nm = (f.path ?? '').split('/').pop() ?? '?';
+          const pdf = nm.toLowerCase().endsWith('.pdf');
+          const cls = pdf ? 'tb-p' : { text: 'tb-t', image: 'tb-i', audio: 'tb-a', video: 'tb-v', unknown: 'tb-u' }[ft] ?? 'tb-u';
+          const lbl = pdf ? 'PDF' : { text: 'TXT', image: 'IMG', audio: 'AUDIO', video: 'VIDEO', unknown: '?' }[ft] ?? ft.toUpperCase();
+          return `<div class="file-row">
+      <span class="tb ${cls}" style="flex-shrink:0">${lbl}</span>
+      <span class="file-name">${esc(nm)}</span>
+      <span class="file-path">${esc((f.path ?? '').replace(/\/[^/]+$/, ''))}</span>
+      <span class="file-sz">${fmtSz(f.size ?? 0)}</span>
+      <button class="ib ibr" style="flex-shrink:0" onclick="g.delFile('${esc(f.id)}','${esc(nm)}')" title="删除">
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/></svg>
+      </button>
+    </div>`;
+        }).join('');
+      }
+
+      g.delFile = async (id, nm) => {
+        if (!confirm(`从索引中删除「${nm}」？`)) return;
+        try {
+          await invoke('remove_file', { id });
+          allFiles = allFiles.filter(f => f.id !== id);
+          renderFileList(allFiles);
+          toast(`已删除: ${nm}`, 'ok');
+          await loadStats();
+        } catch (e) { toast('删除失败: ' + (e?.message ?? e), 'er'); }
+      };
+
+      // ── Models ────────────────────────────────────────────────────────────────────
+      const MODEL_CATALOG = [
+        {
+          id: 'sentence-transformers/all-MiniLM-L6-v2',
+          name: 'all-MiniLM-L6-v2',
+          desc: '推荐：轻量级英文文本嵌入，384 维，适合个人使用',
+          tags: ['384维', '90MB', '轻量', '英文'],
+          lang: 'en'
+        },
+        {
+          id: 'sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2',
+          name: 'paraphrase-multilingual-MiniLM-L12-v2',
+          desc: '多语言模型，支持中文、英文等 50 种语言的语义搜索',
+          tags: ['384维', '470MB', '多语言', '中文'],
+          lang: 'multi'
+        },
+        {
+          id: 'sentence-transformers/all-mpnet-base-v2',
+          name: 'all-mpnet-base-v2',
+          desc: '高质量英文嵌入，768 维，搜索精度更高',
+          tags: ['768维', '420MB', '高质量', '英文'],
+          lang: 'en'
+        },
+      ];
+
+      async function loadModelList() {
+        // Render catalog
+        qs('#model-cards').innerHTML = MODEL_CATALOG.map(m => `
+    <div class="mcard">
+      <div class="mcard-top">
+        <div>
+          <div class="mcard-name">${esc(m.name)}</div>
+          <div class="mcard-id" style="color:var(--mu2)">${esc(m.id)}</div>
+        </div>
+        <button class="btn bg" id="dl-${btoa(m.id).replace(/=/g, '')}"
+          onclick="g.dlModel('${esc(m.id)}',this)" style="flex-shrink:0">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          下载
+        </button>
+      </div>
+      <div class="mcard-desc">${esc(m.desc)}</div>
+      <div class="mcard-tags">${m.tags.map(t => `<span class="mtag">${t}</span>`).join('')}</div>
+      <div class="mprog" id="prog-${btoa(m.id).replace(/=/g, '')}">
+        <div style="font-size:11px;color:var(--mu);margin-bottom:4px" id="prog-t-${btoa(m.id).replace(/=/g, '')}">下载中…</div>
+        <div class="mpbar"><div class="mpfill"></div></div>
+      </div>
+    </div>
+  `).join('');
+
+        // Load downloaded models
+        try {
+          const models = await invoke('list_models');
+          if (models?.length) {
+            qs('#downloaded-models').style.display = 'block';
+            qs('#dl-list').innerHTML = models.map(m =>
+              `<div class="file-row">
+          <span class="badge badge-ok" style="flex-shrink:0">✓</span>
+          <span class="file-name">${esc(m.model_id)}</span>
+          <span class="file-path">${esc(m.local_path)}</span>
+        </div>`
+            ).join('');
+          }
+        } catch (_) { }
+      }
+
+      g.dlModel = async (id, btn) => {
+        const key = btoa(id).replace(/=/g, '');
+        btn.disabled = true;
+        btn.innerHTML = '<div class="sspin"></div>';
+        const prog = qs(`#prog-${key}`);
+        if (prog) prog.style.display = 'block';
+        try {
+          await invoke('download_model', { modelId: id });
+          btn.innerHTML = '✓ 已下载';
+          btn.className = 'btn';
+          btn.style.color = 'var(--green)';
+          const pt = qs(`#prog-t-${key}`);
+          if (pt) pt.textContent = '下载完成！需重新构建 app 才能使用。';
+          qs('#cur-model').className = 'badge badge-ok';
+          qs('#cur-model').textContent = '✓ ' + id.split('/').pop();
+          toast(`模型下载完成: ${id.split('/').pop()}`, 'ok');
+          loadModelList();
+        } catch (e) {
+          btn.disabled = false;
+          btn.innerHTML = '重试';
+          if (prog) prog.style.display = 'none';
+          toast('下载失败: ' + (e?.message ?? e), 'er');
+        }
+      };
+
+      // ── Settings ──────────────────────────────────────────────────────────────────
+      function updateSettings() {
+        loadStats().then(s => {
+          if (s) {
+            qs('#s-files').textContent = (s.total_files ?? 0).toLocaleString();
+            qs('#s-chunks').textContent = (s.total_chunks ?? 0).toLocaleString();
+          }
+        });
+
+        qs('#cli-ref').textContent =
+          `# 索引目录（递归）
+mnemosyne index ~/Documents
+
+# 搜索（混合/向量/关键词）
+mnemosyne search "机器学习" --mode hybrid
+mnemosyne search "async rust" --mode keyword --limit 20
+mnemosyne search "查询文本" --json
+
+# 实时监听目录
+mnemosyne watch ~/Documents
+
+# 查看统计
+mnemosyne stats
+
+# 列出已索引文件
+mnemosyne list --limit 50
+
+# 删除文件记录
+mnemosyne remove <file-id>
+
+# 下载嵌入模型
+mnemosyne model-download sentence-transformers/all-MiniLM-L6-v2
+
+# 启动 REST API
+mnemosyne serve --port 8080`;
+      }
+
+      g.confirmClear = () => {
+        if (!confirm('确认清空所有索引数据？此操作不可撤销！')) return;
+        toast('清空功能需在 CLI 执行：rm ~/.mnemosyne/db.sqlite', 'wn');
+      };
 
       // ── Stats ──────────────────────────────────────────────────────────────────────
       async function loadStats() {
         try {
           const s = await invoke('get_stats');
-          if (!s) return;
+          if (!s) return null;
           qs('#sf').textContent = (s.total_files ?? 0).toLocaleString();
           qs('#sc').textContent = (s.total_chunks ?? 0).toLocaleString();
-          qs('#fc-a').textContent = s.total_files ?? 0;
           const ft = s.files_by_type ?? {};
-          qs('#fc-t').textContent = ft['Text'] ?? '';
-          qs('#fc-i').textContent = ft['Image'] ?? '';
-          qs('#fc-au').textContent = ft['Audio'] ?? '';
-          qs('#fc-v').textContent = ft['Video'] ?? '';
-        } catch (_) { }
+          qs('#fa').textContent = s.total_files ?? 0;
+          qs('#ft_').textContent = ft['Text'] ?? '';
+          qs('#fp').textContent = ft['Pdf'] ?? ft['Text'] ?? '';
+          qs('#fi').textContent = ft['Image'] ?? '';
+          qs('#fau').textContent = ft['Audio'] ?? '';
+          qs('#fv').textContent = ft['Video'] ?? '';
+          return s;
+        } catch (_) { return null; }
       }
 
-      g.refresh = async () => { await loadStats(); const v = qs('#q').value.trim(); if (v) search(v); toast('已刷新', 'in'); };
+      // ── Engine readiness ──────────────────────────────────────────────────────────
+      let engineReady = false;
 
-      // ── UI helpers ─────────────────────────────────────────────────────────────────
+      async function checkEngine() {
+        try {
+          const s = await invoke('get_stats');
+          if (s !== null) {
+            engineReady = true;
+            qs('#eng').className = 'eng-dot ready';
+            qs('#eng').title = '引擎就绪';
+            qs('#sf').textContent = (s?.total_files ?? 0).toLocaleString();
+            qs('#sc').textContent = (s?.total_chunks ?? 0).toLocaleString();
+            return true;
+          }
+        } catch (_) { }
+        qs('#eng').className = 'eng-dot loading';
+        return false;
+      }
+
+      // ── Progress polling ──────────────────────────────────────────────────────────
+      function startIPolling() {
+        if (iPolling) return;
+        iPolling = true;
+        qs('#ipb').style.display = 'block';
+        pollIndex();
+      }
+
+      async function pollIndex() {
+        if (!iPolling) return;
+        try {
+          const jobs = await invoke('get_indexing_status');
+          const running = (jobs || []).filter(j => j.running);
+          if (running.length) {
+            const j = running[0];
+            qs('#ipb-t').textContent = `索引中: ${j.path.split('/').pop()} · ${j.new_files} 个新文件`;
+            await loadStats();
+            if (curView === 'index') renderDirs();
+            setTimeout(pollIndex, 1500);
+          } else {
+            iPolling = false;
+            qs('#ipb').style.display = 'none';
+            await loadStats();
+
+            for (const j of (jobs || []).filter(j => !j.running)) {
+              const idx = dirs.findIndex(d => d.path === j.path);
+              if (idx >= 0) { dirs[idx].files = (dirs[idx].files ?? 0) + (j.new_files ?? 0); dirs[idx].state = 'done'; saveDirs(); }
+              if (j.error) toast(`索引失败: ${j.error}`, 'er');
+              else if (j.new_files > 0) toast(`索引完成 · +${j.new_files} 个文件`, 'ok');
+              else toast('索引完成 · 文件均已是最新', 'in');
+            }
+            if (curView === 'index') { renderDirs(); g.loadFiles(); }
+          }
+        } catch (_) { setTimeout(pollIndex, 3000); }
+      }
+
+      g.hideProgress = () => { iPolling = false; qs('#ipb').style.display = 'none'; };
+
+      // ── Helpers ───────────────────────────────────────────────────────────────────
       function showEmpty() {
         qs('#ra').innerHTML = `<div class="em" id="es">
-    <div class="em-ico">🗂️</div><div class="em-t">开始使用 Mnemosyne</div>
-    <p>索引本地文件后，即可用自然语言搜索文本、图片、音频、视频内容。</p>
-    <div class="em-act">
-      <button class="btn bp" onclick="g.openIdx()">选择目录索引</button>
-      <button class="btn bg" onclick="g.browse()">浏览已索引文件</button>
+    <div class="em-ico">🔍</div><div class="em-t">智能文件搜索</div>
+    <p>先在「索引」标签页添加目录，然后用自然语言搜索任何文件内容。</p>
+    <div class="em-acts">
+      <button class="btn bp" onclick="g.nav('index',document.querySelector('[data-v=index]'))">前往索引</button>
+      <button class="btn bg" onclick="g.loadFiles();g.nav('index',document.querySelector('[data-v=index]'))">浏览文件</button>
     </div></div>`;
-        qs('#rm').style.display = 'none';
+        qs('#rmeta').style.display = 'none';
       }
-      function showLoad(t = '搜索中…') {
-        qs('#ra').innerHTML = `<div class="ld"><div class="spin"></div><div style="font-size:13px">${t}</div></div>`;
+
+      function showLoad(t) {
+        qs('#ra').innerHTML = `<div class="em"><div class="spin"></div><div style="font-size:13px;color:var(--mu)">${t}</div></div>`;
       }
-      g.clearQ = () => { qs('#q').value = ''; qs('#qc').style.display = 'none'; showEmpty(); qs('#rm').style.display = 'none'; };
+
+      async function openFile(path) {
+        if (!path) return;
+        try { await window.__TAURI__?.shell?.open?.(path); }
+        catch (_) { navigator.clipboard?.writeText(path).then(() => toast('路径已复制', 'in')); }
+      }
+      window.openFile = openFile;
 
       function toast(msg, t = 'in') {
         const w = qs('#tw');
         const el = document.createElement('div');
-        const ic = { ok: '✓', er: '✗', wn: '⚠', in: 'ℹ' };
         el.className = `to ${t}`;
-        el.innerHTML = `<span>${ic[t] ?? ''}</span><span>${esc(msg)}</span>`;
+        el.innerHTML = `<span>${{ ok: '✓', er: '✗', wn: '⚠', in: 'ℹ' }[t] ?? ''}</span><span>${esc(msg)}</span>`;
         w.appendChild(el);
         requestAnimationFrame(() => el.classList.add('show'));
         setTimeout(() => { el.classList.remove('show'); setTimeout(() => el.remove(), 300); }, 3500);
       }
-      g.toast = toast;
 
-      const esc = s => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
       const qs = s => document.querySelector(s);
+      const esc = s => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
       const fmtSz = n => n < 1024 ? n + ' B' : n < 1048576 ? (n / 1024).toFixed(1) + ' KB' : (n / 1048576).toFixed(1) + ' MB';
 
-      // ── Keyboard shortcuts ─────────────────────────────────────────────────────────
-      const qEl = qs('#q');
+      // ── Keyboard ──────────────────────────────────────────────────────────────────
+      const qEl = () => qs('#q');
       document.addEventListener('keydown', e => {
-        if (e.key === '/' && document.activeElement !== qEl) { e.preventDefault(); qEl.focus(); qEl.select(); return; }
-        if (e.key === 'Escape') {
-          if (qs('#idx-modal').classList.contains('open')) { g.closeIdx(); return; }
-          if (qs('#mdl-modal').classList.contains('open')) { g.closeModels(); return; }
-          if (qEl.value) { g.clearQ(); return; }
+        if (e.key === '/' && document.activeElement !== qs('#q')) {
+          e.preventDefault();
+          g.nav('search', document.querySelector('[data-v=search]'));
+          qs('#q').focus(); return;
         }
-        if ((e.metaKey || e.ctrlKey) && e.key === 'i') { e.preventDefault(); g.openIdx(); }
-        if ((e.metaKey || e.ctrlKey) && e.key === 'r') { e.preventDefault(); g.refresh(); }
+        if (e.key === 'Escape') {
+          if (qs('#add-modal').classList.contains('open')) { g.closeAdd(); return; }
+          if (qs('#q').value) { g.clearQ(); return; }
+        }
+        if ((e.metaKey || e.ctrlKey) && e.key === 'i') { e.preventDefault(); g.nav('index', document.querySelector('[data-v=index]')); }
       });
 
-      qEl.addEventListener('input', () => {
-        const v = qEl.value.trim();
+      qs('#q').addEventListener('input', () => {
+        const v = qs('#q').value.trim();
         qs('#qc').style.display = v ? 'flex' : 'none';
-        clearTimeout(stimer);
+        clearTimeout(srTimer);
         if (!v) { g.clearQ(); return; }
-        stimer = setTimeout(() => search(v), 320);
+        srTimer = setTimeout(() => doSearch(v), 300);
       });
 
-      qs('#idx-modal').addEventListener('click', e => { if (e.target === e.currentTarget) g.closeIdx(); });
-      qs('#mdl-modal').addEventListener('click', e => { if (e.target === e.currentTarget) g.closeModels(); });
-      qs('#ip').addEventListener('keydown', e => { if (e.key === 'Enter') g.startIdx(); });
+      qs('#add-modal').addEventListener('click', e => { if (e.target === e.currentTarget) g.closeAdd(); });
+      qs('#dir-input').addEventListener('keydown', e => { if (e.key === 'Enter') g.doAdd(); });
 
-      // ── Boot ─────────────────────────────────────────────────────────────────────
+      // ── Boot ──────────────────────────────────────────────────────────────────────
       renderDirs();
-      renderWatchers();
 
-      setTimeout(async () => {
+      // Poll for engine readiness then load data
+      async function bootPoll() {
+        const ready = await checkEngine();
+        if (!ready) { setTimeout(bootPoll, 600); return; }
+
         await loadStats();
+
+        // Restore any in-progress indexing
+        try {
+          const jobs = await invoke('get_indexing_status');
+          if ((jobs || []).some(j => j.running)) startIPolling();
+        } catch (_) { }
+
+        // Show files if any indexed
         try {
           const s = await invoke('get_stats');
-          if (s && (s.total_files ?? 0) > 0) await g.browse();
-          // Resume polling if app restarted mid-index
-          const jobs = await invoke('get_indexing_status').catch(() => []);
-          if ((jobs || []).some(j => j.running)) {
-            ipolling = true; qs('#ipb').style.display = 'block'; pollIndexing();
+          if (s && (s.total_files ?? 0) > 0) {
+            // Preload files for index view when user switches
           }
         } catch (_) { }
-      }, 800);
+      }
+      bootPoll();
     </script>
 </body>
 
