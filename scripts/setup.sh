@@ -140,7 +140,28 @@ if [[ "$SKIP_GUI" == "false" ]]; then
       npm install --prefer-offline
       info "Building Tauri app..."
       cargo tauri build
-      success "GUI bundle ready in src-tauri/target/release/bundle/"
+
+      # ── Post-build: inject TCC usage descriptions + re-sign ──────────────
+      APP="target/release/bundle/macos/Mnemosyne.app"
+      ENT="src-tauri/entitlements.plist"
+      if [[ -d "$APP" ]]; then
+        info "Injecting TCC permission descriptions into Info.plist..."
+        for kv in \
+          "NSDownloadsFolderUsageDescription:Mnemosyne 需要访问下载文件夹以索引您的文件。" \
+          "NSDocumentsFolderUsageDescription:Mnemosyne 需要访问文稿文件夹以索引您的文件。" \
+          "NSDesktopFolderUsageDescription:Mnemosyne 需要访问桌面以索引您的文件。"
+        do
+          k="${kv%%:*}"; v="${kv#*:}"
+          /usr/libexec/PlistBuddy -c "Delete :$k" "$APP/Contents/Info.plist" 2>/dev/null || true
+          /usr/libexec/PlistBuddy -c "Add :$k string '$v'" "$APP/Contents/Info.plist"
+        done
+        codesign --force --deep --sign "-" --entitlements "$ENT" "$APP"
+        success "GUI bundle ready in target/release/bundle/"
+        
+        # Reset TCC so macOS shows fresh permission dialogs on first launch
+        tccutil reset All com.mnemosyne.app 2>/dev/null || true
+        info "TCC permissions reset — app will request access on first launch"
+      fi
     fi
   else
     warn "Node.js not found — skipping GUI build."
