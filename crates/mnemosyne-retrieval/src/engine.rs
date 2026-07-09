@@ -54,13 +54,39 @@ impl SearchEngine {
 
         let mut stats = IndexStats::default();
 
+        // Walk directory, logging every error and unsupported file so we can diagnose issues
+        let mut total_walked = 0usize;
+        let mut walkdir_errors = 0usize;
+        let mut unsupported_count = 0usize;
         let entries: Vec<_> = WalkDir::new(&dir)
             .follow_links(true)
             .into_iter()
-            .filter_map(|e| e.ok())
+            .filter_map(|e| match e {
+                Ok(entry) => { total_walked += 1; Some(entry) }
+                Err(err) => {
+                    walkdir_errors += 1;
+                    warn!("[index_directory] WalkDir error: {}", err);
+                    None
+                }
+            })
             .filter(|e| e.file_type().is_file())
-            .filter(|e| self.parsers.is_supported(e.path()))
+            .filter(|e| {
+                let supported = self.parsers.is_supported(e.path());
+                if !supported {
+                    let ext = e.path().extension().and_then(|x| x.to_str()).unwrap_or("");
+                    if !ext.is_empty() {
+                        debug!("[index_directory] unsupported extension '{}': {}", ext, e.path().display());
+                        unsupported_count += 1;
+                    }
+                }
+                supported
+            })
             .collect();
+
+        info!(
+            "[index_directory] walk complete: walked={} walkdir_errors={} unsupported={} supported={}",
+            total_walked, walkdir_errors, unsupported_count, entries.len()
+        );
 
         if entries.is_empty() {
             // Check if we can read the directory at all — helps surface TCC denials.
@@ -72,7 +98,12 @@ impl SearchEngine {
                         dir.display()
                     )));
                 }
-                _ => {}
+                Err(e) => {
+                    warn!("[index_directory] read_dir failed: {}", e);
+                }
+                Ok(_) => {
+                    info!("[index_directory] read_dir OK but no supported files found — check extensions");
+                }
             }
         }
 
