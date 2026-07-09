@@ -79,33 +79,62 @@ impl<'a> ChunkRepo<'a> {
 
     pub fn fts_search(&self, query: &str, limit: usize) -> Result<Vec<(String, String, i64, String, f64)>, Error> {
         let conn = self.db.conn.lock().unwrap();
-        let mut stmt = conn
-            .prepare(
-                r#"SELECT dc.id, dc.file_id, dc.chunk_index, dc.content,
-                          bm25(fts_chunks) AS bm25_score
-                   FROM fts_chunks
-                   JOIN document_chunks dc ON dc.rowid = fts_chunks.rowid
-                   WHERE fts_chunks MATCH ?1
-                   ORDER BY bm25_score
-                   LIMIT ?2"#,
-            )
-            .map_err(|e| Error::storage(e.to_string()))?;
+        let char_count = query.chars().count();
 
-        let rows: Vec<_> = stmt
-            .query_map(params![query, limit as i64], |row| {
-                Ok((
-                    row.get::<_, String>(0)?,
-                    row.get::<_, String>(1)?,
-                    row.get::<_, i64>(2)?,
-                    row.get::<_, String>(3)?,
-                    row.get::<_, f64>(4)?,
-                ))
-            })
-            .map_err(|e| Error::storage(e.to_string()))?
-            .filter_map(|r| r.ok())
-            .collect();
+        // FTS5 trigram tokenizer requires >= 3 characters.
+        // For shorter queries we fall back to a LIKE scan.
+        if char_count >= 3 {
+            let mut stmt = conn
+                .prepare(
+                    r#"SELECT dc.id, dc.file_id, dc.chunk_index, dc.content,
+                              bm25(fts_chunks) AS bm25_score
+                       FROM fts_chunks
+                       JOIN document_chunks dc ON dc.rowid = fts_chunks.rowid
+                       WHERE fts_chunks MATCH ?1
+                       ORDER BY bm25_score
+                       LIMIT ?2"#,
+                )
+                .map_err(|e| Error::storage(e.to_string()))?;
 
-        Ok(rows)
+            let rows: Vec<(String, String, i64, String, f64)> = stmt
+                .query_map(params![query, limit as i64], |row| {
+                    Ok((
+                        row.get::<_, String>(0)?,
+                        row.get::<_, String>(1)?,
+                        row.get::<_, i64>(2)?,
+                        row.get::<_, String>(3)?,
+                        row.get::<_, f64>(4)?,
+                    ))
+                })
+                .map_err(|e| Error::storage(e.to_string()))?
+                .filter_map(|r| r.ok())
+                .collect();
+            Ok(rows)
+        } else {
+            // Short query (1-2 chars): LIKE scan on raw content.
+            let pattern = format!("%{query}%");
+            let mut stmt = conn
+                .prepare(
+                    "SELECT id, file_id, chunk_index, content, -1.0 \
+                     FROM document_chunks WHERE content LIKE ?1 LIMIT ?2",
+                )
+                .map_err(|e| Error::storage(e.to_string()))?;
+
+            let rows: Vec<(String, String, i64, String, f64)> = stmt
+                .query_map(params![pattern, limit as i64], |row| {
+                    Ok((
+                        row.get::<_, String>(0)?,
+                        row.get::<_, String>(1)?,
+                        row.get::<_, i64>(2)?,
+                        row.get::<_, String>(3)?,
+                        row.get::<_, f64>(4)?,
+                    ))
+                })
+                .map_err(|e| Error::storage(e.to_string()))?
+                .filter_map(|r| r.ok())
+                .collect();
+            Ok(rows)
+        }
     }
 
     pub fn count(&self) -> Result<u64, Error> {

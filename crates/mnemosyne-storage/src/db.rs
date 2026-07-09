@@ -110,11 +110,13 @@ CREATE TABLE IF NOT EXISTS document_chunks (
 );
 
 -- ── FTS5 full-text index ──────────────────────────────────────────────────────
+-- trigram tokenizer: splits every 3-char window, enables CJK substring search
+-- without a Chinese-specific segmenter.  Queries of >= 3 chars work perfectly.
 CREATE VIRTUAL TABLE IF NOT EXISTS fts_chunks USING fts5(
     content,
     content='document_chunks',
     content_rowid='rowid',
-    tokenize='unicode61'
+    tokenize='trigram'
 );
 
 -- Keep FTS in sync via triggers.

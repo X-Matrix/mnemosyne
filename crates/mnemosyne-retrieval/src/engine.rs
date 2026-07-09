@@ -62,6 +62,20 @@ impl SearchEngine {
             .filter(|e| self.parsers.is_supported(e.path()))
             .collect();
 
+        if entries.is_empty() {
+            // Check if we can read the directory at all — helps surface TCC denials.
+            match std::fs::read_dir(&dir) {
+                Err(e) if e.kind() == std::io::ErrorKind::PermissionDenied => {
+                    return Err(Error::parse(format!(
+                        "Permission denied reading '{}'. \
+                         Please grant access in: System Settings → Privacy & Security → Files and Folders",
+                        dir.display()
+                    )));
+                }
+                _ => {}
+            }
+        }
+
         info!("Found {} supported files", entries.len());
 
         for entry in entries {
