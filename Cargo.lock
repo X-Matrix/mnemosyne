@@ -2997,6 +2997,9 @@ name = "mnemosyne-tauri"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "axum",
+ "base64 0.22.1",
+ "chrono",
  "mnemosyne-core",
  "mnemosyne-retrieval",
  "mnemosyne-storage",
@@ -3006,6 +3009,7 @@ dependencies = [
  "tauri-build",
  "tauri-plugin-dialog",
  "tokio",
+ "tower-http",
  "tracing",
  "tracing-subscriber",
 ]

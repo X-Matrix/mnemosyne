@@ -11,10 +11,10 @@ use std::path::{Path, PathBuf};
 use tracing::info;
 
 /// Base URL for HuggingFace Hub.
-/// Override with `HF_ENDPOINT` environment variable (e.g., for mirror sites).
+/// Override with `HF_ENDPOINT` environment variable to use a different mirror.
 fn hf_endpoint() -> String {
     std::env::var("HF_ENDPOINT")
-        .unwrap_or_else(|_| "https://huggingface.co".to_string())
+        .unwrap_or_else(|_| "https://hf-mirror.com".to_string())
         .trim_end_matches('/')
         .to_string()
 }

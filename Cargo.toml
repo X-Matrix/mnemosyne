@@ -43,7 +43,7 @@ anyhow    = "1"
 
 # ── Logging / tracing ─────────────────────────────────────────────────────────
 tracing            = "0.1"
-tracing-subscriber = { version = "0.3", features = ["env-filter", "fmt"] }
+tracing-subscriber = { version = "0.3", features = ["env-filter", "fmt", "registry"] }
 
 # ── Utilities ─────────────────────────────────────────────────────────────────
 uuid    = { version = "1", features = ["v4"] }
