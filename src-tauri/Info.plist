@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
+  "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <!-- TCC usage descriptions — macOS shows these in the permission dialog -->
+    <key>NSDownloadsFolderUsageDescription</key>
+    <string>Mnemosyne 需要访问下载文件夹以索引您的文件。</string>
+    <key>NSDocumentsFolderUsageDescription</key>
+    <string>Mnemosyne 需要访问文稿文件夹以索引您的文件。</string>
+    <key>NSDesktopFolderUsageDescription</key>
+    <string>Mnemosyne 需要访问桌面以索引您的文件。</string>
+    <key>NSRemovableVolumesUsageDescription</key>
+    <string>Mnemosyne 需要访问外接存储以索引其中的文件。</string>
+</dict>
+</plist>

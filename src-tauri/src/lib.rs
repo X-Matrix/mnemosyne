@@ -18,16 +18,15 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .setup(|app| {
-            let data_dir = app
-                .path()
-                .app_data_dir()
-                .expect("failed to get app data dir");
+            // Use the same DB path as the CLI (~/.mnemosyne/db.sqlite)
+            // so GUI and CLI share the same index.
+            let home = std::env::var("HOME").unwrap_or_else(|_| ".".into());
+            let db_path = std::path::PathBuf::from(home)
+                .join(".mnemosyne")
+                .join("db.sqlite");
 
-            // Initialise SearchEngine asynchronously on the Tokio runtime
-            // and store it in managed state.
             let handle = app.handle().clone();
             tauri::async_runtime::spawn(async move {
-                let db_path = data_dir.join("mnemosyne.sqlite");
                 match mnemosyne_retrieval::SearchEngine::builder()
                     .db_path(&db_path)
                     .build()
@@ -47,6 +46,8 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             commands::search::search_files,
             commands::index::index_directory,
+            commands::index::index_directory_bg,
+            commands::index::get_indexing_status,
             commands::index::pick_directory,
             commands::index::watch_directory,
             commands::index::stop_watching,
