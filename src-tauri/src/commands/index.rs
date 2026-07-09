@@ -235,4 +235,69 @@ pub async fn remove_file(
     engine.remove_file(&id).await.map_err(Into::into)
 }
 
+/// Return a preview payload for the given file path.
+///
+/// - Text files  → `{ type: "text",       content, ext }`
+/// - Image files → `{ type: "image",      data_url, size }` or `{ type: "image_large", size }`
+/// - Others      → `{ type: "binary",     file_type, size, ext }`
+#[tauri::command]
+pub async fn preview_file(path: String) -> Result<serde_json::Value, CommandError> {
+    use mnemosyne_core::types::FileType;
+    use std::path::Path;
 
+    let p   = Path::new(&path);
+    let ext = p.extension().and_then(|e| e.to_str()).unwrap_or("").to_lowercase();
+    let ft  = FileType::from_extension(&ext);
+
+    match ft {
+        FileType::Text => {
+            let raw = tokio::fs::read(p).await.map_err(|e| CommandError { message: e.to_string() })?;
+            // Try UTF-8; fall back to lossy
+            let content: String = String::from_utf8(raw.clone())
+                .unwrap_or_else(|_| String::from_utf8_lossy(&raw).into_owned());
+            let preview: String = content.chars().take(12_000).collect();
+            Ok(serde_json::json!({ "type": "text", "content": preview, "ext": ext }))
+        }
+
+        FileType::Image => {
+            let meta = tokio::fs::metadata(p).await
+                .map_err(|e| CommandError { message: e.to_string() })?;
+
+            const MAX_INLINE: u64 = 6 * 1024 * 1024; // 6 MB
+            if meta.len() > MAX_INLINE {
+                return Ok(serde_json::json!({ "type": "image_large", "size": meta.len(), "ext": ext }));
+            }
+
+            let data = tokio::fs::read(p).await
+                .map_err(|e| CommandError { message: e.to_string() })?;
+            let mime = match ext.as_str() {
+                "jpg" | "jpeg" => "image/jpeg",
+                "png"          => "image/png",
+                "gif"          => "image/gif",
+                "webp"         => "image/webp",
+                "bmp"          => "image/bmp",
+                "svg"          => "image/svg+xml",
+                _              => "image/jpeg",
+            };
+            use base64::Engine as _;
+            let b64 = base64::engine::general_purpose::STANDARD.encode(&data);
+            Ok(serde_json::json!({
+                "type":     "image",
+                "data_url": format!("data:{mime};base64,{b64}"),
+                "size":     data.len(),
+                "ext":      ext
+            }))
+        }
+
+        _ => {
+            let meta = tokio::fs::metadata(p).await
+                .map_err(|e| CommandError { message: e.to_string() })?;
+            Ok(serde_json::json!({
+                "type":      "binary",
+                "file_type": format!("{ft:?}"),
+                "size":      meta.len(),
+                "ext":       ext
+            }))
+        }
+    }
+}

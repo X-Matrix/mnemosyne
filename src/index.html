@@ -1108,6 +1108,227 @@
       border-color: var(--yellow);
       color: var(--yellow)
     }
+
+    /* ── Logs view ───────────────────────────────────────────────────────────── */
+    .log-scroll {
+      flex: 1;
+      overflow-y: auto;
+      padding: 4px 6px;
+      background: var(--bg);
+      font-family: 'SF Mono', Menlo, monospace
+    }
+
+    .log-line {
+      display: flex;
+      gap: 8px;
+      padding: 2px 6px;
+      border-radius: 3px;
+      font-size: 11px;
+      line-height: 1.5;
+      white-space: nowrap;
+      overflow: hidden;
+      cursor: default
+    }
+
+    .log-line:hover {
+      background: var(--sf2)
+    }
+
+    .log-ts {
+      color: var(--mu2);
+      flex-shrink: 0;
+      width: 82px
+    }
+
+    .log-lv {
+      font-weight: 700;
+      flex-shrink: 0;
+      width: 44px
+    }
+
+    .log-tg {
+      color: var(--mu);
+      flex-shrink: 0;
+      max-width: 200px;
+      overflow: hidden;
+      text-overflow: ellipsis
+    }
+
+    .log-msg {
+      flex: 1;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      color: var(--tx)
+    }
+
+    .log-line.ERROR .log-lv {
+      color: var(--red)
+    }
+
+    .log-line.WARN .log-lv {
+      color: var(--yellow)
+    }
+
+    .log-line.INFO .log-lv {
+      color: var(--green)
+    }
+
+    .log-line.DEBUG .log-lv {
+      color: var(--mu)
+    }
+
+    /* ── Preview overlay ─────────────────────────────────────────────────────── */
+    .prev-ov {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, .72);
+      z-index: 250;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      backdrop-filter: blur(5px)
+    }
+
+    .prev-ov.open {
+      display: flex
+    }
+
+    .prev-box {
+      background: var(--sf);
+      border: 1.5px solid var(--bd);
+      border-radius: 12px;
+      width: 720px;
+      max-width: calc(100vw - 40px);
+      max-height: 84vh;
+      display: flex;
+      flex-direction: column;
+      box-shadow: var(--sh)
+    }
+
+    .prev-hd {
+      padding: 14px 18px;
+      border-bottom: 1px solid var(--bd);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-shrink: 0
+    }
+
+    .prev-title {
+      font-size: 14px;
+      font-weight: 700;
+      flex: 1;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap
+    }
+
+    .prev-body {
+      flex: 1;
+      overflow: auto;
+      min-height: 0
+    }
+
+    .prev-txt {
+      font-family: 'SF Mono', Menlo, monospace;
+      font-size: 12px;
+      white-space: pre-wrap;
+      word-break: break-all;
+      color: var(--tx);
+      line-height: 1.65;
+      padding: 16px
+    }
+
+    .prev-img-wrap {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+      min-height: 200px
+    }
+
+    .prev-img {
+      max-width: 100%;
+      max-height: calc(84vh - 100px);
+      object-fit: contain;
+      border-radius: 6px
+    }
+
+    .prev-meta {
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 0
+    }
+
+    .prev-mr {
+      display: flex;
+      gap: 12px;
+      padding: 7px 0;
+      border-bottom: 1px solid var(--bd);
+      font-size: 12px
+    }
+
+    .prev-mk {
+      color: var(--mu);
+      width: 90px;
+      flex-shrink: 0
+    }
+
+    /* ── REST API toggle ─────────────────────────────────────────────────────── */
+    .tog {
+      width: 38px;
+      height: 21px;
+      border-radius: 11px;
+      background: var(--bd);
+      position: relative;
+      cursor: pointer;
+      transition: background .2s;
+      flex-shrink: 0;
+      border: none
+    }
+
+    .tog.on {
+      background: var(--acc)
+    }
+
+    .tog::after {
+      content: '';
+      position: absolute;
+      top: 2.5px;
+      left: 2.5px;
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      background: #fff;
+      transition: transform .18s
+    }
+
+    .tog.on::after {
+      transform: translateX(17px)
+    }
+
+    .api-url {
+      font-family: monospace;
+      font-size: 11px;
+      color: var(--acc);
+      user-select: all
+    }
+
+    /* ── Model category header ────────────────────────────────────────────────── */
+    .mcat-hd {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: .8px;
+      color: var(--mu);
+      font-weight: 600;
+      padding: 14px 0 6px;
+      border-bottom: 1px solid var(--bd);
+      margin-bottom: 10px;
+      display: flex;
+      align-items: center;
+      gap: 6px
+    }
   </style>
 </head>
 
@@ -1160,6 +1381,14 @@
             <circle cx="12" cy="12" r="3" />
             <path d="M19.07 4.93a10 10 0 0 1 0 14.14M4.93 4.93a10 10 0 0 0 0 14.14" />
           </svg>设置
+        </button>
+        <button class="tab" data-v="logs" onclick="g.nav('logs',this)">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+            <polyline points="14 2 14 8 20 8" />
+            <line x1="16" y1="13" x2="8" y2="13" />
+            <line x1="16" y1="17" x2="8" y2="17" />
+          </svg>日志
         </button>
       </nav>
 
@@ -1338,15 +1567,29 @@
             <!-- API Server -->
             <div class="sfm-sec">
               <div class="sfm-title">REST API 服务器</div>
-              <div style="font-size:12px;color:var(--mu);margin-bottom:10px;line-height:1.7">
-                在终端中运行以启动 REST API（GUI 与 API 共享同一数据库）：
+              <!-- In-app API toggle -->
+              <div class="sfm-row" style="align-items:flex-start;flex-direction:column;gap:10px;padding-bottom:12px">
+                <div style="display:flex;align-items:center;gap:10px;width:100%">
+                  <span class="sfm-label">应用内启动</span>
+                  <button class="tog" id="api-tog" onclick="g.toggleApi()"></button>
+                  <span id="api-status-text" style="font-size:12px;color:var(--mu)">已停止</span>
+                  <span id="api-url-badge" class="api-url" style="display:none;margin-left:4px"></span>
+                </div>
+                <div style="display:flex;align-items:center;gap:10px;width:100%">
+                  <span class="sfm-label">监听端口</span>
+                  <input class="sfm-input" id="api-port-input" type="number" value="8080" min="1024" max="65535"
+                    style="width:90px" />
+                </div>
               </div>
-              <div class="code-block">mnemosyne serve --port 8080
-
-                # 或指定数据库路径
-                mnemosyne --db ~/.mnemosyne/db.sqlite serve --port 8080</div>
-              <div style="font-size:11px;color:var(--mu2);margin-top:8px">API 文档: GET /health · POST /api/search · POST
-                /api/index · GET /api/files</div>
+              <div style="font-size:11px;color:var(--mu2);padding-bottom:8px">
+                启动后可通过 <code style="color:var(--acc)">GET /health</code> · <code
+                  style="color:var(--acc)">POST /api/search</code> · <code
+                  style="color:var(--acc)">GET /api/files</code> 访问，支持 CORS
+              </div>
+              <div style="font-size:12px;color:var(--mu);margin-bottom:10px;line-height:1.7">
+                或从终端独立运行：
+              </div>
+              <div class="code-block">mnemosyne serve --port 8080</div>
             </div>
 
             <!-- HF Mirror -->
@@ -1370,8 +1613,58 @@
           </div>
         </div>
 
+        <!-- ── LOGS VIEW ──────────────────────────────────────────────────────────── -->
+        <div class="pview" id="v-logs">
+          <div class="toolbar">
+            <div class="h2">运行日志</div>
+            <div style="display:flex;align-items:center;gap:6px;margin-left:auto">
+              <span id="log-lf" style="display:flex;gap:3px">
+                <button class="pill on" onclick="g.setLogFilter('ALL',this)">全部</button>
+                <button class="pill" onclick="g.setLogFilter('INFO',this)">INFO</button>
+                <button class="pill" onclick="g.setLogFilter('WARN',this)">WARN</button>
+                <button class="pill" onclick="g.setLogFilter('ERROR',this)">ERROR</button>
+                <button class="pill" onclick="g.setLogFilter('DEBUG',this)">DEBUG</button>
+              </span>
+              <button class="btn bg" id="log-auto-btn" onclick="g.toggleLogAuto()"
+                style="font-size:11px;padding:3px 9px">
+                <span id="log-auto-ico">⏸</span> 自动
+              </button>
+              <button class="btn bg" onclick="g.clearLogs()" style="font-size:11px;padding:3px 9px">清空</button>
+            </div>
+          </div>
+          <div class="log-scroll" id="log-scroll">
+            <div class="em" style="height:auto;padding:30px 20px">
+              <div class="em-ico" style="font-size:36px">📋</div>
+              <div class="em-t" style="font-size:15px">暂无日志</div>
+              <p>执行索引、搜索等操作后日志将出现在此处。</p>
+            </div>
+          </div>
+        </div>
+
       </div><!-- panel -->
     </div><!-- body -->
+
+    <!-- ── File Preview Overlay ─────────────────────────────────────────────────── -->
+    <div class="prev-ov" id="prev-ov">
+      <div class="prev-box">
+        <div class="prev-hd">
+          <span class="prev-title" id="prev-title">文件预览</span>
+          <span class="badge badge-stub" id="prev-badge"></span>
+          <button class="btn bg" onclick="g.openPreviewFile()"
+            style="font-size:11px;padding:3px 9px;flex-shrink:0">Finder 打开</button>
+          <button class="ib" onclick="g.closePreview()">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+              <path d="M18 6 6 18M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+        <div class="prev-body" id="prev-body">
+          <div class="em">
+            <div class="spin"></div>
+          </div>
+        </div>
+      </div>
+    </div>
 
     <!-- ── Add Directory Modal ────────────────────────────────────────────────────── -->
     <div class="ov" id="add-modal">
@@ -1466,8 +1759,9 @@
         qs('#filter-sec').style.display = view === 'search' ? 'block' : 'none';
 
         if (view === 'index') { renderDirs(); g.loadFiles(); }
-        if (view === 'settings') updateSettings();
+        if (view === 'settings') { updateSettings(); loadApiStatus(); }
         if (view === 'models') loadModelList();
+        if (view === 'logs') { logAutoRefresh = true; qs('#log-auto-ico').textContent = '⏸'; fetchLogs(); }
       };
 
       // ── Search ────────────────────────────────────────────────────────────────────
@@ -1527,12 +1821,13 @@
           const lbl = pdf ? 'PDF' : { text: 'TXT', image: 'IMG', audio: 'AUDIO', video: 'VIDEO', unknown: '?' }[ft] ?? ft.toUpperCase();
           const pct = ((r.score ?? 0) * 100).toFixed(0);
           const sn = r.snippet ? esc(r.snippet.slice(0, 200)) : '';
-          return `<div class="rc" onclick="openFile('${esc(r.file_record?.path ?? '')}')">
+          const rPath = String(r.file_record?.path ?? '');
+          return `<div class="rc" onclick="g.previewFile('${esc(rPath)}')">
       <div class="rt"><span class="tb ${cls}">${lbl}</span>
-        <span class="rn" title="${esc(r.file_record?.path ?? '')}">${esc(nm)}</span>
+        <span class="rn" title="${esc(rPath)}">${esc(nm)}</span>
         <span class="rsc">${pct}%</span></div>
       ${sn ? `<div class="rs2">${sn}</div>` : ''}
-      <div class="rp">${esc(r.file_record?.path ?? '')}</div>
+      <div class="rp">${esc(rPath)}</div>
     </div>`;
         }).join('');
       }
@@ -1715,12 +2010,13 @@
           const pdf = nm.toLowerCase().endsWith('.pdf');
           const cls = pdf ? 'tb-p' : { text: 'tb-t', image: 'tb-i', audio: 'tb-a', video: 'tb-v', unknown: 'tb-u' }[ft] ?? 'tb-u';
           const lbl = pdf ? 'PDF' : { text: 'TXT', image: 'IMG', audio: 'AUDIO', video: 'VIDEO', unknown: '?' }[ft] ?? ft.toUpperCase();
-          return `<div class="file-row">
+          const pathStr = String(f.path ?? '');
+          return `<div class="file-row" style="cursor:pointer" onclick="g.previewFile('${esc(pathStr)}')">
       <span class="tb ${cls}" style="flex-shrink:0">${lbl}</span>
       <span class="file-name">${esc(nm)}</span>
-      <span class="file-path">${esc((f.path ?? '').replace(/\/[^/]+$/, ''))}</span>
+      <span class="file-path">${esc(pathStr.replace(/\/[^/]+$/, ''))}</span>
       <span class="file-sz">${fmtSz(f.size ?? 0)}</span>
-      <button class="ib ibr" style="flex-shrink:0" onclick="g.delFile('${esc(f.id)}','${esc(nm)}')" title="删除">
+      <button class="ib ibr" style="flex-shrink:0" onclick="event.stopPropagation();g.delFile('${esc(f.id)}','${esc(nm)}')" title="删除">
         <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/></svg>
       </button>
     </div>`;
@@ -1740,52 +2036,104 @@
 
       // ── Models ────────────────────────────────────────────────────────────────────
       const MODEL_CATALOG = [
+        // ── Text / BERT ──────────────────────────────────────────────────────────
         {
           id: 'sentence-transformers/all-MiniLM-L6-v2',
-          name: 'all-MiniLM-L6-v2',
+          name: 'all-MiniLM-L6-v2', cat: 'text',
           desc: '推荐：轻量级英文文本嵌入，384 维，适合个人使用',
-          tags: ['384维', '90MB', '轻量', '英文'],
-          lang: 'en'
+          tags: ['384维', '90MB', '轻量', '英文']
         },
         {
           id: 'sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2',
-          name: 'paraphrase-multilingual-MiniLM-L12-v2',
+          name: 'multilingual-MiniLM-L12-v2', cat: 'text',
           desc: '多语言模型，支持中文、英文等 50 种语言的语义搜索',
-          tags: ['384维', '470MB', '多语言', '中文'],
-          lang: 'multi'
+          tags: ['384维', '470MB', '多语言', '中文']
         },
         {
           id: 'sentence-transformers/all-mpnet-base-v2',
-          name: 'all-mpnet-base-v2',
+          name: 'all-mpnet-base-v2', cat: 'text',
           desc: '高质量英文嵌入，768 维，搜索精度更高',
-          tags: ['768维', '420MB', '高质量', '英文'],
-          lang: 'en'
+          tags: ['768维', '420MB', '高质量', '英文']
+        },
+        {
+          id: 'sentence-transformers/paraphrase-multilingual-mpnet-base-v2',
+          name: 'multilingual-mpnet-base-v2', cat: 'text',
+          desc: '高质量多语言嵌入，768 维，支持 50+ 语言',
+          tags: ['768维', '1.1GB', '多语言', '高质量']
+        },
+        // ── CLIP / Vision ─────────────────────────────────────────────────────────
+        {
+          id: 'openai/clip-vit-base-patch32',
+          name: 'CLIP ViT-B/32', cat: 'vision',
+          desc: '图文跨模态嵌入：用自然语言搜索图片内容，同时支持文本与图像',
+          tags: ['512维', '340MB', '图片', '跨模态']
+        },
+        {
+          id: 'openai/clip-vit-large-patch14',
+          name: 'CLIP ViT-L/14', cat: 'vision',
+          desc: '大型 CLIP 模型，精度更高，适合高质量图像检索',
+          tags: ['768维', '890MB', '图片', '高精度']
+        },
+        // ── Whisper / Audio ───────────────────────────────────────────────────────
+        {
+          id: 'openai/whisper-tiny',
+          name: 'Whisper Tiny', cat: 'audio',
+          desc: '轻量级语音识别，将音频/视频转为可搜索文本，速度快',
+          tags: ['39M参数', '78MB', '音频', '多语言']
+        },
+        {
+          id: 'openai/whisper-base',
+          name: 'Whisper Base', cat: 'audio',
+          desc: '基础语音识别，平衡速度与精度，中文效果良好',
+          tags: ['74M参数', '148MB', '音频', '多语言']
+        },
+        {
+          id: 'openai/whisper-small',
+          name: 'Whisper Small', cat: 'audio',
+          desc: '高质量语音识别，中英文均表现优秀',
+          tags: ['244M参数', '488MB', '音频', '高质量']
         },
       ];
 
+      const CAT_META = {
+        text: { icon: '📝', label: '文本嵌入 (BERT)', color: 'var(--green)' },
+        vision: { icon: '🖼', label: '视觉嵌入 (CLIP)', color: 'var(--yellow)' },
+        audio: { icon: '🎵', label: '语音识别 (Whisper)', color: 'var(--purple)' },
+      };
+
       async function loadModelList() {
-        // Render catalog
-        qs('#model-cards').innerHTML = MODEL_CATALOG.map(m => `
-    <div class="mcard">
-      <div class="mcard-top">
-        <div>
-          <div class="mcard-name">${esc(m.name)}</div>
-          <div class="mcard-id" style="color:var(--mu2)">${esc(m.id)}</div>
+        const grouped = {};
+        for (const m of MODEL_CATALOG) {
+          (grouped[m.cat] ||= []).push(m);
+        }
+
+        let html = '';
+        for (const [cat, models] of Object.entries(grouped)) {
+          const meta = CAT_META[cat] || { icon: '?', label: cat, color: 'var(--mu)' };
+          html += `<div class="mcat-hd"><span>${meta.icon}</span><span style="color:${meta.color}">${esc(meta.label)}</span></div>`;
+          html += models.map(m => {
+            const key = btoa(m.id).replace(/=/g, '');
+            return `<div class="mcard">
+        <div class="mcard-top">
+          <div>
+            <div class="mcard-name">${esc(m.name)}</div>
+            <div class="mcard-id" style="color:var(--mu2)">${esc(m.id)}</div>
+          </div>
+          <button class="btn bg" id="dl-${key}" onclick="g.dlModel('${esc(m.id)}',this)" style="flex-shrink:0">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            下载
+          </button>
         </div>
-        <button class="btn bg" id="dl-${btoa(m.id).replace(/=/g, '')}"
-          onclick="g.dlModel('${esc(m.id)}',this)" style="flex-shrink:0">
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-          下载
-        </button>
-      </div>
-      <div class="mcard-desc">${esc(m.desc)}</div>
-      <div class="mcard-tags">${m.tags.map(t => `<span class="mtag">${t}</span>`).join('')}</div>
-      <div class="mprog" id="prog-${btoa(m.id).replace(/=/g, '')}">
-        <div style="font-size:11px;color:var(--mu);margin-bottom:4px" id="prog-t-${btoa(m.id).replace(/=/g, '')}">下载中…</div>
-        <div class="mpbar"><div class="mpfill"></div></div>
-      </div>
-    </div>
-  `).join('');
+        <div class="mcard-desc">${esc(m.desc)}</div>
+        <div class="mcard-tags">${m.tags.map(t => `<span class="mtag">${esc(t)}</span>`).join('')}</div>
+        <div class="mprog" id="prog-${key}">
+          <div style="font-size:11px;color:var(--mu);margin-bottom:4px" id="prog-t-${key}">下载中…</div>
+          <div class="mpbar"><div class="mpfill"></div></div>
+        </div>
+      </div>`;
+          }).join('');
+        }
+        qs('#model-cards').innerHTML = html;
 
         // Load downloaded models
         try {
@@ -1827,6 +2175,142 @@
           toast('下载失败: ' + (e?.message ?? e), 'er');
         }
       };
+
+      // ── Logs ──────────────────────────────────────────────────────────────────────
+      let logAutoRefresh = true;
+      let logFilter = 'ALL';
+      let cachedLogs = [];
+
+      g.setLogFilter = (f, el) => {
+        logFilter = f;
+        document.querySelectorAll('#log-lf .pill').forEach(p => p.classList.remove('on'));
+        el.classList.add('on');
+        renderLogs(cachedLogs);
+      };
+
+      g.toggleLogAuto = () => {
+        logAutoRefresh = !logAutoRefresh;
+        qs('#log-auto-ico').textContent = logAutoRefresh ? '⏸' : '▶';
+        if (logAutoRefresh) fetchLogs();
+      };
+
+      async function fetchLogs() {
+        if (curView !== 'logs') return;
+        try {
+          const logs = await invoke('get_logs');
+          if (logs) { cachedLogs = logs; renderLogs(logs); }
+        } catch (_) { }
+        if (logAutoRefresh && curView === 'logs') setTimeout(fetchLogs, 1200);
+      }
+
+      function renderLogs(logs) {
+        const filtered = logFilter === 'ALL' ? logs : logs.filter(l => l.level === logFilter);
+        const el = qs('#log-scroll');
+        if (!filtered.length) {
+          el.innerHTML = `<div class="em" style="height:auto;padding:30px 20px">
+            <div class="em-ico" style="font-size:36px">📋</div>
+            <div class="em-t" style="font-size:15px">暂无${logFilter === 'ALL' ? '' : ' ' + logFilter + ' '}日志</div>
+            <p>执行索引、搜索等操作后日志将出现在此处。</p></div>`;
+          return;
+        }
+        const wasAtBottom = el.scrollTop + el.clientHeight >= el.scrollHeight - 30;
+        el.innerHTML = filtered.map(l => `<div class="log-line ${esc(l.level)}" title="${esc(l.message)}">
+          <span class="log-ts">${esc(l.ts)}</span>
+          <span class="log-lv">${esc(l.level)}</span>
+          <span class="log-tg">${esc(l.target.split('::').pop() ?? l.target)}</span>
+          <span class="log-msg">${esc(l.message)}</span>
+        </div>`).join('');
+        if (wasAtBottom) el.scrollTop = el.scrollHeight;
+      }
+
+      g.clearLogs = async () => {
+        try { await invoke('clear_logs'); cachedLogs = []; renderLogs([]); } catch (_) { }
+      };
+
+      // ── REST API toggle ────────────────────────────────────────────────────────────
+      let apiRunning = false;
+
+      g.toggleApi = async () => {
+        const port = parseInt(qs('#api-port-input')?.value) || 8080;
+        if (!apiRunning) {
+          try {
+            const s = await invoke('start_api_server', { port });
+            apiRunning = true; updateApiUI(s);
+            toast(`REST API 已在 http://localhost:${port} 启动`, 'ok');
+          } catch (e) { toast('启动失败: ' + (e?.message ?? e), 'er'); }
+        } else {
+          try {
+            await invoke('stop_api_server');
+            apiRunning = false; updateApiUI(null);
+            toast('REST API 已停止', 'in');
+          } catch (e) { toast('停止失败: ' + (e?.message ?? e), 'er'); }
+        }
+      };
+
+      function updateApiUI(status) {
+        const tog = qs('#api-tog');
+        const txt = qs('#api-status-text');
+        const url = qs('#api-url-badge');
+        if (!tog) return;
+        if (status?.running) {
+          tog.classList.add('on');
+          txt.textContent = '运行中'; txt.style.color = 'var(--green)';
+          url.style.display = 'inline'; url.textContent = status.url ?? '';
+        } else {
+          tog.classList.remove('on');
+          txt.textContent = '已停止'; txt.style.color = 'var(--mu)';
+          url.style.display = 'none';
+        }
+      }
+
+      async function loadApiStatus() {
+        try { const s = await invoke('get_api_status'); apiRunning = s?.running || false; updateApiUI(s); } catch (_) { }
+      }
+
+      // ── File Preview ──────────────────────────────────────────────────────────────
+      let prevPath = '';
+
+      g.previewFile = async (path) => {
+        if (!path) return;
+        prevPath = path;
+        const nm = path.split('/').pop() ?? path;
+        qs('#prev-title').textContent = nm;
+        qs('#prev-badge').textContent = '';
+        qs('#prev-body').innerHTML = '<div class="em"><div class="spin"></div></div>';
+        qs('#prev-ov').classList.add('open');
+
+        try {
+          const data = await invoke('preview_file', { path });
+          if (!data) { qs('#prev-body').innerHTML = '<div class="em"><p>无法预览</p></div>'; return; }
+
+          if (data.type === 'text') {
+            qs('#prev-badge').textContent = (data.ext || 'TXT').toUpperCase();
+            qs('#prev-body').innerHTML = `<pre class="prev-txt">${esc(data.content)}</pre>`;
+          } else if (data.type === 'image') {
+            qs('#prev-badge').textContent = (data.ext || 'IMG').toUpperCase();
+            qs('#prev-body').innerHTML = `<div class="prev-img-wrap"><img class="prev-img" src="${data.data_url}" alt="${esc(nm)}"/></div>`;
+          } else if (data.type === 'image_large') {
+            qs('#prev-badge').textContent = (data.ext || 'IMG').toUpperCase();
+            qs('#prev-body').innerHTML = `<div class="prev-meta">
+              <div class="prev-mr"><span class="prev-mk">大小</span><span>${fmtSz(data.size)}</span></div>
+              <div class="prev-mr"><span class="prev-mk">说明</span><span>图片超过 6 MB，无法内联预览，请用 Finder 打开</span></div>
+            </div>`;
+          } else {
+            qs('#prev-badge').textContent = (data.ext || data.file_type || '?').toUpperCase();
+            const ftLabel = { audio: '🎵 音频', video: '🎬 视频', unknown: '📄 文件' }[data.file_type?.toLowerCase()] ?? data.file_type ?? '未知';
+            qs('#prev-body').innerHTML = `<div class="prev-meta">
+              <div class="prev-mr"><span class="prev-mk">类型</span><span>${esc(ftLabel)}</span></div>
+              <div class="prev-mr"><span class="prev-mk">大小</span><span>${fmtSz(data.size || 0)}</span></div>
+              <div class="prev-mr"><span class="prev-mk">路径</span><span style="font-family:monospace;font-size:11px;word-break:break-all">${esc(path)}</span></div>
+            </div>`;
+          }
+        } catch (e) {
+          qs('#prev-body').innerHTML = `<div class="em"><p style="color:var(--red)">预览错误: ${esc(e?.message ?? String(e))}</p></div>`;
+        }
+      };
+
+      g.closePreview = () => { qs('#prev-ov').classList.remove('open'); prevPath = ''; };
+      g.openPreviewFile = () => { if (prevPath) openFile(prevPath); };
 
       // ── Settings ──────────────────────────────────────────────────────────────────
       function updateSettings() {
@@ -1991,6 +2475,7 @@ mnemosyne serve --port 8080`;
           qs('#q').focus(); return;
         }
         if (e.key === 'Escape') {
+          if (qs('#prev-ov').classList.contains('open')) { g.closePreview(); return; }
           if (qs('#add-modal').classList.contains('open')) { g.closeAdd(); return; }
           if (qs('#q').value) { g.clearQ(); return; }
         }
@@ -2006,6 +2491,7 @@ mnemosyne serve --port 8080`;
       });
 
       qs('#add-modal').addEventListener('click', e => { if (e.target === e.currentTarget) g.closeAdd(); });
+      qs('#prev-ov').addEventListener('click', e => { if (e.target === e.currentTarget) g.closePreview(); });
       qs('#dir-input').addEventListener('keydown', e => { if (e.key === 'Enter') g.doAdd(); });
 
       // ── Boot ──────────────────────────────────────────────────────────────────────
