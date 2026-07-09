@@ -6,7 +6,6 @@
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Mnemosyne</title>
   <style>
-    /* ── Reset ─────────────────────────────────────────────────────────────────── */
     *,
     *::before,
     *::after {
@@ -16,24 +15,24 @@
     }
 
     :root {
-      --bg: #0e0e14;
-      --surface: #15151f;
-      --surface2: #1c1c2a;
-      --border: #262636;
-      --accent: #7c6af7;
-      --accent2: #5b4fd6;
-      --accent-glow: rgba(124, 106, 247, .18);
-      --text: #e4e4f0;
-      --muted: #7070a0;
-      --muted2: #50507a;
+      --bg: #0d0d14;
+      --sf: #141420;
+      --sf2: #1b1b2c;
+      --bd: #252538;
+      --acc: #7c6af7;
+      --acc2: #5b4fd6;
+      --glow: rgba(124, 106, 247, .15);
+      --tx: #e0e0f0;
+      --mu: #6a6a96;
+      --mu2: #454568;
       --green: #4ade80;
       --yellow: #fbbf24;
       --red: #f87171;
       --blue: #60a5fa;
       --purple: #a78bfa;
       --r: 10px;
-      --r-sm: 6px;
-      --shadow: 0 8px 32px rgba(0, 0, 0, .5);
+      --rs: 6px;
+      --sh: 0 8px 32px rgba(0, 0, 0, .5);
     }
 
     html,
@@ -41,7 +40,7 @@
       height: 100%;
       overflow: hidden;
       background: var(--bg);
-      color: var(--text);
+      color: var(--tx);
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
       font-size: 14px;
       line-height: 1.5
@@ -65,39 +64,34 @@
     }
 
     ::-webkit-scrollbar {
-      width: 5px;
-      height: 5px
-    }
-
-    ::-webkit-scrollbar-track {
-      background: transparent
+      width: 4px
     }
 
     ::-webkit-scrollbar-thumb {
-      background: var(--border);
-      border-radius: 3px
+      background: var(--bd);
+      border-radius: 2px
     }
 
-    /* ── Layout ─────────────────────────────────────────────────────────────────── */
+    /* Layout */
     #app {
       display: flex;
       flex-direction: column;
       height: 100vh
     }
 
-    header {
+    .hdr {
       flex-shrink: 0;
       display: flex;
       align-items: center;
-      gap: 12px;
-      padding: 10px 16px;
-      border-bottom: 1px solid var(--border);
-      background: var(--surface);
+      gap: 10px;
+      padding: 9px 14px;
+      border-bottom: 1px solid var(--bd);
+      background: var(--sf);
       -webkit-app-region: drag;
       z-index: 10
     }
 
-    .no-drag {
+    .nd {
       -webkit-app-region: no-drag
     }
 
@@ -108,12 +102,12 @@
     }
 
     aside {
-      width: 220px;
+      width: 230px;
       flex-shrink: 0;
-      border-right: 1px solid var(--border);
+      border-right: 1px solid var(--bd);
       display: flex;
       flex-direction: column;
-      background: var(--surface);
+      background: var(--sf);
       overflow-y: auto
     }
 
@@ -121,99 +115,97 @@
       flex: 1;
       display: flex;
       flex-direction: column;
-      min-width: 0;
-      background: var(--bg)
+      min-width: 0
     }
 
-    /* ── Header ─────────────────────────────────────────────────────────────────── */
+    /* Header */
     .logo {
       display: flex;
       align-items: center;
-      gap: 8px;
+      gap: 7px;
       flex-shrink: 0
     }
 
-    .logo-icon {
-      width: 26px;
-      height: 26px;
-      border-radius: 7px;
-      background: linear-gradient(135deg, var(--accent), #4f3ec8);
+    .logo-ico {
+      width: 24px;
+      height: 24px;
+      border-radius: 6px;
+      background: linear-gradient(135deg, var(--acc), #4b3cb0);
       display: flex;
       align-items: center;
       justify-content: center;
-      font-size: 14px
+      font-size: 13px
     }
 
-    .logo-text {
-      font-size: 15px;
+    .logo-tx {
+      font-size: 14px;
       font-weight: 700;
       letter-spacing: -.3px
     }
 
-    .logo-text span {
-      color: var(--accent)
+    .logo-tx b {
+      color: var(--acc)
     }
 
-    .search-wrap {
+    .sw {
       flex: 1;
-      max-width: 600px;
+      max-width: 560px;
       position: relative;
       display: flex;
       align-items: center
     }
 
-    .search-wrap svg.ico {
+    .sw svg {
       position: absolute;
-      left: 12px;
-      color: var(--muted);
-      pointer-events: none
+      left: 11px;
+      color: var(--mu);
+      pointer-events: none;
+      flex-shrink: 0
     }
 
     #q {
       width: 100%;
-      padding: 8px 12px 8px 36px;
-      background: var(--surface2);
-      border: 1.5px solid var(--border);
-      border-radius: 8px;
+      padding: 7px 36px 7px 34px;
+      background: var(--sf2);
+      border: 1.5px solid var(--bd);
+      border-radius: var(--rs);
       font-size: 14px;
       transition: .15s
     }
 
     #q:focus {
-      border-color: var(--accent);
-      background: rgba(124, 106, 247, .06)
+      border-color: var(--acc);
+      background: rgba(124, 106, 247, .05)
     }
 
     #q::placeholder {
-      color: var(--muted)
+      color: var(--mu)
     }
 
-    .kbd {
-      background: var(--surface2);
-      border: 1px solid var(--border);
-      border-radius: 4px;
-      padding: 1px 5px;
-      font-size: 10px;
-      color: var(--muted);
-      flex-shrink: 0
+    #qc {
+      position: absolute;
+      right: 9px;
+      color: var(--mu);
+      display: none;
+      align-items: center
     }
 
-    .mode-sel {
-      padding: 7px 10px;
-      background: var(--surface2);
-      border: 1.5px solid var(--border);
-      border-radius: 7px;
+    .ms {
+      padding: 6px 9px;
+      background: var(--sf2);
+      border: 1.5px solid var(--bd);
+      border-radius: var(--rs);
       cursor: pointer;
-      color: var(--text);
+      color: var(--tx);
       flex-shrink: 0;
-      transition: .15s
+      font-size: 13px
     }
 
-    .mode-sel:hover {
-      border-color: var(--accent)
+    .ms:hover {
+      border-color: var(--acc)
     }
 
-    .hdr-actions {
+    .ha {
       margin-left: auto;
       display: flex;
       gap: 6px;
@@ -221,121 +213,176 @@
     }
 
     .btn {
-      padding: 7px 14px;
-      border-radius: 7px;
+      padding: 6px 13px;
+      border-radius: var(--rs);
       font-size: 13px;
       transition: .12s;
       border: 1.5px solid transparent;
       display: inline-flex;
       align-items: center;
-      gap: 6px
+      gap: 5px;
+      white-space: nowrap
     }
 
-    .btn-ghost {
-      border-color: var(--border);
-      background: var(--surface2)
+    .bg {
+      border-color: var(--bd);
+      background: var(--sf2)
     }
 
-    .btn-ghost:hover {
-      border-color: var(--accent);
-      color: var(--accent)
+    .bg:hover {
+      border-color: var(--acc);
+      color: var(--acc)
     }
 
-    .btn-primary {
-      background: var(--accent);
+    .bp {
+      background: var(--acc);
       color: #fff
     }
 
-    .btn-primary:hover {
-      background: var(--accent2);
+    .bp:hover {
+      background: var(--acc2);
       transform: translateY(-1px)
     }
 
-    /* ── Sidebar ─────────────────────────────────────────────────────────────────── */
-    .sb-section {
-      padding: 12px;
-      border-bottom: 1px solid var(--border)
+    .br {
+      background: rgba(248, 113, 113, .15);
+      border-color: var(--red);
+      color: var(--red)
     }
 
-    .sb-title {
+    .br:hover {
+      background: rgba(248, 113, 113, .25)
+    }
+
+    .ib {
+      width: 28px;
+      height: 28px;
+      border-radius: var(--rs);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: .12s;
+      color: var(--mu)
+    }
+
+    .ib:hover {
+      background: var(--sf2);
+      color: var(--tx)
+    }
+
+    /* Sidebar */
+    .sec {
+      padding: 10px 12px;
+      border-bottom: 1px solid var(--bd)
+    }
+
+    .st {
       font-size: 10px;
       text-transform: uppercase;
       letter-spacing: .8px;
-      color: var(--muted);
-      margin-bottom: 8px;
-      font-weight: 600
+      color: var(--mu);
+      margin-bottom: 7px;
+      font-weight: 600;
+      display: flex;
+      justify-content: space-between;
+      align-items: center
     }
 
-    .stat-row {
+    .sr {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      padding: 3px 0;
-      font-size: 13px
+      padding: 2px 0;
+      font-size: 12px
     }
 
-    .stat-val {
+    .sv {
       font-weight: 700;
-      color: var(--accent)
+      color: var(--acc);
+      font-size: 14px
     }
 
-    .filter-list {
+    .fl {
       display: flex;
       flex-direction: column;
-      gap: 2px
+      gap: 1px
     }
 
-    .filter-btn {
+    .fb {
       display: flex;
       align-items: center;
-      gap: 8px;
-      padding: 6px 8px;
-      border-radius: 6px;
-      font-size: 13px;
+      gap: 7px;
+      padding: 5px 7px;
+      border-radius: 5px;
+      font-size: 12px;
       width: 100%;
       text-align: left;
       transition: .1s;
-      color: var(--muted)
+      color: var(--mu)
     }
 
-    .filter-btn:hover {
-      background: var(--surface2);
-      color: var(--text)
+    .fb:hover {
+      background: var(--sf2);
+      color: var(--tx)
     }
 
-    .filter-btn.active {
-      background: var(--accent-glow);
-      color: var(--accent)
+    .fb.on {
+      background: var(--glow);
+      color: var(--acc)
     }
 
-    .filter-dot {
-      width: 7px;
-      height: 7px;
+    .fdot {
+      width: 6px;
+      height: 6px;
       border-radius: 50%;
       flex-shrink: 0
     }
 
-    .filter-count {
+    .fc {
       margin-left: auto;
-      font-size: 11px;
-      color: var(--muted2)
+      font-size: 10px;
+      color: var(--mu2)
     }
 
-    .watcher-item {
+    .tag {
+      padding: 1px 6px;
+      border-radius: 4px;
+      font-size: 10px;
+      background: var(--sf2);
+      color: var(--mu)
+    }
+
+    /* dir row */
+    .dr {
       display: flex;
       align-items: center;
       gap: 6px;
       padding: 4px 0;
-      font-size: 12px;
-      color: var(--muted)
+      font-size: 12px
     }
 
-    .watcher-item .dot-live {
+    .dr .dp {
+      flex: 1;
+      color: var(--tx);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      min-width: 0
+    }
+
+    .dr .dd {
+      font-size: 10px;
+      color: var(--mu2);
+      flex-shrink: 0
+    }
+
+    .dr .dlive {
       width: 6px;
       height: 6px;
       border-radius: 50%;
       background: var(--green);
-      animation: pulse 2s infinite
+      animation: pulse 2s infinite;
+      flex-shrink: 0
     }
 
     @keyframes pulse {
@@ -350,75 +397,116 @@
       }
     }
 
-    .model-badge {
-      padding: 3px 8px;
+    /* progress */
+    .pb {
+      height: 3px;
+      background: var(--bd);
+      border-radius: 2px;
+      overflow: hidden;
+      margin-top: 5px
+    }
+
+    .pf {
+      height: 100%;
+      background: linear-gradient(90deg, var(--acc), var(--acc2));
+      border-radius: 2px;
+      transition: width .4s
+    }
+
+    /* model badges */
+    .mb {
+      padding: 2px 7px;
       border-radius: 20px;
       font-size: 11px;
       font-weight: 600;
       display: inline-flex;
       align-items: center;
-      gap: 4px
+      gap: 3px
     }
 
-    .model-badge.ok {
+    .mb.ok {
       background: rgba(74, 222, 128, .12);
       color: var(--green)
     }
 
-    .model-badge.stub {
+    .mb.stub {
       background: rgba(251, 191, 36, .12);
       color: var(--yellow)
     }
 
-    /* ── Search bar area ─────────────────────────────────────────────────────────── */
-    .search-area {
-      padding: 0 20px 16px;
-      flex-shrink: 0
+    .mb.dl {
+      background: rgba(124, 106, 247, .15);
+      color: var(--acc)
     }
 
-    .result-meta {
+    .ml-row {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 0;
+      font-size: 12px;
+      border-bottom: 1px solid var(--bd)
+    }
+
+    .ml-row:last-child {
+      border-bottom: none
+    }
+
+    .ml-name {
+      flex: 1;
+      font-weight: 500
+    }
+
+    .ml-info {
+      font-size: 10px;
+      color: var(--mu2)
+    }
+
+    /* Main area */
+    .rm {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      padding: 0 20px 10px;
+      padding: 8px 18px 6px;
       font-size: 12px;
-      color: var(--muted)
+      color: var(--mu);
+      flex-shrink: 0;
+      display: none
     }
 
-    /* ── Results ─────────────────────────────────────────────────────────────────── */
-    .results {
+    .res {
       flex: 1;
       overflow-y: auto;
-      padding: 0 20px 20px
+      padding: 0 18px 16px
     }
 
-    .result-card {
-      background: var(--surface);
-      border: 1.5px solid var(--border);
+    .rc {
+      background: var(--sf);
+      border: 1.5px solid var(--bd);
       border-radius: var(--r);
-      padding: 14px 16px;
-      margin-bottom: 10px;
+      padding: 12px 14px;
+      margin-bottom: 8px;
       cursor: pointer;
       transition: .15s;
       display: flex;
       flex-direction: column;
-      gap: 6px
+      gap: 5px
     }
 
-    .result-card:hover {
-      border-color: var(--accent);
+    .rc:hover {
+      border-color: var(--acc);
       transform: translateY(-1px);
-      box-shadow: 0 4px 16px rgba(124, 106, 247, .12)
+      box-shadow: 0 4px 16px rgba(124, 106, 247, .1)
     }
 
-    .result-top {
+    .rt {
       display: flex;
       align-items: center;
-      gap: 8px
+      gap: 7px
     }
 
-    .type-badge {
-      padding: 2px 8px;
+    .tb {
+      padding: 2px 7px;
       border-radius: 20px;
       font-size: 10px;
       font-weight: 700;
@@ -427,37 +515,37 @@
       flex-shrink: 0
     }
 
-    .tb-text {
+    .tb-t {
       background: rgba(74, 222, 128, .13);
       color: var(--green)
     }
 
-    .tb-pdf {
+    .tb-p {
       background: rgba(248, 113, 113, .13);
       color: var(--red)
     }
 
-    .tb-image {
+    .tb-i {
       background: rgba(251, 191, 36, .13);
       color: var(--yellow)
     }
 
-    .tb-audio {
+    .tb-a {
       background: rgba(167, 139, 250, .13);
       color: var(--purple)
     }
 
-    .tb-video {
+    .tb-v {
       background: rgba(96, 165, 250, .13);
       color: var(--blue)
     }
 
-    .tb-unknown {
-      background: rgba(112, 112, 160, .13);
-      color: var(--muted)
+    .tb-u {
+      background: rgba(100, 100, 160, .13);
+      color: var(--mu)
     }
 
-    .result-name {
+    .rn {
       font-size: 13px;
       font-weight: 600;
       white-space: nowrap;
@@ -466,357 +554,355 @@
       min-width: 0
     }
 
-    .result-score {
+    .rsc {
       margin-left: auto;
       font-size: 11px;
       font-weight: 700;
-      color: var(--accent);
-      background: var(--accent-glow);
-      padding: 2px 7px;
+      color: var(--acc);
+      background: var(--glow);
+      padding: 2px 6px;
       border-radius: 4px;
       flex-shrink: 0
     }
 
-    .result-path {
+    .rp {
       font-size: 11px;
-      color: var(--muted);
+      color: var(--mu);
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis
     }
 
-    .result-snippet {
+    .rs2 {
       font-size: 12px;
-      color: var(--muted);
-      line-height: 1.6;
+      color: var(--mu);
+      line-height: 1.55;
       display: -webkit-box;
       -webkit-line-clamp: 2;
       -webkit-box-orient: vertical;
       overflow: hidden
     }
 
-    /* ── Empty / loading states ─────────────────────────────────────────────────── */
-    .empty {
+    /* Empty/Loading */
+    .em {
       display: flex;
       flex-direction: column;
       align-items: center;
       justify-content: center;
       height: 100%;
-      gap: 14px;
-      color: var(--muted);
+      gap: 12px;
+      color: var(--mu);
       text-align: center;
       padding: 40px
     }
 
-    .empty-icon {
-      font-size: 52px;
-      opacity: .35
+    .em-ico {
+      font-size: 50px;
+      opacity: .3
     }
 
-    .empty-title {
-      font-size: 20px;
+    .em-t {
+      font-size: 19px;
       font-weight: 700;
-      color: var(--text)
+      color: var(--tx)
     }
 
-    .empty p {
+    .em p {
       font-size: 13px;
-      max-width: 340px;
+      max-width: 320px;
       line-height: 1.7
     }
 
-    .empty-actions {
+    .em-act {
       display: flex;
       gap: 8px;
       margin-top: 4px
     }
 
-    .loading {
+    .ld {
       display: flex;
       flex-direction: column;
       align-items: center;
-      gap: 16px;
+      gap: 12px;
       height: 100%;
       justify-content: center;
-      color: var(--muted)
+      color: var(--mu)
     }
 
-    .loader {
-      width: 32px;
-      height: 32px;
-      border: 3px solid var(--border);
-      border-top-color: var(--accent);
+    .spin {
+      width: 28px;
+      height: 28px;
+      border: 2.5px solid var(--bd);
+      border-top-color: var(--acc);
       border-radius: 50%;
-      animation: spin .7s linear infinite
+      animation: sp .7s linear infinite
     }
 
-    @keyframes spin {
+    .sspin {
+      width: 13px;
+      height: 13px;
+      border: 2px solid rgba(255, 255, 255, .3);
+      border-top-color: #fff;
+      border-radius: 50%;
+      animation: sp .7s linear infinite
+    }
+
+    @keyframes sp {
       to {
         transform: rotate(360deg)
       }
     }
 
-    /* ── Index modal ─────────────────────────────────────────────────────────────── */
-    .overlay {
+    /* Overlay / Modal */
+    .ov {
       position: fixed;
       inset: 0;
-      background: rgba(0, 0, 0, .65);
+      background: rgba(0, 0, 0, .6);
       z-index: 100;
       display: none;
       align-items: center;
       justify-content: center;
-      backdrop-filter: blur(4px)
+      backdrop-filter: blur(3px)
     }
 
-    .overlay.open {
+    .ov.open {
       display: flex
     }
 
-    .modal {
-      background: var(--surface);
-      border: 1.5px solid var(--border);
+    .mo {
+      background: var(--sf);
+      border: 1.5px solid var(--bd);
       border-radius: 14px;
-      width: 480px;
+      width: 440px;
       max-width: calc(100vw - 32px);
-      box-shadow: var(--shadow)
+      box-shadow: var(--sh)
     }
 
-    .modal-header {
-      padding: 20px 24px 0;
+    .mh {
+      padding: 18px 22px 0;
       display: flex;
       align-items: center;
       justify-content: space-between
     }
 
-    .modal-header h2 {
-      font-size: 17px;
+    .mh h2 {
+      font-size: 16px;
       font-weight: 700
     }
 
-    .modal-close {
-      width: 28px;
-      height: 28px;
-      border-radius: 6px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      color: var(--muted)
+    .mb2 {
+      padding: 14px 22px
     }
 
-    .modal-close:hover {
-      background: var(--surface2);
-      color: var(--text)
-    }
-
-    .modal-body {
-      padding: 16px 24px
-    }
-
-    .modal-footer {
-      padding: 0 24px 20px;
+    .mf {
+      padding: 0 22px 18px;
       display: flex;
       justify-content: flex-end;
-      gap: 8px
+      gap: 7px
     }
 
-    .field-label {
-      font-size: 12px;
-      color: var(--muted);
-      margin-bottom: 6px;
+    .fl2 {
+      font-size: 11px;
+      color: var(--mu);
+      margin-bottom: 5px;
       font-weight: 600
     }
 
-    .text-input {
+    .ti {
       width: 100%;
-      padding: 10px 12px;
+      padding: 9px 11px;
       background: var(--bg);
-      border: 1.5px solid var(--border);
-      border-radius: 8px;
-      color: var(--text);
+      border: 1.5px solid var(--bd);
+      border-radius: var(--rs);
+      color: var(--tx);
       font-size: 14px;
       transition: .15s
     }
 
-    .text-input:focus {
-      border-color: var(--accent)
+    .ti:focus {
+      border-color: var(--acc)
     }
 
-    .hint {
+    .hi {
       font-size: 11px;
-      color: var(--muted);
-      margin-top: 6px
+      color: var(--mu);
+      margin-top: 5px
     }
 
-    .progress-wrap {
-      margin-top: 12px;
-      display: none
+    .pw {
+      display: none;
+      margin-top: 10px
     }
 
-    .progress-bar {
-      height: 4px;
-      background: var(--border);
+    .pbar {
+      height: 3px;
+      background: var(--bd);
       border-radius: 2px;
       overflow: hidden;
-      margin-top: 6px
+      margin-top: 5px
     }
 
-    .progress-fill {
+    .pfill {
       height: 100%;
-      background: linear-gradient(90deg, var(--accent), var(--accent2));
+      background: linear-gradient(90deg, var(--acc), var(--acc2));
       width: 0;
-      transition: width .3s;
+      transition: width .4s;
       border-radius: 2px
     }
 
-    .progress-text {
+    .pt {
       font-size: 12px;
-      color: var(--muted);
+      color: var(--mu);
       display: flex;
-      justify-content: space-between
+      justify-content: space-between;
+      margin-bottom: 3px
     }
 
-    /* ── Toast ─────────────────────────────────────────────────────────────────── */
-    #toast-wrap {
+    /* Toast */
+    #tw {
       position: fixed;
-      bottom: 20px;
-      right: 20px;
+      bottom: 18px;
+      right: 18px;
       z-index: 200;
       display: flex;
       flex-direction: column;
-      gap: 8px;
+      gap: 7px;
       pointer-events: none
     }
 
-    .toast {
-      padding: 11px 16px;
-      border-radius: 9px;
+    .to {
+      padding: 10px 14px;
+      border-radius: 8px;
       font-size: 13px;
       display: flex;
       align-items: center;
-      gap: 8px;
-      max-width: 320px;
+      gap: 7px;
+      max-width: 300px;
       transform: translateX(110%);
       transition: transform .25s;
       pointer-events: auto;
-      background: var(--surface);
-      border: 1.5px solid var(--border);
-      box-shadow: var(--shadow)
+      background: var(--sf);
+      border: 1.5px solid var(--bd);
+      box-shadow: var(--sh)
     }
 
-    .toast.show {
+    .to.show {
       transform: translateX(0)
     }
 
-    .toast.success {
+    .to.ok {
       border-color: var(--green);
       color: var(--green)
     }
 
-    .toast.error {
+    .to.er {
       border-color: var(--red);
       color: var(--red)
     }
 
-    .toast.info {
-      border-color: var(--accent);
-      color: var(--accent)
+    .to.in {
+      border-color: var(--acc);
+      color: var(--acc)
     }
 
-    .toast.warn {
+    .to.wn {
       border-color: var(--yellow);
       color: var(--yellow)
     }
 
-    /* ── Misc ────────────────────────────────────────────────────────────────────── */
-    .divider {
-      height: 1px;
-      background: var(--border);
-      margin: 4px 12px
+    /* Indexing progress banner in main */
+    #ipb {
+      display: none;
+      background: var(--sf2);
+      border-bottom: 1px solid var(--bd);
+      padding: 8px 18px;
+      flex-shrink: 0
     }
 
-    .tag {
-      padding: 2px 6px;
-      border-radius: 4px;
-      font-size: 10px;
-      background: var(--surface2);
-      color: var(--muted)
-    }
-
-    .truncate {
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis
-    }
-
-    .icon-btn {
-      width: 30px;
-      height: 30px;
-      border-radius: 7px;
+    .ipb-inner {
       display: flex;
       align-items: center;
-      justify-content: center;
-      transition: .12s;
-      color: var(--muted)
+      gap: 10px;
+      font-size: 12px
     }
 
-    .icon-btn:hover {
-      background: var(--surface2);
-      color: var(--text)
+    .ipb-txt {
+      flex: 1;
+      color: var(--mu)
     }
 
-    #q-clear {
-      position: absolute;
-      right: 10px;
-      color: var(--muted);
-      display: none;
-      cursor: pointer
+    .ipb-bar {
+      width: 120px;
+      height: 3px;
+      background: var(--bd);
+      border-radius: 2px;
+      overflow: hidden
+    }
+
+    .ipb-fill {
+      height: 100%;
+      background: var(--acc);
+      animation: ipanim 1.5s linear infinite;
+      border-radius: 2px
+    }
+
+    @keyframes ipanim {
+      0% {
+        transform: translateX(-100%)
+      }
+
+      100% {
+        transform: translateX(200%)
+      }
     }
   </style>
 </head>
 
 <body>
   <div id="app">
-
-    <!-- ── Header ────────────────────────────────────────────────────────────────── -->
-    <header>
-      <div class="logo no-drag">
-        <div class="logo-icon">🧠</div>
-        <div class="logo-text">Mnemo<span>syne</span></div>
+    <!-- Header -->
+    <header class="hdr">
+      <div class="logo nd">
+        <div class="logo-ico">🧠</div>
+        <div class="logo-tx">Mnemo<b>syne</b></div>
       </div>
-
-      <div class="search-wrap no-drag" style="margin-left:20px">
-        <svg class="ico" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <div class="sw nd" style="margin-left:16px">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <circle cx="11" cy="11" r="8" />
           <path d="m21 21-4.35-4.35" />
         </svg>
-        <input id="q" type="text" placeholder="搜索文件内容… （/）" autocomplete="off" />
-        <button id="q-clear" class="icon-btn" onclick="clearSearch()" title="清空">
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+        <input id="q" type="text" placeholder="搜索文件内容… (按 / 聚焦)" autocomplete="off" />
+        <button id="qc" class="ib nd" onclick="g.clearQ()"><svg width="12" height="12" viewBox="0 0 24 24" fill="none"
+            stroke="currentColor" stroke-width="2.5">
             <path d="M18 6 6 18M6 6l12 12" />
-          </svg>
-        </button>
+          </svg></button>
       </div>
-
-      <div class="no-drag" style="display:flex;align-items:center;gap:8px">
-        <select id="mode" class="mode-sel" onchange="triggerSearch()">
-          <option value="hybrid">混合</option>
-          <option value="vector">向量</option>
+      <div class="nd" style="display:flex;gap:7px;align-items:center">
+        <select id="mode" class="ms nd" onchange="g.doSearch()">
+          <option value="hybrid">混合搜索</option>
+          <option value="vector">向量搜索</option>
           <option value="keyword">关键词</option>
         </select>
-        <span class="kbd">/</span>
       </div>
-
-      <div class="hdr-actions no-drag">
-        <button class="btn btn-ghost" onclick="openIndexModal()" title="索引目录 (⌘I)">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <div class="ha nd">
+        <button class="btn bg" onclick="g.openIdx()" title="⌘I">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
             <polyline points="17 8 12 3 7 8" />
             <line x1="12" y1="3" x2="12" y2="15" />
           </svg>
           索引目录
         </button>
-        <button class="icon-btn" onclick="refreshAll()" title="刷新">
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <button class="btn bg" onclick="g.openModels()" title="模型管理">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M12 2L2 7l10 5 10-5-10-5z" />
+            <path d="M2 17l10 5 10-5" />
+            <path d="M2 12l10 5 10-5" />
+          </svg>
+          模型
+        </button>
+        <button class="ib" onclick="g.refresh()" title="刷新">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <polyline points="23 4 23 10 17 10" />
             <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10" />
           </svg>
@@ -824,149 +910,134 @@
       </div>
     </header>
 
-    <!-- ── Body ──────────────────────────────────────────────────────────────────── -->
-    <div class="body">
+    <!-- Indexing progress banner -->
+    <div id="ipb">
+      <div class="ipb-inner">
+        <div class="sspin"></div>
+        <div class="ipb-txt" id="ipb-txt">正在索引…</div>
+        <div class="ipb-bar">
+          <div class="ipb-fill"></div>
+        </div>
+        <button class="btn bg" style="padding:3px 9px;font-size:11px" onclick="g.stopIndexing()">停止</button>
+      </div>
+    </div>
 
+    <!-- Body -->
+    <div class="body">
       <!-- Sidebar -->
       <aside>
         <!-- Stats -->
-        <div class="sb-section">
-          <div class="sb-title">索引统计</div>
-          <div class="stat-row"><span>文件数</span><span class="stat-val" id="s-files">—</span></div>
-          <div class="stat-row"><span>内容分块</span><span class="stat-val" id="s-chunks">—</span></div>
+        <div class="sec">
+          <div class="st">统计</div>
+          <div class="sr"><span>文件</span><span class="sv" id="sf">—</span></div>
+          <div class="sr"><span>分块</span><span class="sv" id="sc">—</span></div>
         </div>
 
         <!-- Filters -->
-        <div class="sb-section">
-          <div class="sb-title">文件类型</div>
-          <div class="filter-list" id="filter-list">
-            <button class="filter-btn active" data-type="all" onclick="setFilter('all',this)">
-              <span class="filter-dot" style="background:var(--accent)"></span>
-              全部 <span class="filter-count" id="fc-all"></span>
-            </button>
-            <button class="filter-btn" data-type="text" onclick="setFilter('text',this)">
-              <span class="filter-dot" style="background:var(--green)"></span>
-              文本 <span class="filter-count" id="fc-text"></span>
-            </button>
-            <button class="filter-btn" data-type="pdf" onclick="setFilter('pdf',this)">
-              <span class="filter-dot" style="background:var(--red)"></span>
-              PDF <span class="filter-count" id="fc-pdf"></span>
-            </button>
-            <button class="filter-btn" data-type="image" onclick="setFilter('image',this)">
-              <span class="filter-dot" style="background:var(--yellow)"></span>
-              图片 <span class="filter-count" id="fc-image"></span>
-            </button>
-            <button class="filter-btn" data-type="audio" onclick="setFilter('audio',this)">
-              <span class="filter-dot" style="background:var(--purple)"></span>
-              音频 <span class="filter-count" id="fc-audio"></span>
-            </button>
-            <button class="filter-btn" data-type="video" onclick="setFilter('video',this)">
-              <span class="filter-dot" style="background:var(--blue)"></span>
-              视频 <span class="filter-count" id="fc-video"></span>
-            </button>
+        <div class="sec">
+          <div class="st">文件类型</div>
+          <div class="fl" id="fl">
+            <button class="fb on" data-t="all" onclick="g.setF('all',this)"><span class="fdot"
+                style="background:var(--acc)"></span>全部<span class="fc" id="fc-a"></span></button>
+            <button class="fb" data-t="text" onclick="g.setF('text',this)"><span class="fdot"
+                style="background:var(--green)"></span>文本<span class="fc" id="fc-t"></span></button>
+            <button class="fb" data-t="pdf" onclick="g.setF('pdf',this)"><span class="fdot"
+                style="background:var(--red)"></span>PDF<span class="fc" id="fc-p"></span></button>
+            <button class="fb" data-t="image" onclick="g.setF('image',this)"><span class="fdot"
+                style="background:var(--yellow)"></span>图片<span class="fc" id="fc-i"></span></button>
+            <button class="fb" data-t="audio" onclick="g.setF('audio',this)"><span class="fdot"
+                style="background:var(--purple)"></span>音频<span class="fc" id="fc-au"></span></button>
+            <button class="fb" data-t="video" onclick="g.setF('video',this)"><span class="fdot"
+                style="background:var(--blue)"></span>视频<span class="fc" id="fc-v"></span></button>
           </div>
+        </div>
+
+        <!-- Indexed dirs -->
+        <div class="sec">
+          <div class="st">已索引目录<button class="ib" style="width:20px;height:20px" onclick="g.openIdx()"
+              title="添加">+</button></div>
+          <div id="dirs-list" style="display:flex;flex-direction:column;gap:2px">
+            <div style="font-size:11px;color:var(--mu2)">暂无目录</div>
+          </div>
+        </div>
+
+        <!-- Models -->
+        <div class="sec">
+          <div class="st">嵌入模型<button class="ib" style="width:20px;height:20px" onclick="g.openModels()"
+              title="管理">⚙</button></div>
+          <div id="model-status" class="mb stub">⚙ Stub 模式</div>
+          <div style="font-size:10px;color:var(--mu2);margin-top:4px">点击「模型」下载真实 BERT</div>
         </div>
 
         <!-- Watchers -->
-        <div class="sb-section">
-          <div class="sb-title" style="display:flex;justify-content:space-between;align-items:center">
-            实时监听
-            <span id="watcher-count" class="tag" style="display:none">0</span>
-          </div>
-          <div id="watcher-list" style="display:flex;flex-direction:column;gap:4px">
-            <div style="font-size:12px;color:var(--muted2)">暂无监听目录</div>
-          </div>
-        </div>
-
-        <!-- Model -->
-        <div class="sb-section" style="margin-top:auto">
-          <div class="sb-title">嵌入模型</div>
-          <div id="model-status" class="model-badge stub">
-            <span>⚙</span> Stub 模式
-          </div>
-          <div style="font-size:11px;color:var(--muted2);margin-top:6px;line-height:1.5">
-            运行 <code style="color:var(--muted)">model-download</code> 下载真实模型
+        <div class="sec">
+          <div class="st">实时监听<span id="wc" class="tag" style="display:none">0</span></div>
+          <div id="wl" style="display:flex;flex-direction:column;gap:2px">
+            <div style="font-size:11px;color:var(--mu2)">暂无监听</div>
           </div>
         </div>
       </aside>
 
       <!-- Main -->
       <main>
-        <!-- Result meta bar -->
-        <div class="result-meta" id="result-meta" style="display:none">
-          <span id="result-count-text"></span>
-          <span id="search-time" style="color:var(--muted2)"></span>
-        </div>
-
-        <!-- Content area -->
-        <div class="results" id="results-area">
-          <!-- Default empty state -->
-          <div class="empty" id="empty-state">
-            <div class="empty-icon">🗂️</div>
-            <div class="empty-title">开始使用 Mnemosyne</div>
-            <p>索引本地文件后，即可用自然语言搜索文本、图片、音频、视频。</p>
-            <div class="empty-actions">
-              <button class="btn btn-primary" onclick="openIndexModal()">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <div class="rm" id="rm"></div>
+        <div class="res" id="ra">
+          <div class="em" id="es">
+            <div class="em-ico">🗂️</div>
+            <div class="em-t">开始使用 Mnemosyne</div>
+            <p>索引本地文件后，即可用自然语言搜索文本、图片、音频、视频内容。</p>
+            <div class="em-act">
+              <button class="btn bp" onclick="g.openIdx()">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                   <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
                   <polyline points="17 8 12 3 7 8" />
                   <line x1="12" y1="3" x2="12" y2="15" />
                 </svg>
-                索引目录
+                选择目录索引
               </button>
-              <button class="btn btn-ghost" onclick="browseFiles()">浏览已索引文件</button>
+              <button class="btn bg" onclick="g.browse()">浏览已索引文件</button>
             </div>
           </div>
         </div>
       </main>
-    </div><!-- end .body -->
+    </div>
 
-    <!-- ── Index Modal ────────────────────────────────────────────────────────────── -->
-    <div class="overlay" id="index-modal">
-      <div class="modal">
-        <div class="modal-header">
-          <h2>索引目录</h2>
-          <button class="modal-close icon-btn" onclick="closeIndexModal()">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+    <!-- Index Modal -->
+    <div class="ov" id="idx-modal">
+      <div class="mo">
+        <div class="mh">
+          <h2>索引目录</h2><button class="ib" onclick="g.closeIdx()"><svg width="13" height="13" viewBox="0 0 24 24"
+              fill="none" stroke="currentColor" stroke-width="2.5">
               <path d="M18 6 6 18M6 6l12 12" />
-            </svg>
-          </button>
+            </svg></button>
         </div>
-        <div class="modal-body">
-          <div class="field-label">目录路径</div>
-          <div style="display:flex;gap:8px;align-items:center">
-            <input class="text-input" id="index-path" placeholder="/Users/you/Documents" type="text" style="flex:1" />
-            <button class="btn btn-ghost" id="pick-btn" onclick="pickDir()" title="用系统文件选择器选择"
-              style="flex-shrink:0;white-space:nowrap">
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <div class="mb2">
+          <div class="fl2">目录路径</div>
+          <div style="display:flex;gap:7px">
+            <input class="ti" id="ip" placeholder="/Users/you/Documents" type="text" style="flex:1" />
+            <button class="btn bg" id="pb" onclick="g.pickDir()" style="flex-shrink:0">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
               </svg>
               浏览…
             </button>
           </div>
-          <div class="hint">将递归扫描所有支持的文件类型（txt、md、pdf、jpg、mp3、mp4…）</div>
-
-          <div class="progress-wrap" id="progress-wrap">
-            <div class="progress-text">
-              <span id="progress-label">正在索引…</span>
-              <span id="progress-num"></span>
-            </div>
-            <div class="progress-bar">
-              <div class="progress-fill" id="progress-fill"></div>
+          <div class="hi">递归扫描所有支持格式（txt/md/pdf/jpg/mp3/mp4…）</div>
+          <div class="pw" id="pw">
+            <div class="pt"><span id="pl">正在索引…</span><span id="pn" style="color:var(--acc)"></span></div>
+            <div class="pbar">
+              <div class="pfill" id="pf"></div>
             </div>
           </div>
-
-          <div style="margin-top:14px;display:flex;align-items:center;gap:8px">
-            <input type="checkbox" id="watch-toggle" style="accent-color:var(--accent)" />
-            <label for="watch-toggle" style="font-size:13px;cursor:pointer">
-              索引完成后持续监听此目录的文件变更
-            </label>
+          <div style="margin-top:12px;display:flex;align-items:center;gap:7px">
+            <input type="checkbox" id="wt" style="accent-color:var(--acc)" />
+            <label for="wt" style="font-size:12px;cursor:pointer">索引完成后自动监听变更</label>
           </div>
         </div>
-        <div class="modal-footer">
-          <button class="btn btn-ghost" onclick="closeIndexModal()">取消</button>
-          <button class="btn btn-primary" id="index-btn" onclick="startIndex()">
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <div class="mf">
+          <button class="btn bg" onclick="g.closeIdx()">取消</button>
+          <button class="btn bp" id="ib2" onclick="g.startIdx()">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <circle cx="12" cy="12" r="10" />
               <polyline points="12 6 12 12 16 14" />
             </svg>
@@ -976,393 +1047,441 @@
       </div>
     </div>
 
-    <!-- ── Toast Container ────────────────────────────────────────────────────────── -->
-    <div id="toast-wrap"></div>
+    <!-- Models Modal -->
+    <div class="ov" id="mdl-modal">
+      <div class="mo" style="width:500px">
+        <div class="mh">
+          <h2>模型管理</h2><button class="ib" onclick="g.closeModels()"><svg width="13" height="13" viewBox="0 0 24 24"
+              fill="none" stroke="currentColor" stroke-width="2.5">
+              <path d="M18 6 6 18M6 6l12 12" />
+            </svg></button>
+        </div>
+        <div class="mb2">
+          <div style="font-size:12px;color:var(--mu);margin-bottom:12px">下载真实嵌入模型以启用语义向量搜索。默认 Stub 模式使用哈希伪向量，仅适合测试。
+          </div>
+          <div id="ml" style="margin-bottom:14px">
+            <div class="ml-row">
+              <div>
+                <div class="ml-name">all-MiniLM-L6-v2</div>
+                <div class="ml-info">sentence-transformers · 384维 · 90MB · 轻量推荐</div>
+              </div>
+              <button class="btn bg" style="font-size:12px;padding:4px 10px"
+                onclick="g.dlModel('sentence-transformers/all-MiniLM-L6-v2',this)">下载</button>
+            </div>
+            <div class="ml-row">
+              <div>
+                <div class="ml-name">all-mpnet-base-v2</div>
+                <div class="ml-info">sentence-transformers · 768维 · 420MB · 高质量</div>
+              </div>
+              <button class="btn bg" style="font-size:12px;padding:4px 10px"
+                onclick="g.dlModel('sentence-transformers/all-mpnet-base-v2',this)">下载</button>
+            </div>
+            <div class="ml-row">
+              <div>
+                <div class="ml-name">paraphrase-multilingual-MiniLM-L12-v2</div>
+                <div class="ml-info">sentence-transformers · 384维 · 470MB · 中文/多语言</div>
+              </div>
+              <button class="btn bg" style="font-size:12px;padding:4px 10px"
+                onclick="g.dlModel('sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2',this)">下载</button>
+            </div>
+          </div>
+          <div
+            style="background:var(--bg);border-radius:7px;padding:10px;font-size:11px;color:var(--mu);line-height:1.7">
+            <b style="color:var(--tx)">注意：</b> 下载需联网访问 HuggingFace。如在国内被屏蔽，
+            请设置环境变量 <code style="color:var(--acc)">HF_ENDPOINT=https://hf-mirror.com</code> 后重启 app。
+          </div>
+        </div>
+        <div class="mf"><button class="btn bg" onclick="g.closeModels()">关闭</button></div>
+      </div>
+    </div>
 
-    <!-- ── JS ────────────────────────────────────────────────────────────────────── -->
+    <div id="tw"></div>
+
     <script type="module">
-      // ── Tauri IPC bridge ────────────────────────────────────────────────────────
       const invoke = window.__TAURI__?.core?.invoke
         ?? window.__TAURI__?.invoke
-        ?? (async (cmd, args) => {
-          console.log('[mock]', cmd, args);
-          return null;
-        });
+        ?? (async (cmd, args) => { console.log('[mock]', cmd, args); return null; });
 
-      // ── State ───────────────────────────────────────────────────────────────────
-      let currentFilter = 'all';
-      let watchedDirs = [];
-      let searchTimer = null;
-      let lastQueryMs = 0;
+      // ── State ────────────────────────────────────────────────────────────────────
+      let filter = 'all';
+      let watchers = [];
+      let dirs = JSON.parse(localStorage.getItem('mn-dirs') || '[]');
+      let stimer = null;  // search debounce
+      let ptimer = null;  // progress animation
+      let ipolling = false; // indexing in progress
 
-      // ── Expose to inline handlers ────────────────────────────────────────────────
       const g = window;
+      window.g = window; // expose to inline onclick handlers (module scope is isolated)
 
-      g.setFilter = function (type, el) {
-        currentFilter = type;
-        document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
-        el.classList.add('active');
-        const q = document.getElementById('q').value.trim();
-        if (q) search(q);
+      // ── Sidebar ──────────────────────────────────────────────────────────────────
+      g.setF = (t, el) => {
+        filter = t;
+        document.querySelectorAll('.fb').forEach(b => b.classList.remove('on'));
+        el.classList.add('on');
+        const v = qs('#q').value.trim();
+        if (v) search(v);
       };
 
-      g.openIndexModal = () => { document.getElementById('index-modal').classList.add('open'); document.getElementById('index-path').focus(); };
-      g.closeIndexModal = () => {
-        document.getElementById('index-modal').classList.remove('open');
-        document.getElementById('progress-wrap').style.display = 'none';
-        document.getElementById('index-btn').disabled = false;
-        document.getElementById('index-btn').textContent = '开始索引';
+      function renderDirs() {
+        const el = qs('#dirs-list');
+        if (dirs.length === 0) { el.innerHTML = '<div style="font-size:11px;color:var(--mu2)">暂无目录</div>'; return; }
+        el.innerHTML = dirs.map((d, i) => {
+          const name = d.path.split('/').filter(Boolean).pop() ?? d.path;
+          const progress = d.progress ?? 0;
+          return `<div class="dr">
+      ${d.watching ? '<span class="dlive"></span>' : '<span style="width:6px;height:6px;border-radius:50%;background:var(--mu2);flex-shrink:0"></span>'}
+      <span class="dp" title="${esc(d.path)}">${esc(name)}</span>
+      <span class="dd">${d.files ?? 0}f</span>
+      <button class="ib" style="width:20px;height:20px;flex-shrink:0" onclick="g.reIndex(${i})" title="重新索引">↺</button>
+    </div>`;
+        }).join('');
+      }
+
+      function saveDirs() { localStorage.setItem('mn-dirs', JSON.stringify(dirs)); }
+
+      // ── Modal: Index ─────────────────────────────────────────────────────────────
+      g.openIdx = () => { qs('#idx-modal').classList.add('open'); qs('#ip').focus(); };
+      g.closeIdx = () => {
+        qs('#idx-modal').classList.remove('open');
+        qs('#pw').style.display = 'none';
+        qs('#ib2').disabled = false;
+        qs('#ib2').innerHTML = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg> 开始索引';
       };
 
-      // Native folder picker
-      g.pickDir = async function () {
-        const btn = document.getElementById('pick-btn');
-        btn.disabled = true;
+      g.pickDir = async () => {
+        qs('#pb').disabled = true;
         try {
-          const dir = await invoke('pick_directory');
-          if (dir) document.getElementById('index-path').value = dir;
+          const d = await invoke('pick_directory');
+          if (d) qs('#ip').value = d;
+        } catch (e) { console.warn(e); }
+        finally { qs('#pb').disabled = false; }
+      };
+
+      g.startIdx = async () => {
+        const path = qs('#ip').value.trim();
+        if (!path) { toast('请输入目录路径', 'wn'); return; }
+
+        const btn = qs('#ib2');
+        btn.disabled = true;
+        btn.innerHTML = '<div class="sspin"></div> 启动中…';
+        qs('#pw').style.display = 'block';
+        qs('#pl').textContent = '正在启动索引…';
+        qs('#pn').textContent = '';
+        qs('#pf').style.width = '5%';
+
+        try {
+          // Fire-and-forget: returns immediately, indexing runs in background
+          await invoke('index_directory_bg', { path });
+
+          // Add to dirs list
+          const idx = dirs.findIndex(d => d.path === path);
+          if (idx < 0) dirs.push({ path, files: 0, watching: false });
+          saveDirs(); renderDirs();
+
+          // Start polling
+          startIPolling(path);
+
+          if (qs('#wt').checked) startWatcher(path);
+
+          qs('#pl').textContent = '索引进行中（后台运行）';
+          qs('#pn').textContent = '请稍候…';
+          setTimeout(() => g.closeIdx(), 1500);
+          toast('索引已在后台启动', 'in');
+
         } catch (e) {
-          console.warn('pick_directory:', e);
-        } finally {
+          toast('启动失败: ' + (e?.message ?? e), 'er');
           btn.disabled = false;
+          btn.innerHTML = '重试';
+          qs('#pw').style.display = 'none';
         }
       };
 
-      g.triggerSearch = () => { const v = document.getElementById('q').value.trim(); if (v) search(v); };
-
-      g.clearSearch = function () {
-        document.getElementById('q').value = '';
-        document.getElementById('q-clear').style.display = 'none';
-        showEmpty();
-        document.getElementById('result-meta').style.display = 'none';
-      };
-
-      g.refreshAll = async function () {
-        await loadStats();
-        const q = document.getElementById('q').value.trim();
-        if (q) search(q);
-        toast('已刷新', 'info');
-      };
-
-      g.browseFiles = async function () {
-        showLoading('加载文件列表…');
+      g.reIndex = async (i) => {
+        const d = dirs[i];
+        if (!d) return;
         try {
-          const files = await invoke('list_files', { limit: 100, offset: 0 });
-          renderFiles(files || []);
+          await invoke('index_directory_bg', { path: d.path });
+          startIPolling(d.path);
+          toast('重新索引已启动: ' + d.path.split('/').pop(), 'in');
         } catch (e) {
-          toast('加载失败: ' + (e?.message ?? e), 'error');
-          showEmpty();
+          toast('失败: ' + (e?.message ?? e), 'er');
         }
       };
 
-      g.startIndex = async function () {
-        const path = document.getElementById('index-path').value.trim();
-        if (!path) { toast('请输入目录路径', 'warn'); return; }
+      g.stopIndexing = async () => {
+        ipolling = false;
+        qs('#ipb').style.display = 'none';
+        toast('已停止显示进度（索引在后台继续）', 'in');
+      };
 
-        const btn = document.getElementById('index-btn');
-        btn.disabled = true;
-        btn.innerHTML = '<div class="loader" style="width:14px;height:14px;border-width:2px"></div> 索引中…';
+      // ── Indexing progress polling ─────────────────────────────────────────────────
+      function startIPolling(path) {
+        ipolling = true;
+        qs('#ipb').style.display = 'block';
+        pollIndexing();
+      }
 
-        const pw = document.getElementById('progress-wrap');
-        pw.style.display = 'block';
-        animateProgress();
-
+      async function pollIndexing() {
+        if (!ipolling) return;
         try {
-          const stats = await invoke('index_directory', { path });
-          clearInterval(progTimer);
-          document.getElementById('progress-fill').style.width = '100%';
+          const jobs = await invoke('get_indexing_status');
+          const running = (jobs || []).filter(j => j.running);
 
-          // Fetch overall DB stats to show accurate totals
-          const dbStats = await invoke('get_stats').catch(() => null);
-          const newFiles = stats?.total_files ?? 0;
-          const totalFiles = dbStats?.total_files ?? newFiles;
-
-          if (newFiles === 0 && totalFiles > 0) {
-            document.getElementById('progress-label').textContent = '索引已是最新';
-            document.getElementById('progress-num').textContent = `（${totalFiles} 个文件已在索引中）`;
-            toast(`索引已是最新 · 共 ${totalFiles} 个文件`, 'info');
+          if (running.length > 0) {
+            const j = running[0];
+            qs('#ipb-txt').textContent = `索引中: ${j.path.split('/').pop()} · ${j.new_files} 个新文件`;
+            await loadStats();
+            setTimeout(pollIndexing, 1500);
           } else {
-            document.getElementById('progress-label').textContent = '索引完成';
-            document.getElementById('progress-num').textContent = `+${newFiles} 个新文件`;
-            toast(`索引完成：新增 ${newFiles} 个文件 · 共 ${totalFiles} 个`, 'success');
-          }
+            // All done
+            ipolling = false;
+            qs('#ipb').style.display = 'none';
+            await loadStats();
 
-          await loadStats();
-          if (document.getElementById('watch-toggle').checked) {
-            await startWatcher(path);
-          }
-          setTimeout(() => g.closeIndexModal(), 1800);
-        } catch (e) {
-          toast('索引失败: ' + (e?.message ?? e), 'error');
-          btn.disabled = false;
-          btn.textContent = '重试';
-          pw.style.display = 'none';
-        }
-      };
-
-      // ── Search ─────────────────────────────────────────────────────────────────
-      async function search(text) {
-        if (!text.trim()) return;
-        showLoading();
-        const t0 = Date.now();
-
-        const fileTypes = currentFilter === 'all' ? null
-          : currentFilter === 'pdf' ? ['text']  // PDF parsed as text
-            : [currentFilter];
-
-        try {
-          const results = await invoke('search_files', {
-            query: {
-              text,
-              mode: document.getElementById('mode').value,
-              limit: 50,
-              offset: 0,
-              file_types: fileTypes,
+            const done = (jobs || []).filter(j => !j.running);
+            for (const j of done) {
+              const idx = dirs.findIndex(d => d.path === j.path);
+              if (idx >= 0) {
+                dirs[idx].files = (dirs[idx].files ?? 0) + j.new_files;
+                saveDirs();
+              }
+              if (j.error) {
+                toast(`索引失败 ${j.path.split('/').pop()}: ${j.error}`, 'er');
+              } else if (j.new_files > 0) {
+                toast(`索引完成 · ${j.new_files} 个新文件`, 'ok');
+              } else {
+                toast('索引完成 · 文件均已是最新', 'in');
+              }
             }
-          });
-          const ms = Date.now() - t0;
-          renderResults(results || [], text, ms);
+            renderDirs();
+            const v = qs('#q').value.trim();
+            if (v) search(v); else browse();
+          }
         } catch (e) {
-          toast('搜索失败: ' + (e?.message ?? e), 'error');
-          showEmpty();
+          setTimeout(pollIndexing, 3000);
         }
       }
 
-      // ── Render results ──────────────────────────────────────────────────────────
-      function renderResults(results, query, ms) {
-        const area = document.getElementById('results-area');
-        const meta = document.getElementById('result-meta');
-
-        if (!results || results.length === 0) {
-          area.innerHTML = `<div class="empty"><div class="empty-icon">📭</div>
-      <div class="empty-title">无匹配结果</div>
-      <p>尝试不同关键词，或先<button class="btn btn-ghost" style="padding:4px 10px;font-size:12px" onclick="openIndexModal()">索引更多目录</button></p></div>`;
-          meta.innerHTML = `<span>未找到 "${esc(query)}" 的结果</span><span style="color:var(--muted2)">${ms}ms</span>`;
-          meta.style.display = 'flex';
-          return;
-        }
-
-        meta.innerHTML = `<span><strong style="color:var(--text)">${results.length}</strong> 条结果</span>
-    <span style="color:var(--muted2)">${ms}ms · ${esc(query)}</span>`;
-        meta.style.display = 'flex';
-
-        area.innerHTML = results.map(r => {
-          const ft = (r.file_record?.file_type ?? 'unknown').toLowerCase();
-          const name = (r.file_record?.path ?? '').split('/').pop() ?? 'unknown';
-          const pct = ((r.score ?? 0) * 100).toFixed(0);
-          const snip = r.snippet ? esc(r.snippet.slice(0, 220)) : '';
-          const cls = { text: 'tb-text', image: 'tb-image', audio: 'tb-audio', video: 'tb-video', unknown: 'tb-unknown' }[ft] ?? 'tb-unknown';
-          const label = { text: 'TEXT', image: 'IMG', audio: 'AUDIO', video: 'VIDEO', unknown: '?' }[ft] ?? ft.toUpperCase();
-          // Detect PDF by extension
-          const isPdf = name.toLowerCase().endsWith('.pdf');
-          const badgeCls = isPdf ? 'tb-pdf' : cls;
-          const badgeLbl = isPdf ? 'PDF' : label;
-
-          return `<div class="result-card" onclick="openResult('${esc(r.file_record?.path ?? '')}')">
-      <div class="result-top">
-        <span class="type-badge ${badgeCls}">${badgeLbl}</span>
-        <span class="result-name" title="${esc(r.file_record?.path ?? '')}">${esc(name)}</span>
-        <span class="result-score">${pct}%</span>
-      </div>
-      ${snip ? `<div class="result-snippet">${snip}</div>` : ''}
-      <div class="result-path">${esc(r.file_record?.path ?? '')}</div>
-    </div>`;
-        }).join('');
-      }
-
-      function renderFiles(files) {
-        const area = document.getElementById('results-area');
-        document.getElementById('result-meta').innerHTML =
-          `<span><strong style="color:var(--text)">${files.length}</strong> 个已索引文件</span><span></span>`;
-        document.getElementById('result-meta').style.display = 'flex';
-
-        if (files.length === 0) {
-          showEmpty();
-          return;
-        }
-
-        area.innerHTML = files.map(f => {
-          const ft = (f.file_type ?? 'unknown').toLowerCase();
-          const name = (f.path ?? '').split('/').pop() ?? '?';
-          const isPdf = name.toLowerCase().endsWith('.pdf');
-          const cls = isPdf ? 'tb-pdf' : { text: 'tb-text', image: 'tb-image', audio: 'tb-audio', video: 'tb-video', unknown: 'tb-unknown' }[ft] ?? 'tb-unknown';
-          const lbl = isPdf ? 'PDF' : ft.toUpperCase();
-          return `<div class="result-card" onclick="openResult('${esc(f.path ?? '')}')">
-      <div class="result-top">
-        <span class="type-badge ${cls}">${lbl}</span>
-        <span class="result-name">${esc(name)}</span>
-        <span style="margin-left:auto;font-size:11px;color:var(--muted)">${fmtSize(f.size ?? 0)}</span>
-      </div>
-      <div class="result-path">${esc(f.path ?? '')}</div>
-    </div>`;
-        }).join('');
-      }
-
-      // ── Stats ───────────────────────────────────────────────────────────────────
-      async function loadStats() {
-        try {
-          const s = await invoke('get_stats');
-          if (!s) return;
-          document.getElementById('s-files').textContent = (s.total_files ?? 0).toLocaleString();
-          document.getElementById('s-chunks').textContent = (s.total_chunks ?? 0).toLocaleString();
-
-          // Update file type counts from stats
-          const ft = s.files_by_type ?? {};
-          document.getElementById('fc-all').textContent = (s.total_files ?? 0);
-          document.getElementById('fc-text').textContent = ft['Text'] ?? '';
-          document.getElementById('fc-image').textContent = ft['Image'] ?? '';
-          document.getElementById('fc-audio').textContent = ft['Audio'] ?? '';
-          document.getElementById('fc-video').textContent = ft['Video'] ?? '';
-        } catch (e) { /* ignore — engine may not be ready yet */ }
-      }
-
-      // ── Watcher ─────────────────────────────────────────────────────────────────
+      // ── Watcher ───────────────────────────────────────────────────────────────────
       async function startWatcher(path) {
         try {
           await invoke('watch_directory', { path });
-          watchedDirs.push(path);
+          watchers.push(path);
+          const idx = dirs.findIndex(d => d.path === path);
+          if (idx >= 0) { dirs[idx].watching = true; saveDirs(); renderDirs(); }
           renderWatchers();
-          toast(`监听中: ${path.split('/').pop()}`, 'success');
+          toast('实时监听已启动: ' + path.split('/').pop(), 'ok');
         } catch (e) {
-          toast('监听启动失败: ' + (e?.message ?? e), 'error');
+          toast('监听失败: ' + (e?.message ?? e), 'wn');
         }
       }
 
       function renderWatchers() {
-        const list = document.getElementById('watcher-list');
-        const cnt = document.getElementById('watcher-count');
-        if (watchedDirs.length === 0) {
-          list.innerHTML = '<div style="font-size:12px;color:var(--muted2)">暂无监听目录</div>';
-          cnt.style.display = 'none';
-          return;
+        const el = qs('#wl'), cnt = qs('#wc');
+        if (watchers.length === 0) {
+          el.innerHTML = '<div style="font-size:11px;color:var(--mu2)">暂无监听</div>';
+          cnt.style.display = 'none'; return;
         }
-        cnt.textContent = watchedDirs.length;
-        cnt.style.display = 'inline';
-        list.innerHTML = watchedDirs.map(d =>
-          `<div class="watcher-item"><span class="dot-live"></span><span class="truncate" title="${esc(d)}">${esc(d.split('/').pop())}</span></div>`
+        cnt.textContent = watchers.length; cnt.style.display = 'inline';
+        el.innerHTML = watchers.map(w =>
+          `<div class="dr"><span class="dlive"></span><span class="dp" title="${esc(w)}">${esc(w.split('/').pop())}</span></div>`
         ).join('');
       }
 
-      // ── UI helpers ───────────────────────────────────────────────────────────────
-      function showEmpty() {
-        document.getElementById('results-area').innerHTML = document.getElementById('results-area').querySelector('#empty-state')?.outerHTML || `
-    <div class="empty" id="empty-state">
-      <div class="empty-icon">🗂️</div>
-      <div class="empty-title">开始使用 Mnemosyne</div>
-      <p>索引本地文件后，即可用自然语言搜索文本、图片、音频、视频。</p>
-      <div class="empty-actions">
-        <button class="btn btn-primary" onclick="openIndexModal()">索引目录</button>
-        <button class="btn btn-ghost" onclick="browseFiles()">浏览已索引文件</button>
-      </div>
-    </div>`;
-        document.getElementById('result-meta').style.display = 'none';
-      }
+      // ── Models ────────────────────────────────────────────────────────────────────
+      g.openModels = () => qs('#mdl-modal').classList.add('open');
+      g.closeModels = () => qs('#mdl-modal').classList.remove('open');
 
-      function showLoading(text = '搜索中…') {
-        document.getElementById('results-area').innerHTML =
-          `<div class="loading"><div class="loader"></div><div style="font-size:13px">${text}</div></div>`;
-      }
-
-      async function openResult(path) {
-        if (!path) return;
+      g.dlModel = async (id, btn) => {
+        btn.disabled = true;
+        btn.innerHTML = '<div class="sspin"></div>';
         try {
-          await window.__TAURI__?.shell?.open?.(path);
-        } catch (_) {
-          // Fallback: copy path to clipboard
-          navigator.clipboard?.writeText(path).then(() => toast('路径已复制', 'info'));
+          await invoke('download_model', { modelId: id });
+          btn.innerHTML = '✓ 已下载';
+          btn.className = 'btn ok';
+          toast(`模型下载完成: ${id.split('/').pop()}`, 'ok');
+          qs('#model-status').className = 'mb ok';
+          qs('#model-status').textContent = '✓ ' + id.split('/').pop();
+        } catch (e) {
+          btn.disabled = false;
+          btn.innerHTML = '重试';
+          toast('下载失败: ' + (e?.message ?? e), 'er');
+        }
+      };
+
+      // ── Search ─────────────────────────────────────────────────────────────────────
+      g.doSearch = () => {
+        const v = qs('#q').value.trim();
+        if (v) search(v);
+      };
+
+      async function search(text) {
+        if (!text.trim()) return;
+        showLoad();
+        const t0 = Date.now();
+        const ft = filter === 'all' ? null : filter === 'pdf' ? ['text'] : [filter];
+        try {
+          const rs = await invoke('search_files', {
+            query: { text, mode: qs('#mode').value, limit: 50, offset: 0, file_types: ft }
+          });
+          const ms = Date.now() - t0;
+          renderResults(rs || [], text, ms);
+        } catch (e) {
+          toast('搜索失败: ' + (e?.message ?? e), 'er');
+          showEmpty();
         }
       }
 
-      let progTimer;
-      function animateProgress() {
-        let v = 0;
-        document.getElementById('progress-fill').style.width = '0%';
-        clearInterval(progTimer);
-        progTimer = setInterval(() => {
-          v = Math.min(v + Math.random() * 8, 85);
-          document.getElementById('progress-fill').style.width = v + '%';
-        }, 300);
+      function renderResults(rs, q, ms) {
+        const ra = qs('#ra'), rm = qs('#rm');
+        if (!rs || rs.length === 0) {
+          ra.innerHTML = `<div class="em"><div class="em-ico">📭</div>
+      <div class="em-t">无匹配结果</div>
+      <p>尝试其他关键词，或<button class="btn bg" style="padding:3px 10px;font-size:12px;margin:0 4px" onclick="g.openIdx()">索引更多目录</button></p></div>`;
+          rm.innerHTML = `<span>未找到 "${esc(q)}" 的结果</span><span style="color:var(--mu2)">${ms}ms</span>`;
+          rm.style.display = 'flex'; return;
+        }
+        rm.innerHTML = `<span><b style="color:var(--tx)">${rs.length}</b> 条结果</span><span style="color:var(--mu2)">${ms}ms · ${esc(q)}</span>`;
+        rm.style.display = 'flex';
+        ra.innerHTML = rs.map(r => {
+          const ft = (r.file_record?.file_type ?? 'unknown').toLowerCase();
+          const nm = (r.file_record?.path ?? '').split('/').pop() ?? '?';
+          const pdf = nm.toLowerCase().endsWith('.pdf');
+          const cls = pdf ? 'tb-p' : { text: 'tb-t', image: 'tb-i', audio: 'tb-a', video: 'tb-v', unknown: 'tb-u' }[ft] ?? 'tb-u';
+          const lbl = pdf ? 'PDF' : { text: 'TXT', image: 'IMG', audio: 'AUDIO', video: 'VIDEO', unknown: '?' }[ft] ?? ft.toUpperCase();
+          const pct = ((r.score ?? 0) * 100).toFixed(0);
+          const snip = r.snippet ? esc(r.snippet.slice(0, 200)) : '';
+          return `<div class="rc" onclick="open('${esc(r.file_record?.path ?? '')}')">
+      <div class="rt"><span class="tb ${cls}">${lbl}</span>
+        <span class="rn" title="${esc(r.file_record?.path ?? '')}">${esc(nm)}</span>
+        <span class="rsc">${pct}%</span></div>
+      ${snip ? `<div class="rs2">${snip}</div>` : ''}
+      <div class="rp">${esc(r.file_record?.path ?? '')}</div>
+    </div>`;
+        }).join('');
       }
 
-      // ── Toast ───────────────────────────────────────────────────────────────────
-      function toast(msg, type = 'info') {
-        const wrap = document.getElementById('toast-wrap');
+      // ── File browser ──────────────────────────────────────────────────────────────
+      g.browse = async () => {
+        showLoad('加载文件…');
+        try {
+          const fs = await invoke('list_files', { limit: 100, offset: 0 });
+          const rm = qs('#rm');
+          if (!fs || fs.length === 0) { showEmpty(); return; }
+          rm.innerHTML = `<span><b style="color:var(--tx)">${fs.length}</b> 个文件</span><span></span>`;
+          rm.style.display = 'flex';
+          qs('#ra').innerHTML = fs.map(f => {
+            const ft = (f.file_type ?? 'unknown').toLowerCase();
+            const nm = (f.path ?? '').split('/').pop() ?? '?';
+            const pdf = nm.toLowerCase().endsWith('.pdf');
+            const cls = pdf ? 'tb-p' : { text: 'tb-t', image: 'tb-i', audio: 'tb-a', video: 'tb-v', unknown: 'tb-u' }[ft] ?? 'tb-u';
+            return `<div class="rc" onclick="open('${esc(f.path ?? '')}')">
+        <div class="rt"><span class="tb ${cls}">${pdf ? 'PDF' : ft.toUpperCase()}</span>
+          <span class="rn">${esc(nm)}</span>
+          <span style="margin-left:auto;font-size:11px;color:var(--mu)">${fmtSz(f.size ?? 0)}</span></div>
+        <div class="rp">${esc(f.path ?? '')}</div>
+      </div>`;
+          }).join('');
+        } catch (e) { toast('加载失败: ' + (e?.message ?? e), 'er'); showEmpty(); }
+      };
+
+      async function open(path) {
+        if (!path) return;
+        try { await window.__TAURI__?.shell?.open?.(path); }
+        catch (_) { navigator.clipboard?.writeText(path).then(() => toast('路径已复制', 'in')); }
+      }
+
+      // ── Stats ──────────────────────────────────────────────────────────────────────
+      async function loadStats() {
+        try {
+          const s = await invoke('get_stats');
+          if (!s) return;
+          qs('#sf').textContent = (s.total_files ?? 0).toLocaleString();
+          qs('#sc').textContent = (s.total_chunks ?? 0).toLocaleString();
+          qs('#fc-a').textContent = s.total_files ?? 0;
+          const ft = s.files_by_type ?? {};
+          qs('#fc-t').textContent = ft['Text'] ?? '';
+          qs('#fc-i').textContent = ft['Image'] ?? '';
+          qs('#fc-au').textContent = ft['Audio'] ?? '';
+          qs('#fc-v').textContent = ft['Video'] ?? '';
+        } catch (_) { }
+      }
+
+      g.refresh = async () => { await loadStats(); const v = qs('#q').value.trim(); if (v) search(v); toast('已刷新', 'in'); };
+
+      // ── UI helpers ─────────────────────────────────────────────────────────────────
+      function showEmpty() {
+        qs('#ra').innerHTML = `<div class="em" id="es">
+    <div class="em-ico">🗂️</div><div class="em-t">开始使用 Mnemosyne</div>
+    <p>索引本地文件后，即可用自然语言搜索文本、图片、音频、视频内容。</p>
+    <div class="em-act">
+      <button class="btn bp" onclick="g.openIdx()">选择目录索引</button>
+      <button class="btn bg" onclick="g.browse()">浏览已索引文件</button>
+    </div></div>`;
+        qs('#rm').style.display = 'none';
+      }
+      function showLoad(t = '搜索中…') {
+        qs('#ra').innerHTML = `<div class="ld"><div class="spin"></div><div style="font-size:13px">${t}</div></div>`;
+      }
+      g.clearQ = () => { qs('#q').value = ''; qs('#qc').style.display = 'none'; showEmpty(); qs('#rm').style.display = 'none'; };
+
+      function toast(msg, t = 'in') {
+        const w = qs('#tw');
         const el = document.createElement('div');
-        const icons = { success: '✓', error: '✗', warn: '⚠', info: 'ℹ' };
-        el.className = `toast ${type}`;
-        el.innerHTML = `<span>${icons[type] ?? ''}</span><span>${esc(msg)}</span>`;
-        wrap.appendChild(el);
+        const ic = { ok: '✓', er: '✗', wn: '⚠', in: 'ℹ' };
+        el.className = `to ${t}`;
+        el.innerHTML = `<span>${ic[t] ?? ''}</span><span>${esc(msg)}</span>`;
+        w.appendChild(el);
         requestAnimationFrame(() => el.classList.add('show'));
-        setTimeout(() => {
-          el.classList.remove('show');
-          setTimeout(() => el.remove(), 300);
-        }, 3500);
+        setTimeout(() => { el.classList.remove('show'); setTimeout(() => el.remove(), 300); }, 3500);
       }
       g.toast = toast;
 
-      // ── Utils ────────────────────────────────────────────────────────────────────
-      function esc(s) {
-        return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;')
-          .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-      }
-      function fmtSize(n) {
-        if (n < 1024) return n + ' B';
-        if (n < 1048576) return (n / 1024).toFixed(1) + ' KB';
-        return (n / 1048576).toFixed(1) + ' MB';
-      }
+      const esc = s => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+      const qs = s => document.querySelector(s);
+      const fmtSz = n => n < 1024 ? n + ' B' : n < 1048576 ? (n / 1024).toFixed(1) + ' KB' : (n / 1048576).toFixed(1) + ' MB';
 
-      // ── Keyboard shortcuts ────────────────────────────────────────────────────────
-      const qEl = document.getElementById('q');
+      // ── Keyboard shortcuts ─────────────────────────────────────────────────────────
+      const qEl = qs('#q');
       document.addEventListener('keydown', e => {
-        // / → focus search
-        if (e.key === '/' && document.activeElement !== qEl) {
-          e.preventDefault(); qEl.focus(); qEl.select(); return;
-        }
-        // Escape → clear or close modal
+        if (e.key === '/' && document.activeElement !== qEl) { e.preventDefault(); qEl.focus(); qEl.select(); return; }
         if (e.key === 'Escape') {
-          if (document.getElementById('index-modal').classList.contains('open')) {
-            g.closeIndexModal(); return;
-          }
-          if (qEl.value) { g.clearSearch(); return; }
+          if (qs('#idx-modal').classList.contains('open')) { g.closeIdx(); return; }
+          if (qs('#mdl-modal').classList.contains('open')) { g.closeModels(); return; }
+          if (qEl.value) { g.clearQ(); return; }
         }
-        // ⌘I → index
-        if ((e.metaKey || e.ctrlKey) && e.key === 'i') {
-          e.preventDefault(); g.openIndexModal(); return;
-        }
+        if ((e.metaKey || e.ctrlKey) && e.key === 'i') { e.preventDefault(); g.openIdx(); }
+        if ((e.metaKey || e.ctrlKey) && e.key === 'r') { e.preventDefault(); g.refresh(); }
       });
 
-      // Search with debounce
       qEl.addEventListener('input', () => {
         const v = qEl.value.trim();
-        document.getElementById('q-clear').style.display = v ? 'flex' : 'none';
-        clearTimeout(searchTimer);
-        if (!v) { g.clearSearch(); return; }
-        searchTimer = setTimeout(() => search(v), 320);
+        qs('#qc').style.display = v ? 'flex' : 'none';
+        clearTimeout(stimer);
+        if (!v) { g.clearQ(); return; }
+        stimer = setTimeout(() => search(v), 320);
       });
 
-      // Close modal on backdrop click
-      document.getElementById('index-modal').addEventListener('click', e => {
-        if (e.target === e.currentTarget) g.closeIndexModal();
-      });
+      qs('#idx-modal').addEventListener('click', e => { if (e.target === e.currentTarget) g.closeIdx(); });
+      qs('#mdl-modal').addEventListener('click', e => { if (e.target === e.currentTarget) g.closeModels(); });
+      qs('#ip').addEventListener('keydown', e => { if (e.key === 'Enter') g.startIdx(); });
 
-      document.getElementById('index-path').addEventListener('keydown', e => {
-        if (e.key === 'Enter') g.startIndex();
-      });
+      // ── Boot ─────────────────────────────────────────────────────────────────────
+      renderDirs();
+      renderWatchers();
 
-      // ── Init ────────────────────────────────────────────────────────────────────
-      (async () => {
-        // Wait a bit for the Tauri engine to initialise
-        setTimeout(async () => {
-          await loadStats();
-          // Auto-browse files if any exist
-          try {
-            const s = await invoke('get_stats');
-            if (s && (s.total_files ?? 0) > 0) {
-              await g.browseFiles();
-            }
-          } catch (_) { }
-        }, 800);
-      })();
+      setTimeout(async () => {
+        await loadStats();
+        try {
+          const s = await invoke('get_stats');
+          if (s && (s.total_files ?? 0) > 0) await g.browse();
+          // Resume polling if app restarted mid-index
+          const jobs = await invoke('get_indexing_status').catch(() => []);
+          if ((jobs || []).some(j => j.running)) {
+            ipolling = true; qs('#ipb').style.display = 'block'; pollIndexing();
+          }
+        } catch (_) { }
+      }, 800);
     </script>
 </body>
 
