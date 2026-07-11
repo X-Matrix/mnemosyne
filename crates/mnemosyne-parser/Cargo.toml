@@ -8,7 +8,8 @@ license.workspace   = true
 
 [features]
 default = ["pdf", "image-meta"]
-pdf        = ["dep:pdf-extract"]
+# pdf: pdf-extract (primary, fast for Latin PDFs) + lopdf (native CJK ToUnicode extraction)
+pdf        = ["dep:pdf-extract", "dep:lopdf"]
 image-meta = ["dep:image"]
 
 [dependencies]
@@ -22,3 +23,4 @@ tracing.workspace        = true
 
 image       = { version = "0.25", default-features = false, features = ["jpeg", "png", "gif", "bmp", "webp"], optional = true }
 pdf-extract = { version = "0.7", optional = true }
+lopdf       = { version = "0.31", optional = true }
