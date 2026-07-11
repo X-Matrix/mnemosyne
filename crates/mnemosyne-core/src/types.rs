@@ -18,7 +18,7 @@ impl FileType {
         match ext.to_lowercase().as_str() {
             "txt" | "md" | "markdown" | "csv" | "json" | "xml" | "html" | "htm" | "rst"
             | "toml" | "yaml" | "yml" | "log" | "ini" | "conf" | "py" | "rs" | "js" | "ts"
-            | "go" | "java" | "c" | "cpp" | "h" | "css" | "sh" | "bat" => Self::Text,
+            | "go" | "java" | "c" | "cpp" | "h" | "css" | "sh" | "bat" | "pdf" => Self::Text,
 
             "jpg" | "jpeg" | "png" | "bmp" | "gif" | "webp" | "tiff" | "tif" | "svg"
             | "heic" | "heif" => Self::Image,
