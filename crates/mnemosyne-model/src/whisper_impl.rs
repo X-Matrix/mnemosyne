@@ -87,25 +87,55 @@ impl WhisperTranscriber {
     /// The file is decoded and resampled to 16 kHz mono by symphonia before
     /// being fed to the Whisper encoder.
     pub fn transcribe(&self, path: &Path) -> Result<String, Error> {
-        let mut pcm = decode_audio_mono_16k(path)?;
+        let pcm = decode_audio_mono_16k(path)?;
+        // NOTE: Do NOT pad PCM to 30 s here.
+        // audio::pcm_to_mel() internally pads the samples array to
+        // (n_len / 1500 + 1) * 1500 + 1500 frames, which EXCEEDS 3000
+        // for any audio ≥ 30 s and causes the AudioEncoder's positional
+        // embedding (size 1500) to be exceeded.  We truncate the mel
+        // tensor to exactly N_FRAMES = 3000 after the mel computation.
 
-        // Whisper encoder requires exactly 3000 mel frames (30 s at 16 kHz).
-        // Pad with silence or truncate so the shape is always (1, n_mels, 3000).
-        const TARGET_SAMPLES: usize = 30 * SAMPLE_RATE as usize; // 480_000
-        if pcm.len() < TARGET_SAMPLES {
-            pcm.resize(TARGET_SAMPLES, 0.0_f32);
-        } else {
-            pcm.truncate(TARGET_SAMPLES);
-        }
-
-        // pcm_to_mel returns Vec<f32> directly (no Result)
         let mel_filters  = compute_mel_filters_f32(self.config.num_mel_bins);
         let mel: Vec<f32> = audio::pcm_to_mel(&self.config, &pcm, &mel_filters);
 
-        let mel_len = mel.len();
-        let n_mels  = self.config.num_mel_bins;
-        let mel_tensor = Tensor::from_vec(mel, (1usize, n_mels, mel_len / n_mels), &self.device)
+        let n_mels        = self.config.num_mel_bins;
+        let actual_frames = mel.len() / n_mels;
+
+        // pcm_to_mel pads internally to multiples of 1500 frames plus an extra
+        // 1500-frame chunk.  For a 30-second clip it produces 4500 frames,
+        // not 3000.  The AudioEncoder's positional embedding is sized for
+        // exactly N_FRAMES/2 = 1500 positions, so we must truncate first.
+        //
+        // mel layout is (n_mels, actual_frames) row-major.
+        const N_FRAMES: usize = 3000;
+        let keep_frames = actual_frames.min(N_FRAMES);
+
+        // Collect the first keep_frames columns of each mel-bin row.
+        let mel_trimmed: Vec<f32> = (0..n_mels)
+            .flat_map(|m| {
+                mel[m * actual_frames .. m * actual_frames + keep_frames]
+                    .iter()
+                    .copied()
+            })
+            .collect();
+
+        let mel_tensor = Tensor::from_vec(mel_trimmed, (1usize, n_mels, keep_frames), &self.device)
             .map_err(|e| Error::model(e.to_string()))?;
+
+        // Pad along the time axis if (somehow) shorter than N_FRAMES.
+        let mel_tensor = if keep_frames < N_FRAMES {
+            let pad = Tensor::zeros(
+                (1, n_mels, N_FRAMES - keep_frames),
+                candle_core::DType::F32,
+                &self.device,
+            )
+            .map_err(|e| Error::model(e.to_string()))?;
+            Tensor::cat(&[&mel_tensor, &pad], 2)
+                .map_err(|e| Error::model(e.to_string()))?
+        } else {
+            mel_tensor
+        };
+        // mel_tensor: (1, n_mels, N_FRAMES)
 
         let mut model = self.model.lock().map_err(|e| Error::model(e.to_string()))?;
         let audio_features = model.encoder.forward(&mel_tensor, true)
