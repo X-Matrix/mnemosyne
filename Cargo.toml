@@ -86,3 +86,11 @@ strip         = "symbols"
 [profile.release.package."*"]
 opt-level = 3
 
+# ── Vendored patches ──────────────────────────────────────────────────────────
+# tokenizers 0.20.4 has a bug: `mod onig` is compiled unconditionally even when
+# the `onig` feature is disabled, causing build failures when oniguruma is not
+# installed. This patch gates the module on `feature = "onig"` and falls back
+# to the pure-Rust `fancy-regex` backend (which tokenizers already depends on).
+[patch.crates-io]
+tokenizers = { path = "vendor/tokenizers" }
+
