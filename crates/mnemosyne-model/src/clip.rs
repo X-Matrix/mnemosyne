@@ -23,20 +23,36 @@ pub struct ClipEmbedder {
     device: Device,
 }
 
+/// Return the local model directory `~/.mnemosyne/models/{model_id}` if it exists.
+fn local_model_dir(model_id: &str) -> Option<std::path::PathBuf> {
+    let home = std::env::var("HOME").ok()?;
+    let dir = std::path::PathBuf::from(home)
+        .join(".mnemosyne/models")
+        .join(model_id);
+    if dir.is_dir() { Some(dir) } else { None }
+}
+
 impl ClipEmbedder {
-    /// Download and load the CLIP model from HuggingFace Hub.
+    /// Load from local cache (`~/.mnemosyne/models/`) or download from HuggingFace Hub.
     pub async fn load(model_id: &str) -> Result<Self, Error> {
         info!("Loading CLIP model '{}'", model_id);
         let device = Device::Cpu;
 
-        let api = Api::new().map_err(|e| Error::model(e.to_string()))?;
-        let repo = api.model(model_id.to_string());
-
-        // Weights: prefer safetensors, fall back to pytorch bin.
-        let weights_path = match repo.get("model.safetensors").await {
-            Ok(p) => p,
-            Err(_) => repo.get("pytorch_model.bin").await
-                .map_err(|e| Error::model(format!("weights: {e}")))?,
+        // ── Local cache: ~/.mnemosyne/models/{model_id}/ ──────────────────────
+        let weights_path = if let Some(dir) = local_model_dir(model_id) {
+            let sf = dir.join("model.safetensors");
+            let pt = dir.join("pytorch_model.bin");
+            if sf.exists() {
+                info!("CLIP: loading from local cache {}", dir.display());
+                sf
+            } else if pt.exists() {
+                info!("CLIP: loading from local cache {}", dir.display());
+                pt
+            } else {
+                download_clip_weights(model_id).await?
+            }
+        } else {
+            download_clip_weights(model_id).await?
         };
 
         // Use the candle-transformers built-in config for ViT-B/32.
@@ -76,6 +92,18 @@ impl ClipEmbedder {
 // SAFETY: candle CPU tensors are read-only after load; no interior mutability.
 unsafe impl Send for ClipEmbedder {}
 unsafe impl Sync for ClipEmbedder {}
+
+// ── HuggingFace Hub fallback ──────────────────────────────────────────────────
+
+async fn download_clip_weights(model_id: &str) -> Result<std::path::PathBuf, Error> {
+    let api = Api::new().map_err(|e| Error::model(e.to_string()))?;
+    let repo = api.model(model_id.to_string());
+    match repo.get("model.safetensors").await {
+        Ok(p) => Ok(p),
+        Err(_) => repo.get("pytorch_model.bin").await
+            .map_err(|e| Error::model(format!("weights: {e}"))),
+    }
+}
 
 // ── Image preprocessing ───────────────────────────────────────────────────────
 

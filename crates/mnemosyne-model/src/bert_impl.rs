@@ -18,29 +18,39 @@ pub struct BertEmbedder {
     pub dim: usize,
 }
 
+/// Return the local model directory `~/.mnemosyne/models/{model_id}` if it exists.
+fn local_model_dir(model_id: &str) -> Option<std::path::PathBuf> {
+    let home = std::env::var("HOME").ok()?;
+    let dir = std::path::PathBuf::from(home)
+        .join(".mnemosyne/models")
+        .join(model_id);
+    if dir.is_dir() { Some(dir) } else { None }
+}
+
 impl BertEmbedder {
-    /// Download model from HuggingFace Hub and load into memory (CPU).
+    /// Load from local cache (`~/.mnemosyne/models/`) or download from HuggingFace Hub.
     pub async fn load(model_id: &str) -> Result<Self, Error> {
         info!("Loading BERT model '{}' via Candle", model_id);
 
-        let api = Api::new().map_err(|e| Error::model(e.to_string()))?;
-        let repo = api.model(model_id.to_string());
-
-        let config_path = repo
-            .get("config.json")
-            .await
-            .map_err(|e| Error::model(format!("config.json: {e}")))?;
-
-        let tokenizer_path = repo
-            .get("tokenizer.json")
-            .await
-            .map_err(|e| Error::model(format!("tokenizer.json: {e}")))?;
-
-        let weights_path = match repo.get("model.safetensors").await {
-            Ok(p) => p,
-            Err(_) => repo.get("pytorch_model.bin").await
-                .map_err(|e| Error::model(format!("weights: {e}")))?,
-        };
+        // ── Local cache: ~/.mnemosyne/models/{model_id}/ ──────────────────────
+        let (config_path, tokenizer_path, weights_path) =
+            if let Some(dir) = local_model_dir(model_id) {
+                let weights = if dir.join("model.safetensors").exists() {
+                    dir.join("model.safetensors")
+                } else {
+                    dir.join("pytorch_model.bin")
+                };
+                let cfg  = dir.join("config.json");
+                let tok  = dir.join("tokenizer.json");
+                if cfg.exists() && tok.exists() && weights.exists() {
+                    info!("BERT: loading from local cache {}", dir.display());
+                    (cfg, tok, weights)
+                } else {
+                    download_bert_files(model_id).await?
+                }
+            } else {
+                download_bert_files(model_id).await?
+            };
 
         let config: BertConfig = {
             let json = std::fs::read_to_string(&config_path).map_err(Error::Io)?;
@@ -103,3 +113,22 @@ impl BertEmbedder {
 // mutability. Safe to share across threads.
 unsafe impl Send for BertEmbedder {}
 unsafe impl Sync for BertEmbedder {}
+
+// ── HuggingFace Hub fallback ──────────────────────────────────────────────────
+
+async fn download_bert_files(
+    model_id: &str,
+) -> Result<(std::path::PathBuf, std::path::PathBuf, std::path::PathBuf), Error> {
+    let api = Api::new().map_err(|e| Error::model(e.to_string()))?;
+    let repo = api.model(model_id.to_string());
+    let config_path    = repo.get("config.json").await
+        .map_err(|e| Error::model(format!("config.json: {e}")))?;
+    let tokenizer_path = repo.get("tokenizer.json").await
+        .map_err(|e| Error::model(format!("tokenizer.json: {e}")))?;
+    let weights_path = match repo.get("model.safetensors").await {
+        Ok(p) => p,
+        Err(_) => repo.get("pytorch_model.bin").await
+            .map_err(|e| Error::model(format!("weights: {e}")))?,
+    };
+    Ok((config_path, tokenizer_path, weights_path))
+}
