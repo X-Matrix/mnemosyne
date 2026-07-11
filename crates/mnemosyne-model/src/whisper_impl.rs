@@ -155,31 +155,38 @@ impl WhisperTranscriber {
             let audio_features = model.encoder.forward(&mel_tensor, true)
                 .map_err(|e| Error::model(e.to_string()))?;
 
-            // ── KV-cache greedy decode ──────────────────────────────────
-            // Pass all initial tokens in one forward call (flush_kv_cache=true),
-            // then feed only the latest token each step (flush_kv_cache=false).
-            // Reduces decoder work from O(n²) to O(n).
+            // ── Greedy decode (full-sequence, flush every step) ──────────────────
+            // candle TextDecoder always assigns positional embeddings starting
+            // at index 0 for the tokens provided in the current call.  There is
+            // no offset tracking, so we must feed the FULL growing token
+            // sequence on every step (flush_kv_cache=true) to get correct
+            // position encodings. This is O(n²) but functionally correct.
             let init: &[u32] =
                 &[SOT_TOKEN, ENGLISH_TOKEN, TRANSCRIBE_TOKEN, NO_TIMESTAMPS_TOKEN];
-            let init_t = Tensor::new(init, &self.device)
-                .and_then(|t| t.unsqueeze(0))
-                .map_err(|e| Error::model(e.to_string()))?;
-
-            let logits0 = model.decoder.forward(&init_t, &audio_features, true)
-                .map_err(|e| Error::model(e.to_string()))?;
-            let mut last_tok = next_token_from_logits(&logits0, init.len() - 1)?;
-
+            let mut tokens: Vec<u32> = init.to_vec();
             let mut text_tokens: Vec<u32> = Vec::new();
-            for _ in 0..max_new {
-                if last_tok == EOT_TOKEN { break; }
-                text_tokens.push(last_tok);
 
-                let step_t = Tensor::new(&[last_tok][..], &self.device)
+            for _ in 0..max_new {
+                let input = Tensor::new(tokens.as_slice(), &self.device)
                     .and_then(|t| t.unsqueeze(0))
                     .map_err(|e| Error::model(e.to_string()))?;
-                let logits = model.decoder.forward(&step_t, &audio_features, false)
+                let logits = model.decoder.forward(&input, &audio_features, true)
                     .map_err(|e| Error::model(e.to_string()))?;
-                last_tok = next_token_from_logits(&logits, 0)?;
+
+                let last_tok = next_token_from_logits(&logits, tokens.len() - 1)?;
+                if last_tok == EOT_TOKEN { break; }
+
+                tokens.push(last_tok);
+                text_tokens.push(last_tok);
+
+                // Repetition guard: break if the same bigram appears 4+ times
+                // in the last 16 generated tokens (Whisper hallucination).
+                if text_tokens.len() >= 16 {
+                    let tail = &text_tokens[text_tokens.len() - 16..];
+                    let last = (tail[tail.len()-2], tail[tail.len()-1]);
+                    let count = tail.windows(2).filter(|w| (w[0], w[1]) == last).count();
+                    if count >= 4 { break; }
+                }
             }
 
             let chunk_text = self.tokenizer.decode(&text_tokens, true)
@@ -355,24 +362,27 @@ fn decode_audio_mono_16k(path: &Path) -> Result<Vec<f32>, Error> {
 fn hz_to_mel(hz: f32) -> f32 { 2595.0 * (1.0 + hz / 700.0).log10() }
 fn mel_to_hz(mel: f32) -> f32 { 700.0 * (10.0f32.powf(mel / 2595.0) - 1.0) }
 
-/// Compute mel filter bank as a flat f32 array (n_mels × n_freqs).
-/// Same layout expected by `audio::pcm_to_mel`.
+/// Compute mel filter bank (n_mels × n_freqs) in row-major order.
+///
+/// Uses librosa-compatible triangular filters with **Slaney normalisation**
+/// (`norm='slaney'`), which is what Whisper expects.
 fn compute_mel_filters_f32(n_mels: usize) -> Vec<f32> {
-    let sr = SAMPLE_RATE as f32;
-    let n_fft = N_FFT;
-    let n_freqs = n_fft / 2 + 1;
-    let fmin = 0.0f32;
-    let fmax = sr / 2.0;
+    let sr      = SAMPLE_RATE as f32;
+    let n_fft   = N_FFT;
+    let n_freqs = n_fft / 2 + 1;   // 201
 
-    let mel_min = hz_to_mel(fmin);
-    let mel_max = hz_to_mel(fmax);
+    let mel_min = hz_to_mel(0.0);
+    let mel_max = hz_to_mel(sr / 2.0);
 
     let mel_pts: Vec<f32> = (0..=(n_mels + 1))
         .map(|i| mel_min + (mel_max - mel_min) * i as f32 / (n_mels + 1) as f32)
         .collect();
     let hz_pts: Vec<f32> = mel_pts.iter().map(|&m| mel_to_hz(m)).collect();
+
+    // FFT bin indices for each centre frequency.
+    // Correct formula: floor((N_FFT + 1) × f / sr)  [same as librosa / Whisper]
     let bin_pts: Vec<usize> = hz_pts.iter()
-        .map(|&f| ((f / sr) * (n_fft + 2) as f32).floor() as usize)
+        .map(|&f| ((n_fft as f32 + 1.0) * f / sr).floor() as usize)
         .collect();
 
     let mut filters = vec![0.0f32; n_mels * n_freqs];
@@ -380,12 +390,18 @@ fn compute_mel_filters_f32(n_mels: usize) -> Vec<f32> {
         let lo  = bin_pts[m];
         let mid = bin_pts[m + 1];
         let hi  = bin_pts[m + 2];
-        for f in lo..hi.min(n_freqs) {
-            filters[m * n_freqs + f] = if f <= mid {
-                (f - lo) as f32 / (mid - lo).max(1) as f32
-            } else {
-                (hi - f) as f32 / (hi - mid).max(1) as f32
-            };
+        for f in lo..mid.min(n_freqs) {
+            filters[m * n_freqs + f] = (f - lo) as f32 / (mid - lo).max(1) as f32;
+        }
+        for f in mid..hi.min(n_freqs) {
+            filters[m * n_freqs + f] = (hi - f) as f32 / (hi - mid).max(1) as f32;
+        }
+        // Slaney normalisation: scale each filter by 2 / bandwidth_in_Hz
+        let bw = hz_pts[m + 2] - hz_pts[m];
+        if bw > 1e-6 {
+            for f in 0..n_freqs {
+                filters[m * n_freqs + f] *= 2.0 / bw;
+            }
         }
     }
     filters
