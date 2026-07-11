@@ -60,10 +60,7 @@ impl ClipEmbedder {
         // the JSON directly; the static constructor encodes the correct values.
         let config = ClipConfig::vit_base_patch32();
 
-        let vb = unsafe {
-            VarBuilder::from_mmaped_safetensors(&[weights_path], DType::F32, &device)
-                .map_err(|e| Error::model(e.to_string()))?
-        };
+        let vb = load_var_builder(&weights_path, DType::F32, &device)?;
         let model = clip::ClipModel::new(vb, &config)
             .map_err(|e| Error::model(e.to_string()))?;
 
@@ -92,6 +89,27 @@ impl ClipEmbedder {
 // SAFETY: candle CPU tensors are read-only after load; no interior mutability.
 unsafe impl Send for ClipEmbedder {}
 unsafe impl Sync for ClipEmbedder {}
+
+// ── Weight loading helper ──────────────────────────────────────────────────
+
+/// Load a VarBuilder that handles both `.safetensors` (mmap) and
+/// `pytorch_model.bin` (PyTorch pickle) weight files.
+fn load_var_builder(
+    path: &std::path::Path,
+    dtype: DType,
+    device: &Device,
+) -> Result<VarBuilder<'static>, Error> {
+    let is_sf = path.extension().and_then(|e| e.to_str()) == Some("safetensors");
+    if is_sf {
+        unsafe {
+            VarBuilder::from_mmaped_safetensors(&[path], dtype, device)
+                .map_err(|e| Error::model(e.to_string()))
+        }
+    } else {
+        VarBuilder::from_pth(path, dtype, device)
+            .map_err(|e| Error::model(e.to_string()))
+    }
+}
 
 // ── HuggingFace Hub fallback ──────────────────────────────────────────────────
 

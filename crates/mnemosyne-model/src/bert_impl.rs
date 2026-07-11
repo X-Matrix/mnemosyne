@@ -60,10 +60,7 @@ impl BertEmbedder {
 
         let device = Device::Cpu;
 
-        let vb = unsafe {
-            VarBuilder::from_mmaped_safetensors(&[weights_path], DTYPE, &device)
-                .map_err(|e| Error::model(format!("load weights: {e}")))?
-        };
+        let vb = load_var_builder(&weights_path, DTYPE, &device)?;
 
         let model =
             BertModel::load(vb, &config).map_err(|e| Error::model(format!("build model: {e}")))?;
@@ -113,6 +110,25 @@ impl BertEmbedder {
 // mutability. Safe to share across threads.
 unsafe impl Send for BertEmbedder {}
 unsafe impl Sync for BertEmbedder {}
+
+// ── Weight loading helper ──────────────────────────────────────────────────
+
+fn load_var_builder(
+    path: &std::path::Path,
+    dtype: DType,
+    device: &Device,
+) -> Result<VarBuilder<'static>, Error> {
+    let is_sf = path.extension().and_then(|e| e.to_str()) == Some("safetensors");
+    if is_sf {
+        unsafe {
+            VarBuilder::from_mmaped_safetensors(&[path], dtype, device)
+                .map_err(|e| Error::model(e.to_string()))
+        }
+    } else {
+        VarBuilder::from_pth(path, dtype, device)
+            .map_err(|e| Error::model(e.to_string()))
+    }
+}
 
 // ── HuggingFace Hub fallback ──────────────────────────────────────────────────
 

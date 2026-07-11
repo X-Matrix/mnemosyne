@@ -71,14 +71,7 @@ impl WhisperTranscriber {
             serde_json::from_str(&s).map_err(|e| Error::model(e.to_string()))?
         };
 
-        let vb = unsafe {
-            VarBuilder::from_mmaped_safetensors(
-                &[weights_path],
-                candle_core::DType::F32,
-                &device,
-            )
-            .map_err(|e| Error::model(e.to_string()))?
-        };
+        let vb = load_var_builder(&weights_path, candle_core::DType::F32, &device)?;
         let model = whisper_model::Whisper::load(&vb, config.clone())
             .map_err(|e| Error::model(e.to_string()))?;
 
@@ -94,7 +87,17 @@ impl WhisperTranscriber {
     /// The file is decoded and resampled to 16 kHz mono by symphonia before
     /// being fed to the Whisper encoder.
     pub fn transcribe(&self, path: &Path) -> Result<String, Error> {
-        let pcm          = decode_audio_mono_16k(path)?;
+        let mut pcm = decode_audio_mono_16k(path)?;
+
+        // Whisper encoder requires exactly 3000 mel frames (30 s at 16 kHz).
+        // Pad with silence or truncate so the shape is always (1, n_mels, 3000).
+        const TARGET_SAMPLES: usize = 30 * SAMPLE_RATE as usize; // 480_000
+        if pcm.len() < TARGET_SAMPLES {
+            pcm.resize(TARGET_SAMPLES, 0.0_f32);
+        } else {
+            pcm.truncate(TARGET_SAMPLES);
+        }
+
         // pcm_to_mel returns Vec<f32> directly (no Result)
         let mel_filters  = compute_mel_filters_f32(self.config.num_mel_bins);
         let mel: Vec<f32> = audio::pcm_to_mel(&self.config, &pcm, &mel_filters);
@@ -140,6 +143,25 @@ impl WhisperTranscriber {
 
 unsafe impl Send for WhisperTranscriber {}
 unsafe impl Sync for WhisperTranscriber {}
+
+// ── Weight loading helper ──────────────────────────────────────────────────
+
+fn load_var_builder(
+    path: &std::path::Path,
+    dtype: candle_core::DType,
+    device: &Device,
+) -> Result<VarBuilder<'static>, Error> {
+    let is_sf = path.extension().and_then(|e| e.to_str()) == Some("safetensors");
+    if is_sf {
+        unsafe {
+            VarBuilder::from_mmaped_safetensors(&[path], dtype, device)
+                .map_err(|e| Error::model(e.to_string()))
+        }
+    } else {
+        VarBuilder::from_pth(path, dtype, device)
+            .map_err(|e| Error::model(e.to_string()))
+    }
+}
 
 // ── HuggingFace Hub fallback ──────────────────────────────────────────────────
 
