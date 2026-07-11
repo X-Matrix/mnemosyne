@@ -19,7 +19,11 @@ tauri-build = { version = "2", features = [] }
 [dependencies]
 tauri             = { version = "2", features = [] }
 tauri-plugin-dialog = "2"
-mnemosyne-retrieval.workspace = true
+mnemosyne-retrieval = { workspace = true, features = [
+    "candle-backend",    # real BERT text embeddings
+    "clip-backend",      # real CLIP image embeddings (multimodal)
+    "whisper-backend",   # real Whisper audio transcription
+] }
 mnemosyne-core.workspace      = true
 mnemosyne-storage.workspace   = true
 tokio.workspace               = true

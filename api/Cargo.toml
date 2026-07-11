@@ -10,7 +10,11 @@ name = "mnemosyne-server"
 path = "src/main.rs"
 
 [dependencies]
-mnemosyne-retrieval.workspace = true
+mnemosyne-retrieval = { workspace = true, features = [
+    "candle-backend",
+    "clip-backend",
+    "whisper-backend",
+] }
 mnemosyne-core.workspace      = true
 axum.workspace                = true
 tower.workspace               = true
