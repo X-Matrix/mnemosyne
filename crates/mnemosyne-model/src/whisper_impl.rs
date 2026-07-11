@@ -20,8 +20,14 @@ const EOT_TOKEN:           u32 = 50257;
 const TRANSCRIBE_TOKEN:    u32 = 50359;
 const NO_TIMESTAMPS_TOKEN: u32 = 50363;
 const ENGLISH_TOKEN:       u32 = 50259;
-const SAMPLE_RATE:         u32 = 16_000;
-const MAX_DECODE_TOKENS:   usize = 448;
+const SAMPLE_RATE:         u32   = 16_000;
+/// Process only the first 15 s of audio — halves encoder time vs 30 s.
+/// The encoder positional embedding supports up to 1500 positions (30 s after
+/// stride-2 conv), so keeping ≤ 1500 frames is always safe.
+const N_FRAMES:             usize = 1500;   // 15 s × 100 fps
+/// Maximum NEW tokens to generate per transcription (for indexing, a short
+/// summary is sufficient and this keeps per-file cost bounded on CPU).
+const MAX_DECODE_TOKENS:    usize = 200;
 const N_FFT:               usize = 400;
 
 pub struct WhisperTranscriber {
@@ -102,12 +108,10 @@ impl WhisperTranscriber {
         let actual_frames = mel.len() / n_mels;
 
         // pcm_to_mel pads internally to multiples of 1500 frames plus an extra
-        // 1500-frame chunk.  For a 30-second clip it produces 4500 frames,
-        // not 3000.  The AudioEncoder's positional embedding is sized for
-        // exactly N_FRAMES/2 = 1500 positions, so we must truncate first.
+        // 1500-frame chunk.  The AudioEncoder positional embedding is sized for
+        // N_FRAMES/2 positions, so truncate first.
         //
         // mel layout is (n_mels, actual_frames) row-major.
-        const N_FRAMES: usize = 3000;
         let keep_frames = actual_frames.min(N_FRAMES);
 
         // Collect the first keep_frames columns of each mel-bin row.
@@ -122,7 +126,7 @@ impl WhisperTranscriber {
         let mel_tensor = Tensor::from_vec(mel_trimmed, (1usize, n_mels, keep_frames), &self.device)
             .map_err(|e| Error::model(e.to_string()))?;
 
-        // Pad along the time axis if (somehow) shorter than N_FRAMES.
+        // Pad to N_FRAMES if shorter than expected (very short audio).
         let mel_tensor = if keep_frames < N_FRAMES {
             let pad = Tensor::zeros(
                 (1, n_mels, N_FRAMES - keep_frames),
@@ -145,7 +149,14 @@ impl WhisperTranscriber {
         let mut tokens = vec![SOT_TOKEN, ENGLISH_TOKEN, TRANSCRIBE_TOKEN, NO_TIMESTAMPS_TOKEN];
         let mut text_tokens: Vec<u32> = Vec::new();
 
-        for _ in 0..MAX_DECODE_TOKENS {
+        // Limit new tokens so the total sequence never exceeds the decoder's
+        // max_target_positions (448 for whisper-base/tiny).  Exceeding it
+        // causes positional-embedding narrow errors.
+        let max_new = (self.config.max_target_positions
+            .saturating_sub(tokens.len()))
+            .min(MAX_DECODE_TOKENS);
+
+        for _ in 0..max_new {
             let input = Tensor::new(tokens.as_slice(), &self.device)
                 .and_then(|t| t.unsqueeze(0))
                 .map_err(|e| Error::model(e.to_string()))?;
