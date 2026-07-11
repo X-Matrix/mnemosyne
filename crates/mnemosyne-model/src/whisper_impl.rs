@@ -5,9 +5,9 @@
 //! Audio is decoded and resampled to 16 kHz mono before inference.
 //! Default model: `openai/whisper-tiny`.
 
-use candle_core::{Device, Tensor, D};
+use candle_core::{Device, Tensor};
 use candle_nn::VarBuilder;
-use candle_transformers::models::whisper::{self as m, audio, model as whisper_model, Config};
+use candle_transformers::models::whisper::{audio, model as whisper_model, Config};
 use hf_hub::api::tokio::Api;
 use mnemosyne_core::Error;
 use std::path::Path;
@@ -25,8 +25,9 @@ const SAMPLE_RATE:         u32   = 16_000;
 /// Matches the encoder's positional embedding capacity: N_FRAMES/2 = 1500 positions.
 const N_FRAMES:             usize = 3000;   // 30 s × 100 fps
 /// Max new tokens to generate per 30-second chunk.
-/// Must be ≤ max_target_positions(448) − 4 initial special tokens = 444.
-const MAX_DECODE_TOKENS:    usize = 400;
+/// Whisper-base generates ~4 tokens/second; 80 tokens covers ~20 s of speech.
+/// Kept deliberately small to bound O(n²) self-attention decode cost on CPU.
+const MAX_DECODE_TOKENS:    usize = 80;
 const N_FFT:               usize = 400;
 
 pub struct WhisperTranscriber {
@@ -87,124 +88,128 @@ impl WhisperTranscriber {
         Ok(Self { model: Mutex::new(model), config, tokenizer, device })
     }
 
-    /// Transcribe an audio file to text by processing it in 30-second chunks.
+    /// Transcribe an audio file to text.
     ///
-    /// Each chunk is encoded independently with Whisper's audio encoder,
-    /// then decoded using KV-cache-aware greedy search (O(n) vs the naive
-    /// O(n²) approach of re-encoding all tokens on each step).
-    /// The per-chunk and full transcripts are written to the INFO log.
+    /// Implementation mirrors the official candle Whisper example:
+    ///  1. Pre-computed Slaney mel filters loaded from embedded bytes.
+    ///  2. Mel computed once for the FULL signal, then sliced into 30-s windows
+    ///     with `narrow()` to avoid chunk-boundary artefacts.
+    ///  3. Greedy decode: `decoder.forward()` returns hidden states;
+    ///     `decoder.final_linear()` projects them to vocab logits.
+    ///  4. KV-cache flush only on the FIRST decode step per segment
+    ///     (`flush_kv_cache = step == 0`).
     pub fn transcribe(&self, path: &Path) -> Result<String, Error> {
         let pcm = decode_audio_mono_16k(path)?;
-        if pcm.is_empty() {
-            return Ok(String::new());
-        }
+        if pcm.is_empty() { return Ok(String::new()); }
 
+        let filename = path.file_name().and_then(|n| n.to_str()).unwrap_or("?");
         let duration_s = pcm.len() as f64 / SAMPLE_RATE as f64;
-        // Number of raw PCM samples that correspond to one 30-second Whisper window.
-        // HOP_LENGTH = 160, so N_FRAMES × 160 = 3000 × 160 = 480_000 samples.
-        const CHUNK_SAMPLES: usize = N_FRAMES * 160;
-        let n_chunks = (pcm.len() + CHUNK_SAMPLES - 1) / CHUNK_SAMPLES;
 
-        info!(
-            "Whisper: '{}' {:.1} s → {} chunk(s)",
-            path.file_name().and_then(|n| n.to_str()).unwrap_or("?"),
-            duration_s,
-            n_chunks,
-        );
+        // Slaney-normalised mel filter bank (pre-computed, embedded at compile time).
+        let mel_filters = load_mel_filters(self.config.num_mel_bins)?;
 
-        let mel_filters = compute_mel_filters_f32(self.config.num_mel_bins);
+        // Compute mel for the FULL signal at once, then slice with narrow().
+        let mel_vec = audio::pcm_to_mel(&self.config, &pcm, &mel_filters);
+        let total_frames = mel_vec.len() / self.config.num_mel_bins;
         let n_mels = self.config.num_mel_bins;
-        // Safety cap: total token sequence must not exceed decoder positional
-        // embedding size (max_target_positions, 448 for base/tiny).
+
+        let mel = Tensor::from_vec(
+            mel_vec, (1usize, n_mels, total_frames), &self.device,
+        ).map_err(|e| Error::model(e.to_string()))?;
+
+        // pcm_to_mel adds internal padding, so total_frames ≥ duration_s×100 fps.
+        let n_segs = (total_frames + N_FRAMES - 1) / N_FRAMES;
+        info!("Whisper: '{}' {:.1}s → {} segment(s)", filename, duration_s, n_segs);
+
         let max_new = (self.config.max_target_positions.saturating_sub(4))
             .min(MAX_DECODE_TOKENS);
 
         let mut model = self.model.lock().map_err(|e| Error::model(e.to_string()))?;
         let mut parts: Vec<String> = Vec::new();
 
-        for (ci, pcm_chunk) in pcm.chunks(CHUNK_SAMPLES).enumerate() {
-            // ── Build mel tensor (trim candle's internal padding to N_FRAMES) ──
-            let mel = audio::pcm_to_mel(&self.config, pcm_chunk, &mel_filters);
-            let actual_frames = mel.len() / n_mels;
-            let keep_frames   = actual_frames.min(N_FRAMES);
+        let mut seek = 0usize;
+        let mut seg_idx = 0usize;
+        while seek < total_frames {
+            let seg_len = N_FRAMES.min(total_frames - seek);
+            seg_idx += 1;
 
-            let mel_trimmed: Vec<f32> = (0..n_mels)
-                .flat_map(|m| {
-                    mel[m * actual_frames..m * actual_frames + keep_frames]
-                        .iter().copied()
-                })
-                .collect();
-
-            let mel_tensor =
-                Tensor::from_vec(mel_trimmed, (1usize, n_mels, keep_frames), &self.device)
-                    .map_err(|e| Error::model(e.to_string()))?;
-
-            let mel_tensor = if keep_frames < N_FRAMES {
+            // Slice and pad to N_FRAMES.
+            let mel_seg = mel.narrow(2, seek, seg_len)
+                .map_err(|e| Error::model(e.to_string()))?;
+            let mel_seg = if seg_len < N_FRAMES {
                 let pad = Tensor::zeros(
-                    (1, n_mels, N_FRAMES - keep_frames),
-                    candle_core::DType::F32,
-                    &self.device,
+                    (1, n_mels, N_FRAMES - seg_len),
+                    candle_core::DType::F32, &self.device,
                 ).map_err(|e| Error::model(e.to_string()))?;
-                Tensor::cat(&[&mel_tensor, &pad], 2)
+                Tensor::cat(&[&mel_seg, &pad], 2)
                     .map_err(|e| Error::model(e.to_string()))?
-            } else {
-                mel_tensor
-            };
+            } else { mel_seg };
 
-            // ── Encode audio ──
-            let audio_features = model.encoder.forward(&mel_tensor, true)
+            seek += seg_len;
+
+            // Encode audio segment.
+            let audio_features = model.encoder.forward(&mel_seg, true)
                 .map_err(|e| Error::model(e.to_string()))?;
 
-            // ── Greedy decode (full-sequence, flush every step) ──────────────────
-            // candle TextDecoder always assigns positional embeddings starting
-            // at index 0 for the tokens provided in the current call.  There is
-            // no offset tracking, so we must feed the FULL growing token
-            // sequence on every step (flush_kv_cache=true) to get correct
-            // position encodings. This is O(n²) but functionally correct.
-            let init: &[u32] =
-                &[SOT_TOKEN, ENGLISH_TOKEN, TRANSCRIBE_TOKEN, NO_TIMESTAMPS_TOKEN];
-            let mut tokens: Vec<u32> = init.to_vec();
-            let mut text_tokens: Vec<u32> = Vec::new();
+            // Greedy decode.
+            // Per reference: flush_kv_cache = (step == 0) — cache is primed on the
+            // first step and extended for subsequent steps within the same segment.
+            let mut tokens: Vec<u32> = vec![
+                SOT_TOKEN, ENGLISH_TOKEN, TRANSCRIBE_TOKEN, NO_TIMESTAMPS_TOKEN,
+            ];
 
-            for _ in 0..max_new {
-                let input = Tensor::new(tokens.as_slice(), &self.device)
+            'decode: for step in 0..max_new {
+                let tokens_t = Tensor::new(tokens.as_slice(), &self.device)
                     .and_then(|t| t.unsqueeze(0))
                     .map_err(|e| Error::model(e.to_string()))?;
-                let logits = model.decoder.forward(&input, &audio_features, true)
+
+                // forward() returns hidden states, NOT logits.
+                let ys = model.decoder.forward(&tokens_t, &audio_features, step == 0)
                     .map_err(|e| Error::model(e.to_string()))?;
 
-                let last_tok = next_token_from_logits(&logits, tokens.len() - 1)?;
-                if last_tok == EOT_TOKEN { break; }
+                // Project last hidden state to vocab logits via final_linear().
+                let seq_len = ys.dim(1).map_err(|e| Error::model(e.to_string()))?;
+                let hidden = ys.narrow(1, seq_len - 1, 1)  // (1, 1, d_model)
+                    .map_err(|e| Error::model(e.to_string()))?;
+                let logits = model.decoder.final_linear(&hidden)  // (1, 1, vocab)
+                    .map_err(|e| Error::model(e.to_string()))?;
 
-                tokens.push(last_tok);
-                text_tokens.push(last_tok);
+                // Greedy argmax.
+                let v: Vec<f32> = logits.flatten_all()
+                    .and_then(|t| t.to_vec1::<f32>())
+                    .map_err(|e| Error::model(e.to_string()))?;
+                let next_token = v.iter().enumerate()
+                    .max_by(|(_, a), (_, b)| a.total_cmp(b))
+                    .map(|(i, _)| i as u32)
+                    .unwrap_or(EOT_TOKEN);
 
-                // Repetition guard: break if the same bigram appears 4+ times
-                // in the last 16 generated tokens (Whisper hallucination).
-                if text_tokens.len() >= 16 {
-                    let tail = &text_tokens[text_tokens.len() - 16..];
+                if next_token == EOT_TOKEN
+                    || tokens.len() >= self.config.max_target_positions
+                {
+                    break 'decode;
+                }
+                tokens.push(next_token);
+
+                // Repetition guard: same bigram 4+ times in last 16 tokens.
+                if tokens.len() >= 16 {
+                    let tail = &tokens[tokens.len() - 16..];
                     let last = (tail[tail.len()-2], tail[tail.len()-1]);
-                    let count = tail.windows(2).filter(|w| (w[0], w[1]) == last).count();
-                    if count >= 4 { break; }
+                    if tail.windows(2).filter(|w| (w[0], w[1]) == last).count() >= 4 {
+                        break 'decode;
+                    }
                 }
             }
 
-            let chunk_text = self.tokenizer.decode(&text_tokens, true)
+            let seg_text = self.tokenizer.decode(&tokens[4..], true)  // skip special tokens
                 .map_err(|e| Error::model(e.to_string()))?;
-            let chunk_text = chunk_text.trim().to_string();
+            let seg_text = seg_text.trim().to_string();
 
-            info!("Whisper chunk {}/{}: \"{}\"", ci + 1, n_chunks, chunk_text);
-            if !chunk_text.is_empty() {
-                parts.push(chunk_text);
-            }
+            info!("Whisper segment {}/{}: \"{}\"", seg_idx, n_segs, seg_text);
+            if !seg_text.is_empty() { parts.push(seg_text); }
         }
 
         let transcript = parts.join(" ");
-        info!(
-            "Whisper '{}' transcript: {}",
-            path.file_name().and_then(|n| n.to_str()).unwrap_or("?"),
-            transcript,
-        );
+        info!("Whisper '{}': {}", filename, transcript);
         Ok(transcript)
     }
 }
@@ -212,20 +217,21 @@ impl WhisperTranscriber {
 unsafe impl Send for WhisperTranscriber {}
 unsafe impl Sync for WhisperTranscriber {}
 
-// ── Decode helpers ──────────────────────────────────────────────────
+// ── Mel filter bank ──────────────────────────────────────────────────
 
-/// Extract the greedy next-token prediction from logits at sequence position `pos`.
+/// Load the pre-computed Slaney-normalised mel filter bank from embedded bytes.
 ///
-/// `logits`: shape `(1, seq_len, vocab_size)`
-/// `pos`:    0-indexed position in the sequence (usually `seq_len - 1` or `0`)
-fn next_token_from_logits(logits: &Tensor, pos: usize) -> Result<u32, Error> {
-    logits
-        .narrow(1, pos, 1)                 // (1, 1, vocab)
-        .and_then(|t| t.squeeze(1))        // (1, vocab)
-        .and_then(|t| t.argmax(D::Minus1)) // (1,)
-        .and_then(|t| t.squeeze(0))        // ()
-        .and_then(|t| t.to_scalar::<u32>())
-        .map_err(|e| Error::model(e.to_string()))
+/// Layout: little-endian f32 values, row-major (n_mels × N_FFT/2+1).
+/// Same binary files used by the official candle Whisper example.
+fn load_mel_filters(n_mels: usize) -> Result<Vec<f32>, Error> {
+    let bytes: &[u8] = match n_mels {
+        80  => include_bytes!("melfilters.bytes"),
+        128 => include_bytes!("melfilters128.bytes"),
+        _   => return Err(Error::model(format!("no mel filter bank for n_mels={n_mels}"))),
+    };
+    Ok(bytes.chunks_exact(4)
+        .map(|b| f32::from_le_bytes([b[0], b[1], b[2], b[3]]))
+        .collect())
 }
 
 // ── Weight loading helper ──────────────────────────────────────────────────
@@ -357,54 +363,5 @@ fn decode_audio_mono_16k(path: &Path) -> Result<Vec<f32>, Error> {
     }).collect())
 }
 
-// ── Mel filter bank (computed at runtime, librosa-compatible) ─────────────────
-
-fn hz_to_mel(hz: f32) -> f32 { 2595.0 * (1.0 + hz / 700.0).log10() }
-fn mel_to_hz(mel: f32) -> f32 { 700.0 * (10.0f32.powf(mel / 2595.0) - 1.0) }
-
-/// Compute mel filter bank (n_mels × n_freqs) in row-major order.
-///
-/// Uses librosa-compatible triangular filters with **Slaney normalisation**
-/// (`norm='slaney'`), which is what Whisper expects.
-fn compute_mel_filters_f32(n_mels: usize) -> Vec<f32> {
-    let sr      = SAMPLE_RATE as f32;
-    let n_fft   = N_FFT;
-    let n_freqs = n_fft / 2 + 1;   // 201
-
-    let mel_min = hz_to_mel(0.0);
-    let mel_max = hz_to_mel(sr / 2.0);
-
-    let mel_pts: Vec<f32> = (0..=(n_mels + 1))
-        .map(|i| mel_min + (mel_max - mel_min) * i as f32 / (n_mels + 1) as f32)
-        .collect();
-    let hz_pts: Vec<f32> = mel_pts.iter().map(|&m| mel_to_hz(m)).collect();
-
-    // FFT bin indices for each centre frequency.
-    // Correct formula: floor((N_FFT + 1) × f / sr)  [same as librosa / Whisper]
-    let bin_pts: Vec<usize> = hz_pts.iter()
-        .map(|&f| ((n_fft as f32 + 1.0) * f / sr).floor() as usize)
-        .collect();
-
-    let mut filters = vec![0.0f32; n_mels * n_freqs];
-    for m in 0..n_mels {
-        let lo  = bin_pts[m];
-        let mid = bin_pts[m + 1];
-        let hi  = bin_pts[m + 2];
-        for f in lo..mid.min(n_freqs) {
-            filters[m * n_freqs + f] = (f - lo) as f32 / (mid - lo).max(1) as f32;
-        }
-        for f in mid..hi.min(n_freqs) {
-            filters[m * n_freqs + f] = (hi - f) as f32 / (hi - mid).max(1) as f32;
-        }
-        // Slaney normalisation: scale each filter by 2 / bandwidth_in_Hz
-        let bw = hz_pts[m + 2] - hz_pts[m];
-        if bw > 1e-6 {
-            for f in 0..n_freqs {
-                filters[m * n_freqs + f] *= 2.0 / bw;
-            }
-        }
-    }
-    filters
-}
 
 
