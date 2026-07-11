@@ -49,6 +49,9 @@ impl SearchEngine {
         crate::builder::SearchEngineBuilder::new()
     }
 
+    /// Expose the underlying database (e.g. for test assertions).
+    pub fn db(&self) -> &mnemosyne_storage::Database { &self.db }
+
     /// Return the currently active text-embedding model ID.
     pub fn get_text_model(&self) -> &str { &self.text_model_id }
     /// Return the currently active vision-embedding model ID.
@@ -224,6 +227,9 @@ impl SearchEngine {
             .to_string();
         let file_type = FileType::from_extension(&ext);
 
+        #[cfg(feature = "whisper-backend")]
+        let is_audio = matches!(file_type, FileType::Audio);
+
         let file_record = FileRecord {
             id: file_id.clone(),
             path: path.to_path_buf(),
@@ -235,12 +241,31 @@ impl SearchEngine {
         };
 
         // Parse content.
-        let chunks_content = self.parsers.parse(path).await?;
+        #[allow(unused_mut)]
+        let mut chunks_content = self.parsers.parse(path).await?;
         if chunks_content.is_empty() {
             return Ok(false);
         }
 
-        // Generate embeddings — route to CLIP for images, Whisper for audio,
+        // For audio files, replace the parser stub with a real Whisper transcript
+        // when the whisper-backend feature is compiled in.
+        #[cfg(feature = "whisper-backend")]
+        {
+            if is_audio {
+                match self.transcribe_audio(path).await {
+                    Ok(transcript) if !transcript.trim().is_empty() => {
+                        chunks_content = vec![mnemosyne_core::types::ParsedContent::AudioTranscript {
+                            transcript,
+                            language: None,
+                        }];
+                    }
+                    Ok(_) => {}
+                    Err(e) => tracing::warn!("Whisper failed, keeping stub: {e}"),
+                }
+            }
+        }
+
+        // Generate embeddings — route to CLIP for images, Whisper transcript text for audio,
         // text embedder for everything else.
         let embeddings = self.embed_chunks(path, &chunks_content).await?;
 
@@ -350,20 +375,28 @@ impl SearchEngine {
         file_path: &Path,
         chunks: &[ParsedContent],
     ) -> Result<Vec<mnemosyne_core::types::Embedding>, Error> {
+        #[cfg(not(feature = "clip-backend"))]
+        let _ = file_path; // only used when clip-backend is compiled in
         let mut embeddings = Vec::with_capacity(chunks.len());
 
         for chunk in chunks {
             let emb = match chunk {
-                // ── Image: try CLIP, fall back to text embedder ───────────────
+                // ── Image: CLIP vision embedding (clip-backend) or caption text ──
                 ParsedContent::Image { caption, .. } => {
-                    #[cfg(feature = "mnemosyne-model/clip-backend")]
+                    #[cfg(feature = "clip-backend")]
                     {
-                        // Feature routing delegated to engine builder config.
-                        // For now we embed the caption text.
-                        let _ = file_path; // suppress unused warning
+                        let clip = self.models.get_clip_embedder(&self.vision_model_id).await?;
+                        let fp = file_path.to_path_buf();
+                        tokio::task::spawn_blocking(move || clip.embed_image(&fp))
+                            .await
+                            .map_err(|e| Error::model(e.to_string()))?
+                            .map_err(|e| { tracing::warn!("CLIP failed: {e}"); e })?
                     }
-                    let model = self.models.get_text_embedder(&self.text_model_id).await?;
-                    model.embed_text(caption).await?
+                    #[cfg(not(feature = "clip-backend"))]
+                    {
+                        let model = self.models.get_text_embedder(&self.text_model_id).await?;
+                        model.embed_text(caption).await?
+                    }
                 }
 
                 // ── Audio: embed transcript text ──────────────────────────────
@@ -394,36 +427,35 @@ impl SearchEngine {
     /// Embed an image file using the CLIP vision encoder.
     /// Falls back to filename-based text embedding if feature is not enabled.
     pub async fn embed_image(&self, path: &Path) -> Result<mnemosyne_core::types::Embedding, Error> {
-        #[cfg(all(feature = "mnemosyne-model/clip-backend"))]
+        #[cfg(feature = "clip-backend")]
         {
-            // Dynamic feature check — if clip-backend was compiled in, use CLIP.
-            let clip = self.models.get_clip_embedder(crate::engine::DEFAULT_CLIP_MODEL).await;
-            if let Ok(clip) = clip {
-                let path = path.to_path_buf();
-                return tokio::task::spawn_blocking(move || clip.embed_image(&path))
-                    .await
-                    .map_err(|e| Error::model(e.to_string()))?;
-            }
+            let clip = self.models.get_clip_embedder(&self.vision_model_id).await?;
+            let path = path.to_path_buf();
+            return tokio::task::spawn_blocking(move || clip.embed_image(&path))
+                .await
+                .map_err(|e| Error::model(e.to_string()))?;
         }
         // Fallback: text embedding on the filename.
-        let fallback = path.file_name().and_then(|n| n.to_str()).unwrap_or("image");
-        let model = self.models.get_text_embedder(&self.text_model_id).await?;
-        model.embed_text(fallback).await
+        #[cfg(not(feature = "clip-backend"))]
+        {
+            let fallback = path.file_name().and_then(|n| n.to_str()).unwrap_or("image");
+            let model = self.models.get_text_embedder(&self.text_model_id).await?;
+            model.embed_text(fallback).await
+        }
     }
 
     /// Transcribe an audio file using Whisper and embed the transcript.
     pub async fn transcribe_audio(&self, path: &Path) -> Result<String, Error> {
-        #[cfg(all(feature = "mnemosyne-model/whisper-backend"))]
+        #[cfg(feature = "whisper-backend")]
         {
-            let whisper = self.models.get_whisper(crate::engine::DEFAULT_WHISPER_MODEL).await;
-            if let Ok(whisper) = whisper {
-                let path = path.to_path_buf();
-                return tokio::task::spawn_blocking(move || whisper.transcribe(&path))
-                    .await
-                    .map_err(|e| Error::model(e.to_string()))?;
-            }
+            let whisper = self.models.get_whisper(&self.audio_model_id).await?;
+            let path = path.to_path_buf();
+            return tokio::task::spawn_blocking(move || whisper.transcribe(&path))
+                .await
+                .map_err(|e| Error::model(e.to_string()))?;
         }
-        // Fallback: return filename.
+        // Fallback: return filename (whisper-backend not compiled).
+        #[cfg(not(feature = "whisper-backend"))]
         Ok(path
             .file_name()
             .and_then(|n| n.to_str())

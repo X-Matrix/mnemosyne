@@ -6,6 +6,15 @@ edition.workspace   = true
 authors.workspace   = true
 license.workspace   = true
 
+# ── Feature flags ─────────────────────────────────────────────────────────────
+# Propagate model backend features down from mnemosyne-model.
+# Enable with: cargo build -p mnemosyne-retrieval --features clip-backend,whisper-backend
+[features]
+candle-backend   = ["mnemosyne-model/candle-backend"]
+clip-backend     = ["mnemosyne-model/clip-backend"]
+whisper-backend  = ["mnemosyne-model/whisper-backend"]
+full             = ["candle-backend", "clip-backend", "whisper-backend"]
+
 [dependencies]
 mnemosyne-core.workspace    = true
 mnemosyne-storage.workspace = true
@@ -28,5 +37,8 @@ notify.workspace    = true
 notify-debouncer-mini.workspace = true
 
 [dev-dependencies]
-tempfile = "3"
-tokio    = { version = "1", features = ["full", "test-util"] }
+tempfile            = "3"
+tokio               = { version = "1", features = ["full", "test-util"] }
+mnemosyne-storage   = { path = "../../crates/mnemosyne-storage" }
+mnemosyne-parser    = { path = "../../crates/mnemosyne-parser" }
+mnemosyne-core      = { path = "../../crates/mnemosyne-core" }
