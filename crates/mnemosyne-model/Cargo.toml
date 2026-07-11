@@ -7,21 +7,25 @@ authors.workspace   = true
 license.workspace   = true
 
 # ── Feature flags ──────────────────────────────────────────────────────────────
-# default   : stub embedder, no native deps
-# candle-backend  : BERT text embeddings via Candle
-# clip-backend    : CLIP image embeddings (requires candle-backend)
-# whisper-backend : Whisper audio transcription (requires candle-backend)
-# full            : all three above
+# default        : stub embedder, no native deps
+# candle-backend : real BERT text embeddings via Candle (requires tokenizers)
+# clip-backend   : CLIP image embeddings — DOES NOT require tokenizers
+# whisper-backend: Whisper audio transcription via Candle + symphonia for all audio formats
+# full           : all three above
 [features]
 default = []
 candle-backend = [
     "dep:candle-core", "dep:candle-nn", "dep:candle-transformers", "dep:tokenizers",
 ]
 clip-backend = [
-    "candle-backend", "dep:image",
+    # CLIP vision encoder only needs candle libs + image crate; no tokenizers.
+    "dep:candle-core", "dep:candle-nn", "dep:candle-transformers",
+    "dep:image",
 ]
 whisper-backend = [
-    "candle-backend", "dep:hound",
+    # Whisper uses candle for inference + tokenizers for decoding + symphonia for audio I/O.
+    "dep:candle-core", "dep:candle-nn", "dep:candle-transformers", "dep:tokenizers",
+    "dep:symphonia",
 ]
 full = ["candle-backend", "clip-backend", "whisper-backend"]
 
@@ -39,14 +43,16 @@ hf-hub.workspace          = true
 # Uses rustls to avoid system-proxy interference.
 reqwest = { version = "0.11", default-features = false, features = ["rustls-tls", "blocking", "json", "stream"] }
 
-# candle-backend
+# candle-backend & whisper-backend
 candle-core         = { version = "0.9", optional = true }
 candle-nn           = { version = "0.9", optional = true }
 candle-transformers = { version = "0.9", optional = true }
-tokenizers          = { version = "0.20", default-features = false, optional = true }
+# Patched tokenizers (vendor/tokenizers) – gates `mod onig` on `feature = "onig"`
+# so the crate compiles without the oniguruma system library installed.
+tokenizers = { version = "0.20", default-features = false, optional = true }
 
 # clip-backend
 image = { version = "0.25", default-features = false, features = ["jpeg", "png", "gif", "bmp", "webp"], optional = true }
 
-# whisper-backend
-hound = { version = "3", optional = true }
+# whisper-backend – symphonia for universal audio format decoding (MP3, WAV, FLAC, …)
+symphonia = { version = "0.5", default-features = false, features = ["mp3", "wav", "flac", "ogg", "isomp4", "pcm"], optional = true }

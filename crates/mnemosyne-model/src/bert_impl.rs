@@ -36,12 +36,11 @@ impl BertEmbedder {
             .await
             .map_err(|e| Error::model(format!("tokenizer.json: {e}")))?;
 
-        let weights_path = repo
-            .get("model.safetensors")
-            .await
-            .or_else(|_| async { repo.get("pytorch_model.bin").await })
-            .await
-            .map_err(|e| Error::model(format!("weights: {e}")))?;
+        let weights_path = match repo.get("model.safetensors").await {
+            Ok(p) => p,
+            Err(_) => repo.get("pytorch_model.bin").await
+                .map_err(|e| Error::model(format!("weights: {e}")))?,
+        };
 
         let config: BertConfig = {
             let json = std::fs::read_to_string(&config_path).map_err(Error::Io)?;

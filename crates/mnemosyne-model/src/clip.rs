@@ -32,17 +32,17 @@ impl ClipEmbedder {
         let api = Api::new().map_err(|e| Error::model(e.to_string()))?;
         let repo = api.model(model_id.to_string());
 
-        let config_path = repo.get("config.json").await
-            .map_err(|e| Error::model(format!("config.json: {e}")))?;
-        let weights_path = repo.get("model.safetensors").await
-            .or_else(|_| async { repo.get("pytorch_model.bin").await })
-            .await
-            .map_err(|e| Error::model(format!("weights: {e}")))?;
-
-        let config: ClipConfig = {
-            let s = std::fs::read_to_string(&config_path).map_err(Error::Io)?;
-            serde_json::from_str(&s).map_err(|e| Error::model(e.to_string()))?
+        // Weights: prefer safetensors, fall back to pytorch bin.
+        let weights_path = match repo.get("model.safetensors").await {
+            Ok(p) => p,
+            Err(_) => repo.get("pytorch_model.bin").await
+                .map_err(|e| Error::model(format!("weights: {e}")))?,
         };
+
+        // Use the candle-transformers built-in config for ViT-B/32.
+        // ClipConfig does not implement serde::Deserialize so we cannot parse
+        // the JSON directly; the static constructor encodes the correct values.
+        let config = ClipConfig::vit_base_patch32();
 
         let vb = unsafe {
             VarBuilder::from_mmaped_safetensors(&[weights_path], DType::F32, &device)
