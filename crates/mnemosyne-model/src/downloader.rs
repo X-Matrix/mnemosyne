@@ -45,16 +45,34 @@ impl ModelDownloader {
     }
 
     /// Download all required files for `model_id` and return the local dir.
-    pub async fn download(&self, model_id: &str) -> Result<PathBuf, Error> {
+    /// `proxy_url` – explicit proxy (e.g. "socks5://127.0.0.1:7890").
+    ///   • `Some("")` or `None` → **no system proxy** (avoids "Connection refused"
+    ///     when a local proxy agent like Clash is configured but not running).
+    ///   • `Some(url)` → use the supplied proxy.
+    pub async fn download(&self, model_id: &str, proxy_url: Option<&str>) -> Result<PathBuf, Error> {
         info!("Downloading model: {model_id}");
 
         let model_dir = self.cache_dir.join(model_id.replace('/', std::path::MAIN_SEPARATOR_STR));
         tokio::fs::create_dir_all(&model_dir).await.map_err(Error::Io)?;
 
         let endpoint = hf_endpoint();
-        let client = reqwest::Client::builder()
-            .user_agent("mnemosyne/0.1")
-            .build()
+
+        // Build HTTP client: explicit proxy OR no_proxy (bypass misconfigured system proxy).
+        let mut builder = reqwest::Client::builder().user_agent("mnemosyne/0.1");
+        match proxy_url {
+            Some(url) if !url.trim().is_empty() => {
+                let proxy = reqwest::Proxy::all(url.trim())
+                    .map_err(|e| Error::model(format!("proxy config: {e}")))?;
+                builder = builder.proxy(proxy);
+                info!("Using proxy: {}", url.trim());
+            }
+            _ => {
+                // Disable system proxy — prevents "Connection refused" when
+                // macOS proxy settings point at a local agent that isn't running.
+                builder = builder.no_proxy();
+            }
+        }
+        let client = builder.build()
             .map_err(|e| Error::model(format!("http client: {e}")))?;
 
         // Try safetensors first; fall back to pytorch bin.

@@ -27,7 +27,9 @@ pub struct SearchEngine {
     pub(crate) index: Arc<HybridIndex>,
     pub(crate) parsers: Arc<ParserRegistry>,
     pub(crate) models: Arc<ModelRegistry>,
-    pub(crate) text_model_id: String,
+    pub(crate) text_model_id:   String,
+    pub(crate) vision_model_id: String,
+    pub(crate) audio_model_id:  String,
 }
 
 impl SearchEngine {
@@ -37,12 +39,44 @@ impl SearchEngine {
         parsers: Arc<ParserRegistry>,
         models: Arc<ModelRegistry>,
         text_model_id: String,
+        vision_model_id: String,
+        audio_model_id: String,
     ) -> Self {
-        Self { db, index, parsers, models, text_model_id }
+        Self { db, index, parsers, models, text_model_id, vision_model_id, audio_model_id }
     }
 
     pub fn builder() -> crate::builder::SearchEngineBuilder {
         crate::builder::SearchEngineBuilder::new()
+    }
+
+    /// Return the currently active text-embedding model ID.
+    pub fn get_text_model(&self) -> &str { &self.text_model_id }
+    /// Return the currently active vision-embedding model ID.
+    pub fn get_vision_model(&self) -> &str { &self.vision_model_id }
+    /// Return the currently active audio-transcription model ID.
+    pub fn get_audio_model(&self) -> &str { &self.audio_model_id }
+
+    /// Switch the active text-embedding model at runtime.
+    /// **Existing embeddings are incompatible — re-index required.**
+    pub fn set_text_model(&mut self, id: impl Into<String>) {
+        let old = std::mem::replace(&mut self.text_model_id, id.into());
+        if old != self.text_model_id {
+            tracing::info!("Text model switched: {} → {}", old, self.text_model_id);
+        }
+    }
+    /// Switch the active vision-embedding (CLIP) model at runtime.
+    pub fn set_vision_model(&mut self, id: impl Into<String>) {
+        let old = std::mem::replace(&mut self.vision_model_id, id.into());
+        if old != self.vision_model_id {
+            tracing::info!("Vision model switched: {} → {}", old, self.vision_model_id);
+        }
+    }
+    /// Switch the active audio-transcription (Whisper) model at runtime.
+    pub fn set_audio_model(&mut self, id: impl Into<String>) {
+        let old = std::mem::replace(&mut self.audio_model_id, id.into());
+        if old != self.audio_model_id {
+            tracing::info!("Audio model switched: {} → {}", old, self.audio_model_id);
+        }
     }
 
     // ── Indexing ─────────────────────────────────────────────────────────────
@@ -409,7 +443,8 @@ impl SearchEngine {
     }
 
     /// Download a model from HuggingFace Hub and register it locally.
-    pub async fn download_model(&self, model_id: &str) -> Result<(), Error> {
+    /// `proxy_url` is forwarded to the HTTP client (empty/None = no system proxy).
+    pub async fn download_model(&self, model_id: &str, proxy_url: Option<&str>) -> Result<(), Error> {
         use mnemosyne_model::ModelDownloader;
 
         let home = std::env::var("HOME").unwrap_or_else(|_| ".".into());
@@ -417,7 +452,7 @@ impl SearchEngine {
         tokio::fs::create_dir_all(&cache_dir).await.map_err(Error::Io)?;
 
         let downloader = ModelDownloader::new(cache_dir);
-        let local_path = downloader.download(model_id).await?;
+        let local_path = downloader.download(model_id, proxy_url).await?;
 
         let db = self.db.clone();
         let model_id = model_id.to_string();
