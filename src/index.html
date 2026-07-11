@@ -1329,6 +1329,12 @@
       align-items: center;
       gap: 6px
     }
+
+    /* active model card */
+    .mcard.mcard-active {
+      border-color: var(--acc);
+      background: rgba(124, 106, 247, .06)
+    }
   </style>
 </head>
 
@@ -1592,13 +1598,27 @@
               <div class="code-block">mnemosyne serve --port 8080</div>
             </div>
 
-            <!-- HF Mirror -->
+            <!-- HF Mirror / Proxy -->
             <div class="sfm-sec">
-              <div class="sfm-title">HuggingFace 镜像（网络问题）</div>
-              <div style="font-size:12px;color:var(--mu);margin-bottom:10px">如果模型下载失败，设置国内镜像站：</div>
-              <div class="code-block">export HF_ENDPOINT=https://hf-mirror.com
-                # 然后重启 app 或运行：
-                mnemosyne model-download sentence-transformers/all-MiniLM-L6-v2</div>
+              <div class="sfm-title">下载网络 / 代理</div>
+              <div style="font-size:12px;color:var(--mu);margin-bottom:12px;line-height:1.7">
+                默认已切换为 <code style="color:var(--acc)">hf-mirror.com</code> 镜像，并禁用系统代理（避免未运行的 Clash/V2Ray 导致「Connection
+                refused」）。<br>
+                如需走本地代理，请填写代理地址并保存。
+              </div>
+              <div class="sfm-row">
+                <span class="sfm-label">代理地址</span>
+                <input class="sfm-input" id="proxy-input" type="text" placeholder="socks5://127.0.0.1:7890（留空=直连）"
+                  style="flex:1" />
+              </div>
+              <div class="sfm-row">
+                <span class="sfm-label"></span>
+                <button class="btn bp" onclick="g.saveProxy()" style="font-size:12px">保存</button>
+                <button class="btn bg" onclick="g.clearProxy()" style="font-size:12px;margin-left:6px">清除（直连）</button>
+              </div>
+              <div style="font-size:11px;color:var(--mu2);margin-top:4px">
+                也可设置环境变量 <code style="color:var(--acc)">HF_ENDPOINT</code> 覆盖镜像站地址
+              </div>
             </div>
 
             <!-- About -->
@@ -2035,98 +2055,149 @@
       };
 
       // ── Models ────────────────────────────────────────────────────────────────────
-      const MODEL_CATALOG = [
-        // ── Text / BERT ──────────────────────────────────────────────────────────
-        {
-          id: 'sentence-transformers/all-MiniLM-L6-v2',
-          name: 'all-MiniLM-L6-v2', cat: 'text',
-          desc: '推荐：轻量级英文文本嵌入，384 维，适合个人使用',
-          tags: ['384维', '90MB', '轻量', '英文']
-        },
-        {
-          id: 'sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2',
-          name: 'multilingual-MiniLM-L12-v2', cat: 'text',
-          desc: '多语言模型，支持中文、英文等 50 种语言的语义搜索',
-          tags: ['384维', '470MB', '多语言', '中文']
-        },
-        {
-          id: 'sentence-transformers/all-mpnet-base-v2',
-          name: 'all-mpnet-base-v2', cat: 'text',
-          desc: '高质量英文嵌入，768 维，搜索精度更高',
-          tags: ['768维', '420MB', '高质量', '英文']
-        },
-        {
-          id: 'sentence-transformers/paraphrase-multilingual-mpnet-base-v2',
-          name: 'multilingual-mpnet-base-v2', cat: 'text',
-          desc: '高质量多语言嵌入，768 维，支持 50+ 语言',
-          tags: ['768维', '1.1GB', '多语言', '高质量']
-        },
-        // ── CLIP / Vision ─────────────────────────────────────────────────────────
-        {
-          id: 'openai/clip-vit-base-patch32',
-          name: 'CLIP ViT-B/32', cat: 'vision',
-          desc: '图文跨模态嵌入：用自然语言搜索图片内容，同时支持文本与图像',
-          tags: ['512维', '340MB', '图片', '跨模态']
-        },
-        {
-          id: 'openai/clip-vit-large-patch14',
-          name: 'CLIP ViT-L/14', cat: 'vision',
-          desc: '大型 CLIP 模型，精度更高，适合高质量图像检索',
-          tags: ['768维', '890MB', '图片', '高精度']
-        },
-        // ── Whisper / Audio ───────────────────────────────────────────────────────
-        {
-          id: 'openai/whisper-tiny',
-          name: 'Whisper Tiny', cat: 'audio',
-          desc: '轻量级语音识别，将音频/视频转为可搜索文本，速度快',
-          tags: ['39M参数', '78MB', '音频', '多语言']
-        },
-        {
-          id: 'openai/whisper-base',
-          name: 'Whisper Base', cat: 'audio',
-          desc: '基础语音识别，平衡速度与精度，中文效果良好',
-          tags: ['74M参数', '148MB', '音频', '多语言']
-        },
-        {
-          id: 'openai/whisper-small',
-          name: 'Whisper Small', cat: 'audio',
-          desc: '高质量语音识别，中英文均表现优秀',
-          tags: ['244M参数', '488MB', '音频', '高质量']
-        },
-      ];
+      // Model catalog is loaded from models.json at runtime.
+      // This keeps model metadata out of the HTML and makes it easy to maintain.
+      let MODEL_CATALOG = [];
+      let CAT_META = {};
 
-      const CAT_META = {
-        text: { icon: '📝', label: '文本嵌入 (BERT)', color: 'var(--green)' },
-        vision: { icon: '🖼', label: '视觉嵌入 (CLIP)', color: 'var(--yellow)' },
-        audio: { icon: '🎵', label: '语音识别 (Whisper)', color: 'var(--purple)' },
+      async function loadModelCatalog() {
+        if (MODEL_CATALOG.length) return; // already loaded
+        try {
+          const data = await fetch('./models.json').then(r => r.json());
+          MODEL_CATALOG = (data.models || []).map(m => ({
+            id: m.id, name: m.name, cat: m.category,
+            desc: m.description, tags: m.tags || [],
+            recommended: !!m.recommended,
+            hf_url: m.hf_url || '',
+            size_mb: m.size_mb, dimensions: m.dimensions,
+          }));
+          CAT_META = {};
+          for (const [k, v] of Object.entries(data.categories || {})) {
+            CAT_META[k] = { icon: v.icon, label: v.label, color: v.color, desc: v.description };
+          }
+        } catch (e) {
+          console.error('Failed to load models.json:', e);
+          // Inline fallback so the page still works
+          MODEL_CATALOG = [
+            {
+              id: 'sentence-transformers/all-MiniLM-L6-v2', name: 'all-MiniLM-L6-v2',
+              cat: 'text', desc: '轻量英文嵌入', tags: ['384维', '90MB'], recommended: true
+            },
+            {
+              id: 'openai/clip-vit-base-patch32', name: 'CLIP ViT-B/32',
+              cat: 'vision', desc: '图文跨模态', tags: ['512维', '340MB'], recommended: true
+            },
+            {
+              id: 'openai/whisper-tiny', name: 'Whisper Tiny',
+              cat: 'audio', desc: '语音识别', tags: ['39M参数', '78MB'], recommended: true
+            },
+          ];
+          CAT_META = {
+            text: { icon: '📝', label: '文本嵌入 (BERT)', color: 'var(--green)' },
+            vision: { icon: '🖼️', label: '视觉嵌入 (CLIP)', color: 'var(--yellow)' },
+            audio: { icon: '🎵', label: '语音识别 (Whisper)', color: 'var(--purple)' },
+          };
+        }
+      }
+
+      // Per-category active model IDs — kept in sync with the Rust engine.
+      // Keys: "text", "vision", "audio"
+      const activeModels = {
+        text: 'sentence-transformers/all-MiniLM-L6-v2',
+        vision: 'openai/clip-vit-base-patch32',
+        audio: 'openai/whisper-tiny',
       };
 
       async function loadModelList() {
+        await loadModelCatalog();
+
         const grouped = {};
-        for (const m of MODEL_CATALOG) {
-          (grouped[m.cat] ||= []).push(m);
+        for (const m of MODEL_CATALOG) (grouped[m.cat] ||= []).push(m);
+
+        // Downloaded set
+        let downloadedSet = new Set();
+        try {
+          const list = await invoke('list_models');
+          downloadedSet = new Set((list || []).map(m => m.model_id));
+        } catch (_) { }
+
+        // Authoritative active models from the running engine (all three categories)
+        try {
+          const am = await invoke('get_active_models');
+          if (am) {
+            if (am.text) activeModels.text = am.text;
+            if (am.vision) activeModels.vision = am.vision;
+            if (am.audio) activeModels.audio = am.audio;
+          }
+        } catch (_) { }
+
+        // Title-bar badge shows the text model (most commonly switched)
+        const textName = MODEL_CATALOG.find(m => m.id === activeModels.text)?.name
+          ?? activeModels.text.split('/').pop();
+        if (downloadedSet.has(activeModels.text)) {
+          qs('#cur-model').textContent = '✓ ' + textName;
+          qs('#cur-model').className = 'badge badge-ok';
+        } else {
+          qs('#cur-model').textContent = '⚙ Stub 模式';
+          qs('#cur-model').className = 'badge badge-stub';
         }
 
         let html = '';
         for (const [cat, models] of Object.entries(grouped)) {
           const meta = CAT_META[cat] || { icon: '?', label: cat, color: 'var(--mu)' };
-          html += `<div class="mcat-hd"><span>${meta.icon}</span><span style="color:${meta.color}">${esc(meta.label)}</span></div>`;
+          const active = activeModels[cat] ?? '';
+
+          // Category header with active-model summary
+          const activeInCat = models.find(m => m.id === active);
+          const catSuffix = downloadedSet.has(active)
+            ? `<span class="badge badge-ok" style="font-size:10px;margin-left:auto">在用: ${esc(activeInCat?.name ?? active.split('/').pop())}</span>`
+            : `<span class="badge badge-stub" style="font-size:10px;margin-left:auto">Stub</span>`;
+
+          html += `<div class="mcat-hd">
+            <span>${meta.icon}</span>
+            <span style="color:${meta.color}">${esc(meta.label)}</span>
+            ${catSuffix}
+            ${meta.desc ? `<span class="ib" title="${esc(meta.desc)}" style="cursor:help;font-size:11px;color:var(--mu)">ⓘ</span>` : ''}
+          </div>`;
+
           html += models.map(m => {
             const key = btoa(m.id).replace(/=/g, '');
-            return `<div class="mcard">
+            const isDl = downloadedSet.has(m.id);
+            const isActive = m.id === active; // only compare within same category
+
+            const action = isDl
+              ? isActive
+                ? `<span class="badge badge-ok" style="flex-shrink:0;align-self:flex-start">✓ 当前在用</span>`
+                : `<button class="btn by" id="sw-${key}" onclick="g.setActiveModel('${esc(m.id)}','${esc(cat)}')" style="flex-shrink:0;align-self:flex-start">切换为在用</button>`
+              : `<button class="btn bg" id="dl-${key}" onclick="g.dlModel('${esc(m.id)}',this)" style="flex-shrink:0;align-self:flex-start">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                  下载
+                </button>`;
+
+            const extras = [];
+            if (m.dimensions) extras.push(`${m.dimensions}维`);
+            if (m.size_mb) extras.push(`${m.size_mb >= 1000 ? (m.size_mb / 1000).toFixed(1) + 'GB' : m.size_mb + 'MB'}`);
+            if (m.recommended) extras.push('⭐ 推荐');
+            if (m.hf_url) extras.push(`<a href="#" onclick="event.preventDefault();openFile('${esc(m.hf_url)}')" style="color:var(--acc)">HuggingFace ↗</a>`);
+
+            return `<div class="mcard${isActive ? ' mcard-active' : ''}">
         <div class="mcard-top">
-          <div>
-            <div class="mcard-name">${esc(m.name)}</div>
+          <div style="min-width:0;flex:1">
+            <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:2px">
+              <div class="mcard-name">${esc(m.name)}</div>
+              ${isDl ? `<span class="badge badge-ok" style="font-size:9px;padding:1px 5px">✓ 已下载</span>` : ''}
+              ${isActive ? `<span class="badge badge-dl" style="font-size:9px;padding:1px 5px">当前在用</span>` : ''}
+            </div>
             <div class="mcard-id" style="color:var(--mu2)">${esc(m.id)}</div>
           </div>
-          <button class="btn bg" id="dl-${key}" onclick="g.dlModel('${esc(m.id)}',this)" style="flex-shrink:0">
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-            下载
-          </button>
+          ${action}
         </div>
         <div class="mcard-desc">${esc(m.desc)}</div>
-        <div class="mcard-tags">${m.tags.map(t => `<span class="mtag">${esc(t)}</span>`).join('')}</div>
-        <div class="mprog" id="prog-${key}">
+        <div class="mcard-tags">
+          ${m.tags.map(t => `<span class="mtag">${esc(t)}</span>`).join('')}
+          ${extras.map(e => `<span class="mtag" style="color:var(--mu)">${e}</span>`).join('')}
+        </div>
+        <div class="mprog" id="prog-${key}" style="display:none">
           <div style="font-size:11px;color:var(--mu);margin-bottom:4px" id="prog-t-${key}">下载中…</div>
           <div class="mpbar"><div class="mpfill"></div></div>
         </div>
@@ -2134,46 +2205,71 @@
           }).join('');
         }
         qs('#model-cards').innerHTML = html;
-
-        // Load downloaded models
-        try {
-          const models = await invoke('list_models');
-          if (models?.length) {
-            qs('#downloaded-models').style.display = 'block';
-            qs('#dl-list').innerHTML = models.map(m =>
-              `<div class="file-row">
-          <span class="badge badge-ok" style="flex-shrink:0">✓</span>
-          <span class="file-name">${esc(m.model_id)}</span>
-          <span class="file-path">${esc(m.local_path)}</span>
-        </div>`
-            ).join('');
-          }
-        } catch (_) { }
+        const dlSec = qs('#downloaded-models');
+        if (dlSec) dlSec.style.display = 'none';
       }
 
       g.dlModel = async (id, btn) => {
         const key = btoa(id).replace(/=/g, '');
         btn.disabled = true;
-        btn.innerHTML = '<div class="sspin"></div>';
+        btn.innerHTML = '<div class="sspin"></div> 下载中';
         const prog = qs(`#prog-${key}`);
         if (prog) prog.style.display = 'block';
         try {
-          await invoke('download_model', { modelId: id });
-          btn.innerHTML = '✓ 已下载';
-          btn.className = 'btn';
-          btn.style.color = 'var(--green)';
+          const proxyUrl = localStorage.getItem('mn-proxy-url') || null;
+          await invoke('download_model', { modelId: id, proxyUrl });
           const pt = qs(`#prog-t-${key}`);
-          if (pt) pt.textContent = '下载完成！需重新构建 app 才能使用。';
-          qs('#cur-model').className = 'badge badge-ok';
-          qs('#cur-model').textContent = '✓ ' + id.split('/').pop();
+          if (pt) pt.textContent = '下载完成！';
           toast(`模型下载完成: ${id.split('/').pop()}`, 'ok');
           loadModelList();
         } catch (e) {
           btn.disabled = false;
-          btn.innerHTML = '重试';
+          btn.innerHTML = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> 重试';
           if (prog) prog.style.display = 'none';
           toast('下载失败: ' + (e?.message ?? e), 'er');
         }
+      };
+
+      // category is explicit so we know which slot to update
+      g.setActiveModel = async (id, category) => {
+        const m = MODEL_CATALOG.find(x => x.id === id);
+        const name = m?.name ?? id.split('/').pop();
+        const catLabel = CAT_META[category]?.label ?? category;
+        const ok = confirm(
+          `切换【${catLabel}】模型为「${name}」\n\n` +
+          `⚠ 切换后只需重新索引对应类型的文件：\n` +
+          (category === 'text' ? '  → 文本/代码/PDF 文件' :
+            category === 'vision' ? '  → 图片文件' :
+              '  → 音频/视频文件') +
+          `\n其他类型文件的索引不受影响。\n\n是否继续？`
+        );
+        if (!ok) return;
+
+        const key = btoa(id).replace(/=/g, '');
+        const btn = qs(`#sw-${key}`);
+        if (btn) { btn.disabled = true; btn.innerHTML = '<div class="sspin"></div>'; }
+
+        try {
+          await invoke('switch_model', { modelId: id, category });
+          activeModels[category] = id;
+          toast(`✓ 已切换 ${catLabel} 模型为 ${name}，请重新索引相关文件`, 'wn');
+          loadModelList();
+        } catch (e) {
+          if (btn) { btn.disabled = false; btn.textContent = '切换为在用'; }
+          toast('切换失败: ' + (e?.message ?? e), 'er');
+        }
+      };
+
+      // ── Proxy settings ────────────────────────────────────────────────────────────
+      g.saveProxy = () => {
+        const v = (qs('#proxy-input')?.value ?? '').trim();
+        localStorage.setItem('mn-proxy-url', v);
+        toast(v ? `代理已保存: ${v}` : '代理已清除（直连）', 'ok');
+      };
+      g.clearProxy = () => {
+        localStorage.removeItem('mn-proxy-url');
+        if (qs('#proxy-input')) qs('#proxy-input').value = '';
+        toast('代理已清除，将直连下载', 'in');
       };
 
       // ── Logs ──────────────────────────────────────────────────────────────────────
@@ -2320,6 +2416,9 @@
             qs('#s-chunks').textContent = (s.total_chunks ?? 0).toLocaleString();
           }
         });
+        // Restore proxy input
+        const saved = localStorage.getItem('mn-proxy-url') || '';
+        if (qs('#proxy-input')) qs('#proxy-input').value = saved;
 
         qs('#cli-ref').textContent =
           `# 索引目录（递归）

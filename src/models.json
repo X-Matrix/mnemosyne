@@ -1,0 +1,205 @@
+{
+    "categories": {
+        "text": {
+            "label": "文本嵌入 (BERT)",
+            "icon": "📝",
+            "color": "var(--green)",
+            "description": "用于文本/代码/PDF 内容的语义嵌入，影响文本搜索质量。切换后需重新索引文本文件。"
+        },
+        "vision": {
+            "label": "视觉嵌入 (CLIP)",
+            "icon": "🖼️",
+            "color": "var(--yellow)",
+            "description": "用于图片内容的跨模态嵌入，支持用自然语言检索图片。切换后需重新索引图片文件。"
+        },
+        "audio": {
+            "label": "语音识别 (Whisper)",
+            "icon": "🎵",
+            "color": "var(--purple)",
+            "description": "将音频/视频转录为文本后索引，影响语音内容搜索。切换后需重新索引音视频文件。"
+        }
+    },
+    "models": [
+        {
+            "id": "sentence-transformers/all-MiniLM-L6-v2",
+            "name": "all-MiniLM-L6-v2",
+            "category": "text",
+            "description": "推荐：轻量级英文文本嵌入，384 维，速度快，适合个人使用",
+            "size_mb": 90,
+            "dimensions": 384,
+            "languages": [
+                "en"
+            ],
+            "tags": [
+                "384维",
+                "90MB",
+                "轻量",
+                "英文"
+            ],
+            "recommended": true,
+            "hf_url": "https://huggingface.co/sentence-transformers/all-MiniLM-L6-v2"
+        },
+        {
+            "id": "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2",
+            "name": "multilingual-MiniLM-L12-v2",
+            "category": "text",
+            "description": "多语言文本嵌入，支持中文、英文等 50 种语言的语义搜索",
+            "size_mb": 470,
+            "dimensions": 384,
+            "languages": [
+                "zh",
+                "en",
+                "multi"
+            ],
+            "tags": [
+                "384维",
+                "470MB",
+                "多语言",
+                "中文"
+            ],
+            "recommended": false,
+            "hf_url": "https://huggingface.co/sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
+        },
+        {
+            "id": "sentence-transformers/all-mpnet-base-v2",
+            "name": "all-mpnet-base-v2",
+            "category": "text",
+            "description": "高质量英文嵌入，768 维，搜索精度更高",
+            "size_mb": 420,
+            "dimensions": 768,
+            "languages": [
+                "en"
+            ],
+            "tags": [
+                "768维",
+                "420MB",
+                "高质量",
+                "英文"
+            ],
+            "recommended": false,
+            "hf_url": "https://huggingface.co/sentence-transformers/all-mpnet-base-v2"
+        },
+        {
+            "id": "sentence-transformers/paraphrase-multilingual-mpnet-base-v2",
+            "name": "multilingual-mpnet-base-v2",
+            "category": "text",
+            "description": "高质量多语言嵌入，768 维，支持 50+ 语言",
+            "size_mb": 1100,
+            "dimensions": 768,
+            "languages": [
+                "zh",
+                "en",
+                "multi"
+            ],
+            "tags": [
+                "768维",
+                "1.1GB",
+                "多语言",
+                "高质量"
+            ],
+            "recommended": false,
+            "hf_url": "https://huggingface.co/sentence-transformers/paraphrase-multilingual-mpnet-base-v2"
+        },
+        {
+            "id": "openai/clip-vit-base-patch32",
+            "name": "CLIP ViT-B/32",
+            "category": "vision",
+            "description": "图文跨模态嵌入：用自然语言检索图片内容，需启用 clip-backend feature",
+            "size_mb": 340,
+            "dimensions": 512,
+            "languages": [
+                "en"
+            ],
+            "tags": [
+                "512维",
+                "340MB",
+                "图片",
+                "跨模态"
+            ],
+            "recommended": true,
+            "hf_url": "https://huggingface.co/openai/clip-vit-base-patch32"
+        },
+        {
+            "id": "openai/clip-vit-large-patch14",
+            "name": "CLIP ViT-L/14",
+            "category": "vision",
+            "description": "大型 CLIP 模型，精度更高，适合高质量图像检索",
+            "size_mb": 890,
+            "dimensions": 768,
+            "languages": [
+                "en"
+            ],
+            "tags": [
+                "768维",
+                "890MB",
+                "图片",
+                "高精度"
+            ],
+            "recommended": false,
+            "hf_url": "https://huggingface.co/openai/clip-vit-large-patch14"
+        },
+        {
+            "id": "openai/whisper-tiny",
+            "name": "Whisper Tiny",
+            "category": "audio",
+            "description": "轻量级语音识别，将音频/视频转为可搜索文本，速度快，需启用 whisper-backend feature",
+            "size_mb": 78,
+            "params_m": 39,
+            "languages": [
+                "zh",
+                "en",
+                "multi"
+            ],
+            "tags": [
+                "39M参数",
+                "78MB",
+                "音频",
+                "多语言"
+            ],
+            "recommended": true,
+            "hf_url": "https://huggingface.co/openai/whisper-tiny"
+        },
+        {
+            "id": "openai/whisper-base",
+            "name": "Whisper Base",
+            "category": "audio",
+            "description": "基础语音识别，平衡速度与精度，中文效果良好",
+            "size_mb": 148,
+            "params_m": 74,
+            "languages": [
+                "zh",
+                "en",
+                "multi"
+            ],
+            "tags": [
+                "74M参数",
+                "148MB",
+                "音频",
+                "多语言"
+            ],
+            "recommended": false,
+            "hf_url": "https://huggingface.co/openai/whisper-base"
+        },
+        {
+            "id": "openai/whisper-small",
+            "name": "Whisper Small",
+            "category": "audio",
+            "description": "高质量语音识别，中英文均表现优秀",
+            "size_mb": 488,
+            "params_m": 244,
+            "languages": [
+                "zh",
+                "en",
+                "multi"
+            ],
+            "tags": [
+                "244M参数",
+                "488MB",
+                "音频",
+                "高质量"
+            ],
+            "recommended": false,
+            "hf_url": "https://huggingface.co/openai/whisper-small"
+        }
+    ]
+}

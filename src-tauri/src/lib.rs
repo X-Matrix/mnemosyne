@@ -80,14 +80,21 @@ pub fn run() {
                 .join(".mnemosyne")
                 .join("db.sqlite");
 
+            // Read persisted active models for all three categories.
+            let initial = commands::models::read_persisted_models();
+            if let Some(ref m) = initial.text   { tracing::info!("Restoring text model: {m}"); }
+            if let Some(ref m) = initial.vision { tracing::info!("Restoring vision model: {m}"); }
+            if let Some(ref m) = initial.audio  { tracing::info!("Restoring audio model: {m}"); }
+
             tracing::info!("Using database: {}", db_path.display());
 
             tauri::async_runtime::spawn(async move {
-                match mnemosyne_retrieval::SearchEngine::builder()
-                    .db_path(&db_path)
-                    .build()
-                    .await
-                {
+                let mut builder = mnemosyne_retrieval::SearchEngine::builder()
+                    .db_path(&db_path);
+                if let Some(m) = initial.text   { builder = builder.text_model(m); }
+                if let Some(m) = initial.vision { builder = builder.vision_model(m); }
+                if let Some(m) = initial.audio  { builder = builder.audio_model(m); }
+                match builder.build().await {
                     Ok(engine) => {
                         *engine_lock.write().await = Some(engine);
                         tracing::info!("SearchEngine ready (db: {})", db_path.display());
@@ -111,6 +118,8 @@ pub fn run() {
             commands::index::preview_file,
             commands::models::download_model,
             commands::models::list_models,
+            commands::models::switch_model,
+            commands::models::get_active_models,
             commands::logs::get_logs,
             commands::logs::clear_logs,
             commands::api::start_api_server,
