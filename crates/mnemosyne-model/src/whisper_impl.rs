@@ -155,9 +155,10 @@ impl WhisperTranscriber {
 
             let seq_len = logits.dim(1).map_err(|e| Error::model(e.to_string()))?;
             let next_token = logits
-                .narrow(1, seq_len - 1, 1)
-                .and_then(|t| t.squeeze(1))
-                .and_then(|t| t.argmax(D::Minus1))
+                .narrow(1, seq_len - 1, 1)   // (1, 1, vocab)
+                .and_then(|t| t.squeeze(1))  // (1, vocab)
+                .and_then(|t| t.argmax(D::Minus1))  // (1,) – batch dim remains
+                .and_then(|t| t.squeeze(0))  // () scalar
                 .and_then(|t| t.to_scalar::<u32>())
                 .map_err(|e| Error::model(e.to_string()))?;
 
