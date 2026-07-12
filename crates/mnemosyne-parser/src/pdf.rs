@@ -245,7 +245,7 @@ mod cjk {
 
     fn hex_bytes(token: &str) -> Option<Vec<u8>> {
         let inner = token.trim().strip_prefix('<')?.strip_suffix('>')?;
-        if inner.len() % 2 != 0 {
+        if !inner.len().is_multiple_of(2) {
             return None;
         }
         (0..inner.len())
@@ -255,7 +255,7 @@ mod cjk {
     }
 
     fn utf16be_to_string(bytes: &[u8]) -> Option<String> {
-        if bytes.len() % 2 != 0 {
+        if !bytes.len().is_multiple_of(2) {
             return None;
         }
         let units: Vec<u16> = bytes
