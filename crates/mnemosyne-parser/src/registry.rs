@@ -35,10 +35,7 @@ impl ParserRegistry {
 
     /// Return the parser for the given file, if one is registered.
     pub fn get_for_file(&self, path: &Path) -> Option<Arc<dyn FileParser>> {
-        let ext = path
-            .extension()
-            .and_then(|e| e.to_str())?
-            .to_lowercase();
+        let ext = path.extension().and_then(|e| e.to_str())?.to_lowercase();
         self.parsers.get(&ext).map(Arc::clone)
     }
 

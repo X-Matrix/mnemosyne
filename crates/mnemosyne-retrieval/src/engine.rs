@@ -18,7 +18,7 @@ use uuid::Uuid;
 use walkdir::WalkDir;
 
 /// Default CLIP model used when `clip-backend` feature is enabled.
-pub const DEFAULT_CLIP_MODEL:    &str = "openai/clip-vit-base-patch32";
+pub const DEFAULT_CLIP_MODEL: &str = "openai/clip-vit-base-patch32";
 /// Default Whisper model used when `whisper-backend` feature is enabled.
 pub const DEFAULT_WHISPER_MODEL: &str = "openai/whisper-tiny";
 
@@ -27,9 +27,9 @@ pub struct SearchEngine {
     pub(crate) index: Arc<HybridIndex>,
     pub(crate) parsers: Arc<ParserRegistry>,
     pub(crate) models: Arc<ModelRegistry>,
-    pub(crate) text_model_id:   String,
+    pub(crate) text_model_id: String,
     pub(crate) vision_model_id: String,
-    pub(crate) audio_model_id:  String,
+    pub(crate) audio_model_id: String,
 }
 
 impl SearchEngine {
@@ -42,7 +42,15 @@ impl SearchEngine {
         vision_model_id: String,
         audio_model_id: String,
     ) -> Self {
-        Self { db, index, parsers, models, text_model_id, vision_model_id, audio_model_id }
+        Self {
+            db,
+            index,
+            parsers,
+            models,
+            text_model_id,
+            vision_model_id,
+            audio_model_id,
+        }
     }
 
     pub fn builder() -> crate::builder::SearchEngineBuilder {
@@ -50,14 +58,22 @@ impl SearchEngine {
     }
 
     /// Expose the underlying database (e.g. for test assertions).
-    pub fn db(&self) -> &mnemosyne_storage::Database { &self.db }
+    pub fn db(&self) -> &mnemosyne_storage::Database {
+        &self.db
+    }
 
     /// Return the currently active text-embedding model ID.
-    pub fn get_text_model(&self) -> &str { &self.text_model_id }
+    pub fn get_text_model(&self) -> &str {
+        &self.text_model_id
+    }
     /// Return the currently active vision-embedding model ID.
-    pub fn get_vision_model(&self) -> &str { &self.vision_model_id }
+    pub fn get_vision_model(&self) -> &str {
+        &self.vision_model_id
+    }
     /// Return the currently active audio-transcription model ID.
-    pub fn get_audio_model(&self) -> &str { &self.audio_model_id }
+    pub fn get_audio_model(&self) -> &str {
+        &self.audio_model_id
+    }
 
     /// Switch the active text-embedding model at runtime.
     /// **Existing embeddings are incompatible — re-index required.**
@@ -99,7 +115,10 @@ impl SearchEngine {
             .follow_links(true)
             .into_iter()
             .filter_map(|e| match e {
-                Ok(entry) => { total_walked += 1; Some(entry) }
+                Ok(entry) => {
+                    total_walked += 1;
+                    Some(entry)
+                }
                 Err(err) => {
                     walkdir_errors += 1;
                     warn!("[index_directory] WalkDir error: {}", err);
@@ -112,7 +131,11 @@ impl SearchEngine {
                 if !supported {
                     let ext = e.path().extension().and_then(|x| x.to_str()).unwrap_or("");
                     if !ext.is_empty() {
-                        debug!("[index_directory] unsupported extension '{}': {}", ext, e.path().display());
+                        debug!(
+                            "[index_directory] unsupported extension '{}': {}",
+                            ext,
+                            e.path().display()
+                        );
                         unsupported_count += 1;
                     }
                 }
@@ -166,11 +189,10 @@ impl SearchEngine {
 
         // Count chunks.
         let db = self.db.clone();
-        stats.total_chunks = tokio::task::spawn_blocking(move || {
-            mnemosyne_storage::ChunkRepo::new(&db).count()
-        })
-        .await
-        .map_err(|e| Error::storage(e.to_string()))??;
+        stats.total_chunks =
+            tokio::task::spawn_blocking(move || mnemosyne_storage::ChunkRepo::new(&db).count())
+                .await
+                .map_err(|e| Error::storage(e.to_string()))??;
 
         info!(
             "Indexing complete: {} files, {} chunks",
@@ -254,10 +276,11 @@ impl SearchEngine {
             if is_audio {
                 match self.transcribe_audio(path).await {
                     Ok(transcript) if !transcript.trim().is_empty() => {
-                        chunks_content = vec![mnemosyne_core::types::ParsedContent::AudioTranscript {
-                            transcript,
-                            language: None,
-                        }];
+                        chunks_content =
+                            vec![mnemosyne_core::types::ParsedContent::AudioTranscript {
+                                transcript,
+                                language: None,
+                            }];
                     }
                     Ok(_) => {}
                     Err(e) => tracing::warn!("Whisper failed, keeping stub: {e}"),
@@ -279,8 +302,10 @@ impl SearchEngine {
         }
 
         // Persist chunks + embeddings.
-        for (i, (content, embedding)) in
-            chunks_content.into_iter().zip(embeddings.into_iter()).enumerate()
+        for (i, (content, embedding)) in chunks_content
+            .into_iter()
+            .zip(embeddings.into_iter())
+            .enumerate()
         {
             let chunk_id = format!("{file_id}:{i}");
             let chunk = IndexedChunk {
@@ -316,14 +341,12 @@ impl SearchEngine {
 
         let mut results = match &query.mode {
             SearchMode::Vector => {
-                self.index.vector_search(&bert_embedding, query.limit).await?
+                self.index
+                    .vector_search(&bert_embedding, query.limit)
+                    .await?
             }
-            SearchMode::Keyword => {
-                self.index.keyword_search(&query.text, query.limit).await?
-            }
-            SearchMode::Hybrid => {
-                self.index.hybrid_search(&query, &bert_embedding).await?
-            }
+            SearchMode::Keyword => self.index.keyword_search(&query.text, query.limit).await?,
+            SearchMode::Hybrid => self.index.hybrid_search(&query, &bert_embedding).await?,
         };
 
         // ── Apply file-type filter ─────────────────────────────────────────────
@@ -350,7 +373,8 @@ impl SearchEngine {
         if matches!(&query.mode, SearchMode::Vector) {
             if let Ok(clip_text_emb) = self.embed_text_with_clip(&query.text).await {
                 let clip_limit = query.limit * 2; // fetch more before filtering
-                let mut clip_results = self.index
+                let mut clip_results = self
+                    .index
                     .vector_search(&clip_text_emb, clip_limit)
                     .await
                     .unwrap_or_default();
@@ -365,12 +389,13 @@ impl SearchEngine {
                     .iter()
                     .map(|r| format!("{}:{}", r.file_record.id, r.chunk_index))
                     .collect();
-                clip_results.retain(|r| {
-                    !seen.contains(&format!("{}:{}", r.file_record.id, r.chunk_index))
-                });
+                clip_results
+                    .retain(|r| !seen.contains(&format!("{}:{}", r.file_record.id, r.chunk_index)));
                 results.extend(clip_results);
                 results.sort_by(|a, b| {
-                    b.score.partial_cmp(&a.score).unwrap_or(std::cmp::Ordering::Equal)
+                    b.score
+                        .partial_cmp(&a.score)
+                        .unwrap_or(std::cmp::Ordering::Equal)
                 });
                 results.truncate(query.limit);
             }
@@ -403,11 +428,9 @@ impl SearchEngine {
                 for row in rows.flatten() {
                     let (ft_json, count) = row;
                     // file_type is stored as serde_json string e.g. "\"text\""
-                    let ft: FileType = serde_json::from_str(&ft_json)
-                        .unwrap_or(FileType::Unknown);
+                    let ft: FileType = serde_json::from_str(&ft_json).unwrap_or(FileType::Unknown);
                     // Use Debug format ("Text", "Image", …) — matches frontend keys
-                    *files_by_type.entry(format!("{:?}", ft)).or_default() +=
-                        count as u64;
+                    *files_by_type.entry(format!("{:?}", ft)).or_default() += count as u64;
                 }
 
                 // PDF files: stored as FileType::Text with .pdf extension.
@@ -439,11 +462,7 @@ impl SearchEngine {
         .map_err(|e| Error::storage(e.to_string()))?
     }
 
-    pub async fn list_files(
-        &self,
-        limit: usize,
-        offset: usize,
-    ) -> Result<Vec<FileRecord>, Error> {
+    pub async fn list_files(&self, limit: usize, offset: usize) -> Result<Vec<FileRecord>, Error> {
         let db = self.db.clone();
         tokio::task::spawn_blocking(move || FileRepo::new(&db).list(limit, offset))
             .await
@@ -482,7 +501,10 @@ impl SearchEngine {
                         tokio::task::spawn_blocking(move || clip.embed_image(&fp))
                             .await
                             .map_err(|e| Error::model(e.to_string()))?
-                            .map_err(|e| { tracing::warn!("CLIP failed: {e}"); e })?
+                            .map_err(|e| {
+                                tracing::warn!("CLIP failed: {e}");
+                                e
+                            })?
                     }
                     #[cfg(not(feature = "clip-backend"))]
                     {
@@ -518,7 +540,10 @@ impl SearchEngine {
 
     /// Embed an image file using the CLIP vision encoder.
     /// Falls back to filename-based text embedding if feature is not enabled.
-    pub async fn embed_image(&self, path: &Path) -> Result<mnemosyne_core::types::Embedding, Error> {
+    pub async fn embed_image(
+        &self,
+        path: &Path,
+    ) -> Result<mnemosyne_core::types::Embedding, Error> {
         #[cfg(feature = "clip-backend")]
         {
             let clip = self.models.get_clip_embedder(&self.vision_model_id).await?;
@@ -573,25 +598,32 @@ impl SearchEngine {
             .to_string())
     }
 
-
     /// List all models registered in the local model registry.
-    pub async fn list_models(&self) -> Result<Vec<mnemosyne_storage::model_repo::ModelRecord>, Error> {
+    pub async fn list_models(
+        &self,
+    ) -> Result<Vec<mnemosyne_storage::model_repo::ModelRecord>, Error> {
         let db = self.db.clone();
-        tokio::task::spawn_blocking(move || {
-            mnemosyne_storage::ModelRepo::new(&db).list()
-        })
-        .await
-        .map_err(|e| Error::storage(e.to_string()))?
+        tokio::task::spawn_blocking(move || mnemosyne_storage::ModelRepo::new(&db).list())
+            .await
+            .map_err(|e| Error::storage(e.to_string()))?
     }
 
     /// Download a model from HuggingFace Hub and register it locally.
     /// `proxy_url` is forwarded to the HTTP client (empty/None = no system proxy).
-    pub async fn download_model(&self, model_id: &str, proxy_url: Option<&str>) -> Result<(), Error> {
+    pub async fn download_model(
+        &self,
+        model_id: &str,
+        proxy_url: Option<&str>,
+    ) -> Result<(), Error> {
         use mnemosyne_model::ModelDownloader;
 
         let home = std::env::var("HOME").unwrap_or_else(|_| ".".into());
-        let cache_dir = std::path::PathBuf::from(home).join(".mnemosyne").join("models");
-        tokio::fs::create_dir_all(&cache_dir).await.map_err(Error::Io)?;
+        let cache_dir = std::path::PathBuf::from(home)
+            .join(".mnemosyne")
+            .join("models");
+        tokio::fs::create_dir_all(&cache_dir)
+            .await
+            .map_err(Error::Io)?;
 
         let downloader = ModelDownloader::new(cache_dir);
         let local_path = downloader.download(model_id, proxy_url).await?;
@@ -608,4 +640,3 @@ impl SearchEngine {
         Ok(())
     }
 }
-

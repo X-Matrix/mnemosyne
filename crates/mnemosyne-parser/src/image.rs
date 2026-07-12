@@ -4,8 +4,8 @@
 //! `image` crate without decoding pixels.
 //! Without the feature: returns a placeholder description.
 
-use mnemosyne_core::{traits::FileParser, types::ParsedContent, Error, Result};
 use async_trait::async_trait;
+use mnemosyne_core::{traits::FileParser, types::ParsedContent, Error, Result};
 use std::path::Path;
 use tracing::debug;
 
@@ -14,7 +14,9 @@ pub struct ImageParser;
 #[async_trait]
 impl FileParser for ImageParser {
     fn supported_extensions(&self) -> &[&'static str] {
-        &["jpg", "jpeg", "png", "bmp", "gif", "webp", "tiff", "tif", "heic", "heif"]
+        &[
+            "jpg", "jpeg", "png", "bmp", "gif", "webp", "tiff", "tif", "heic", "heif",
+        ]
     }
 
     async fn parse(&self, path: &Path) -> Result<Vec<ParsedContent>> {
@@ -29,20 +31,20 @@ impl FileParser for ImageParser {
         #[cfg(feature = "image-meta")]
         {
             let path = path.to_path_buf();
-            let caption = tokio::task::spawn_blocking(move || {
-                match image::image_dimensions(&path) {
+            let caption =
+                tokio::task::spawn_blocking(move || match image::image_dimensions(&path) {
                     Ok((w, h)) => format!(
                         "Image: {} ({}×{} pixels)",
                         path.file_name()
                             .and_then(|n| n.to_str())
                             .unwrap_or("unknown"),
-                        w, h
+                        w,
+                        h
                     ),
                     Err(_) => format!("Image file: {}", filename),
-                }
-            })
-            .await
-            .map_err(|e| Error::parse(e.to_string()))?;
+                })
+                .await
+                .map_err(|e| Error::parse(e.to_string()))?;
 
             return Ok(vec![ParsedContent::Image {
                 caption,

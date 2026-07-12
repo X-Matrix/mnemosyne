@@ -20,12 +20,12 @@ const CLIP_MAX_SEQ: usize = 77;
 
 /// CLIP normalization constants (ImageNet-style used by OpenAI CLIP).
 const CLIP_MEAN: [f32; 3] = [0.48145466, 0.4578275, 0.40821073];
-const CLIP_STD:  [f32; 3] = [0.26862954, 0.26130258, 0.27577711];
+const CLIP_STD: [f32; 3] = [0.26862954, 0.26130258, 0.27577711];
 
 pub struct ClipEmbedder {
-    model:     clip::ClipModel,
-    tokenizer: Option<Tokenizer>,  // for text-to-image search
-    device:    Device,
+    model: clip::ClipModel,
+    tokenizer: Option<Tokenizer>, // for text-to-image search
+    device: Device,
 }
 
 /// Return the local model directory `~/.mnemosyne/models/{model_id}` if it exists.
@@ -34,7 +34,11 @@ fn local_model_dir(model_id: &str) -> Option<std::path::PathBuf> {
     let dir = std::path::PathBuf::from(home)
         .join(".mnemosyne/models")
         .join(model_id);
-    if dir.is_dir() { Some(dir) } else { None }
+    if dir.is_dir() {
+        Some(dir)
+    } else {
+        None
+    }
 }
 
 impl ClipEmbedder {
@@ -66,18 +70,24 @@ impl ClipEmbedder {
         let config = ClipConfig::vit_base_patch32();
 
         let vb = load_var_builder(&weights_path, DType::F32, &device)?;
-        let model = clip::ClipModel::new(vb, &config)
-            .map_err(|e| Error::model(e.to_string()))?;
+        let model = clip::ClipModel::new(vb, &config).map_err(|e| Error::model(e.to_string()))?;
 
         // Load CLIP tokenizer for text encoding (optional — ok if missing).
-        let tokenizer = local_model_dir(model_id)
-            .and_then(|dir| {
-                let p = dir.join("tokenizer.json");
-                p.exists().then(|| Tokenizer::from_file(&p).ok()).flatten()
-            });
+        let tokenizer = local_model_dir(model_id).and_then(|dir| {
+            let p = dir.join("tokenizer.json");
+            p.exists().then(|| Tokenizer::from_file(&p).ok()).flatten()
+        });
 
-        info!("CLIP '{}' loaded (dim={CLIP_DIM}, device=CPU, text_enc={})", model_id, tokenizer.is_some());
-        Ok(Self { model, tokenizer, device })
+        info!(
+            "CLIP '{}' loaded (dim={CLIP_DIM}, device=CPU, text_enc={})",
+            model_id,
+            tokenizer.is_some()
+        );
+        Ok(Self {
+            model,
+            tokenizer,
+            device,
+        })
     }
 
     /// Produce a 512-dim L2-normalised image embedding for `image_path`.
@@ -86,10 +96,13 @@ impl ClipEmbedder {
         let tensor = Tensor::from_vec(pixels, (1usize, 3, 224, 224), &self.device)
             .map_err(|e| Error::model(e.to_string()))?;
 
-        let features = self.model.get_image_features(&tensor)
+        let features = self
+            .model
+            .get_image_features(&tensor)
             .map_err(|e| Error::model(e.to_string()))?;
 
-        let vec: Vec<f32> = features.squeeze(0)
+        let vec: Vec<f32> = features
+            .squeeze(0)
             .map_err(|e| Error::model(e.to_string()))?
             .to_vec1()
             .map_err(|e| Error::model(e.to_string()))?;
@@ -106,13 +119,19 @@ impl ClipEmbedder {
     ///
     /// Returns an error if the CLIP tokenizer was not found in the local cache.
     pub fn embed_text(&self, text: &str) -> Result<Vec<f32>, Error> {
-        let tokenizer = self.tokenizer.as_ref()
+        let tokenizer = self
+            .tokenizer
+            .as_ref()
             .ok_or_else(|| Error::model("CLIP tokenizer not loaded".to_string()))?;
 
         // Tokenize and truncate to CLIP_MAX_SEQ − 2 (room for SOT/EOT).
-        let encoding = tokenizer.encode(text, false)
+        let encoding = tokenizer
+            .encode(text, false)
             .map_err(|e| Error::model(e.to_string()))?;
-        let ids: Vec<u32> = encoding.get_ids().iter().copied()
+        let ids: Vec<u32> = encoding
+            .get_ids()
+            .iter()
+            .copied()
             .take(CLIP_MAX_SEQ - 2)
             .collect();
 
@@ -126,13 +145,16 @@ impl ClipEmbedder {
         seq.resize(CLIP_MAX_SEQ, 0u32);
 
         let input = Tensor::new(seq.as_slice(), &self.device)
-            .and_then(|t| t.unsqueeze(0))  // (1, 77)
+            .and_then(|t| t.unsqueeze(0)) // (1, 77)
             .map_err(|e| Error::model(e.to_string()))?;
 
-        let features = self.model.get_text_features(&input)
+        let features = self
+            .model
+            .get_text_features(&input)
             .map_err(|e| Error::model(e.to_string()))?;
 
-        let vec: Vec<f32> = features.squeeze(0)
+        let vec: Vec<f32> = features
+            .squeeze(0)
             .map_err(|e| Error::model(e.to_string()))?
             .to_vec1()
             .map_err(|e| Error::model(e.to_string()))?;
@@ -161,8 +183,7 @@ fn load_var_builder(
                 .map_err(|e| Error::model(e.to_string()))
         }
     } else {
-        VarBuilder::from_pth(path, dtype, device)
-            .map_err(|e| Error::model(e.to_string()))
+        VarBuilder::from_pth(path, dtype, device).map_err(|e| Error::model(e.to_string()))
     }
 }
 
@@ -173,7 +194,9 @@ async fn download_clip_weights(model_id: &str) -> Result<std::path::PathBuf, Err
     let repo = api.model(model_id.to_string());
     match repo.get("model.safetensors").await {
         Ok(p) => Ok(p),
-        Err(_) => repo.get("pytorch_model.bin").await
+        Err(_) => repo
+            .get("pytorch_model.bin")
+            .await
             .map_err(|e| Error::model(format!("weights: {e}"))),
     }
 }

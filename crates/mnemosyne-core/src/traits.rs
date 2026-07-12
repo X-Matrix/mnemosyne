@@ -47,11 +47,8 @@ pub trait SearchIndex: Send + Sync {
     async fn remove_file(&self, file_id: &str) -> Result<()>;
 
     /// Pure cosine-similarity vector search.
-    async fn vector_search(
-        &self,
-        embedding: &Embedding,
-        limit: usize,
-    ) -> Result<Vec<SearchResult>>;
+    async fn vector_search(&self, embedding: &Embedding, limit: usize)
+        -> Result<Vec<SearchResult>>;
 
     /// Pure BM25 / FTS5 keyword search.
     async fn keyword_search(&self, query: &str, limit: usize) -> Result<Vec<SearchResult>>;

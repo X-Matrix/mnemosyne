@@ -36,7 +36,11 @@ async fn test_index_and_stats() {
     let engine = make_engine(&tmp).await;
 
     write_file(&tmp, "hello.txt", "Hello world, this is a test document.");
-    write_file(&tmp, "rust.md",   "Rust is a systems programming language focused on safety.");
+    write_file(
+        &tmp,
+        "rust.md",
+        "Rust is a systems programming language focused on safety.",
+    );
 
     let stats = engine
         .index_directory(tmp.path())
@@ -52,9 +56,21 @@ async fn test_keyword_search() {
     let tmp = TempDir::new().unwrap();
     let engine = make_engine(&tmp).await;
 
-    write_file(&tmp, "doc1.txt", "The quick brown fox jumps over the lazy dog.");
-    write_file(&tmp, "doc2.txt", "Rust programming language memory safety features.");
-    write_file(&tmp, "doc3.txt", "Machine learning and deep learning neural networks.");
+    write_file(
+        &tmp,
+        "doc1.txt",
+        "The quick brown fox jumps over the lazy dog.",
+    );
+    write_file(
+        &tmp,
+        "doc2.txt",
+        "Rust programming language memory safety features.",
+    );
+    write_file(
+        &tmp,
+        "doc3.txt",
+        "Machine learning and deep learning neural networks.",
+    );
 
     engine.index_directory(tmp.path()).await.unwrap();
 
@@ -141,10 +157,7 @@ async fn test_incremental_index_skips_unchanged() {
 
     // Second index — same file, should be skipped (total_files = 0 new).
     let stats2 = engine.index_directory(tmp.path()).await.unwrap();
-    assert_eq!(
-        stats2.total_files, 0,
-        "unchanged file should be skipped"
-    );
+    assert_eq!(stats2.total_files, 0, "unchanged file should be skipped");
 }
 
 #[tokio::test]
@@ -180,5 +193,8 @@ async fn test_stats_counts() {
 
     let stats = engine.get_stats().await.unwrap();
     assert_eq!(stats.total_files, 1);
-    assert!(stats.total_chunks >= 3, "large file should produce multiple chunks");
+    assert!(
+        stats.total_chunks >= 3,
+        "large file should produce multiple chunks"
+    );
 }

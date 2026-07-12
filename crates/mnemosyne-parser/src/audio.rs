@@ -3,8 +3,8 @@
 //! With the `whisper-backend` feature (mnemosyne-model): real speech-to-text.
 //! Default: returns filename + stub transcript placeholder.
 
-use mnemosyne_core::{traits::FileParser, types::ParsedContent, Error, Result};
 use async_trait::async_trait;
+use mnemosyne_core::{traits::FileParser, types::ParsedContent, Error, Result};
 use std::path::Path;
 use tracing::debug;
 

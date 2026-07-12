@@ -119,9 +119,7 @@ impl<'a> EmbeddingRepo<'a> {
 // ── helpers ──────────────────────────────────────────────────────────────────
 
 fn f32_slice_to_bytes(data: &[f32]) -> Vec<u8> {
-    data.iter()
-        .flat_map(|f| f.to_le_bytes())
-        .collect()
+    data.iter().flat_map(|f| f.to_le_bytes()).collect()
 }
 
 fn bytes_to_f32_vec(bytes: &[u8]) -> Vec<f32> {
