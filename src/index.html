@@ -1455,32 +1455,33 @@
             <button class="pill on" id="pm-hybrid" onclick="g.setMode('hybrid',this)">混合</button>
             <button class="pill" id="pm-vector" onclick="g.setMode('vector',this)">向量</button>
             <button class="pill" id="pm-keyword" onclick="g.setMode('keyword',this)">关键词</button>
-            <button class="pill" id="pm-cfg" onclick="g.toggleSearchCfg()" title="搜索策略设置" style="margin-left:auto">⚙ 策略</button>
+            <button class="pill" id="pm-cfg" onclick="g.toggleSearchCfg()" title="搜索策略设置" style="margin-left:auto">⚙
+              策略</button>
           </div>
           <!-- Search strategy config panel (collapsible) -->
-          <div id="search-cfg" style="display:none;padding:10px 16px;border-bottom:1px solid var(--bd);background:var(--sf);flex-shrink:0">
+          <div id="search-cfg"
+            style="display:none;padding:10px 16px;border-bottom:1px solid var(--bd);background:var(--sf);flex-shrink:0">
             <div style="display:flex;flex-wrap:wrap;gap:16px;align-items:flex-end">
               <div>
                 <div class="fl2">语义 ↔ 关键词 权重</div>
                 <div style="display:flex;align-items:center;gap:8px">
                   <span style="font-size:10px;color:var(--mu)">关键词</span>
-                  <input id="vec-slider" type="range" min="0" max="100" value="50"
-                    oninput="g.onVecSlider(this.value)"
+                  <input id="vec-slider" type="range" min="0" max="100" value="50" oninput="g.onVecSlider(this.value)"
                     style="width:120px;accent-color:var(--acc)">
                   <span style="font-size:10px;color:var(--mu)">语义</span>
-                  <span id="vec-val" style="font-size:11px;color:var(--acc);width:60px;text-align:right">1.0 / 1.0</span>
+                  <span id="vec-val" style="font-size:11px;color:var(--acc);width:60px;text-align:right">1.0 /
+                    1.0</span>
                 </div>
               </div>
               <div>
                 <div class="fl2">结果数量上限</div>
-                <input id="limit-input" type="number" min="5" max="200" value="60"
-                  class="sfm-input" style="width:70px;padding:4px 8px">
+                <input id="limit-input" type="number" min="5" max="200" value="60" class="sfm-input"
+                  style="width:70px;padding:4px 8px">
               </div>
               <div>
                 <div class="fl2">得分阈值</div>
-                <input id="score-thresh" type="number" min="0" max="1" step="0.05" value="0"
-                  class="sfm-input" style="width:70px;padding:4px 8px"
-                  title="低于此分数的结果将被过滤（0=不过滤）">
+                <input id="score-thresh" type="number" min="0" max="1" step="0.05" value="0" class="sfm-input"
+                  style="width:70px;padding:4px 8px" title="低于此分数的结果将被过滤（0=不过滤）">
               </div>
               <button class="btn bg" style="padding:4px 10px;font-size:11px" onclick="g.resetSearchCfg()">重置</button>
             </div>
@@ -1852,7 +1853,7 @@
       function getSearchWeights() {
         const val = parseInt(qs('#vec-slider')?.value ?? 50);
         return {
-          vector_weight:  parseFloat((val / 50).toFixed(2)),
+          vector_weight: parseFloat((val / 50).toFixed(2)),
           keyword_weight: parseFloat(((100 - val) / 50).toFixed(2)),
           limit: parseInt(qs('#limit-input')?.value ?? 60) || 60,
           score_threshold: parseFloat(qs('#score-thresh')?.value ?? 0) || 0,
