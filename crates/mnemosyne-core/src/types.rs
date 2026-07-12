@@ -101,11 +101,18 @@ pub struct SearchQuery {
     pub offset: usize,
     #[serde(default)]
     pub mode: SearchMode,
+    /// Weight applied to vector-search results in hybrid RRF fusion.
+    /// Default 1.0.  Increase to emphasise semantic similarity.
+    #[serde(default = "default_weight")]
+    pub vector_weight: f32,
+    /// Weight applied to keyword-search results in hybrid RRF fusion.
+    /// Default 1.0.  Increase to emphasise exact-match relevance.
+    #[serde(default = "default_weight")]
+    pub keyword_weight: f32,
 }
 
-fn default_limit() -> usize {
-    20
-}
+fn default_limit() -> usize { 20 }
+fn default_weight() -> f32  { 1.0 }
 
 impl Default for SearchQuery {
     fn default() -> Self {
@@ -115,6 +122,8 @@ impl Default for SearchQuery {
             limit: 20,
             offset: 0,
             mode: SearchMode::Hybrid,
+            vector_weight:  1.0,
+            keyword_weight: 1.0,
         }
     }
 }

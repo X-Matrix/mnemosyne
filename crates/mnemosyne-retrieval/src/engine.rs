@@ -326,6 +326,14 @@ impl SearchEngine {
             }
         };
 
+        // ── Apply file-type filter ─────────────────────────────────────────────
+        // Retain only results whose file type is in query.file_types.
+        if let Some(ref types) = query.file_types {
+            if !types.is_empty() {
+                results.retain(|r| types.contains(&r.file_record.file_type));
+            }
+        }
+
         // ── CLIP text embedding for image chunks (clip-backend only) ──────────
         // CLIP images are stored as 512-d vectors; they are invisible to the
         // 384-d BERT search above.  Re-run vector search with the CLIP text
@@ -386,6 +394,23 @@ impl SearchEngine {
                     // Use Debug format ("Text", "Image", …) — matches frontend keys
                     *files_by_type.entry(format!("{:?}", ft)).or_default() +=
                         count as u64;
+                }
+
+                // PDF files: stored as FileType::Text with .pdf extension.
+                // Count them separately so the sidebar can show Text vs PDF.
+                let pdf_count: i64 = conn
+                    .query_row(
+                        "SELECT COUNT(*) FROM files WHERE LOWER(path) LIKE '%.pdf'",
+                        [],
+                        |r| r.get(0),
+                    )
+                    .unwrap_or(0);
+                if pdf_count > 0 {
+                    files_by_type.insert("Pdf".to_string(), pdf_count as u64);
+                    // Remove PDF from the Text bucket to avoid double-counting.
+                    if let Some(v) = files_by_type.get_mut("Text") {
+                        *v = v.saturating_sub(pdf_count as u64);
+                    }
                 }
             }
 

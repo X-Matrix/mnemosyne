@@ -62,10 +62,11 @@ impl AnnIndex {
 
 /// Thread-safe, lazily-built ANN index.
 ///
-/// Rebuilt on first use after `invalidate()` is called.
+/// The cached index is keyed by embedding dimension so that BERT (384-d)
+/// and CLIP (512-d) searches never share the same index.
 #[derive(Clone)]
 pub struct AnnCache {
-    inner: Arc<RwLock<Option<Arc<AnnIndex>>>>,
+    inner: Arc<RwLock<Option<(usize, Arc<AnnIndex>)>>>,
 }
 
 impl AnnCache {
@@ -78,25 +79,31 @@ impl AnnCache {
         *self.inner.write().await = None;
     }
 
-    /// Return the cached index, rebuilding it if necessary.
+    /// Return the cached index for `dim`-dimensional embeddings, rebuilding
+    /// if necessary.  Caches are dimension-specific: a CLIP-512 query never
+    /// reuses a BERT-384 index.
     pub async fn get_or_build(
         &self,
+        dim: usize,
         load_fn: impl std::future::Future<Output = Result<Vec<(String, Vec<f32>)>, Error>>,
     ) -> Result<Option<Arc<AnnIndex>>, Error> {
-        // Fast-path: already built.
-        if let Some(idx) = self.inner.read().await.as_ref().map(Arc::clone) {
-            return Ok(Some(idx));
+        // Fast-path: already built for this dimension.
+        if let Some((cached_dim, ref idx)) = *self.inner.read().await {
+            if cached_dim == dim {
+                return Ok(Some(Arc::clone(idx)));
+            }
+            // Wrong dimension → fall through and rebuild.
         }
 
-        // Slow-path: rebuild.
+        // Slow-path: (re)build.
         let pairs = load_fn.await?;
         if pairs.len() < ANN_THRESHOLD {
             return Ok(None); // Too small — use brute force.
         }
 
         let idx = Arc::new(AnnIndex::build(&pairs));
-        *self.inner.write().await = Some(Arc::clone(&idx));
-        info!("ANN index ready ({} embeddings)", pairs.len());
+        *self.inner.write().await = Some((dim, Arc::clone(&idx)));
+        info!("ANN index ready ({} embeddings, dim={})", pairs.len(), dim);
         Ok(Some(idx))
     }
 }

@@ -74,7 +74,7 @@ impl SearchIndex for HybridIndex {
         let db_for_load = db.clone();
         if let Some(ann_idx) = self
             .ann
-            .get_or_build(async move {
+            .get_or_build(query_dim, async move {
                 Ok(EmbeddingRepo::new(&db_for_load)
                     .all_with_metadata_by_dim(query_dim)?
                     .into_iter()
@@ -207,7 +207,8 @@ impl SearchIndex for HybridIndex {
             .map(|r| (format!("{}:{}", r.file_record.id, r.chunk_index), r.score))
             .collect();
 
-        let fused = rrf::fuse(&vec_ranked, &kw_ranked, query.limit);
+        let fused = rrf::fuse(&vec_ranked, &kw_ranked, query.limit,
+            query.vector_weight, query.keyword_weight);
 
         let mut result_map: std::collections::HashMap<String, SearchResult> =
             std::collections::HashMap::new();
