@@ -302,11 +302,7 @@ impl SearchEngine {
         }
 
         // Persist chunks + embeddings.
-        for (i, (content, embedding)) in chunks_content
-            .into_iter()
-            .zip(embeddings.into_iter())
-            .enumerate()
-        {
+        for (i, (content, embedding)) in chunks_content.into_iter().zip(embeddings).enumerate() {
             let chunk_id = format!("{file_id}:{i}");
             let chunk = IndexedChunk {
                 chunk_id,
