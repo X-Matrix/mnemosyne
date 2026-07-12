@@ -1,10 +1,10 @@
-//! Pipeline integration tests — real assets from `asserts/`.
+//! Pipeline integration tests — real assets from `assets/`.
 //!
 //! Asset files used:
-//!   asserts/audio/The_Squirrel_and_the_Tree_House.mp3
-//!   asserts/images/test_img01.png
-//!   asserts/pdf/test_pdf01.pdf
-//!   asserts/txt/test_md.md
+//!   assets/audio/The_Squirrel_and_the_Tree_House.mp3
+//!   assets/images/test_img01.png
+//!   assets/pdf/test_pdf01.pdf
+//!   assets/txt/test_md.md
 //!
 //! Test groups
 //! ──────────────────────────────────────────────────────────────
@@ -13,7 +13,7 @@
 //! 3. PDF      — PdfParser text extraction (chunks + content)
 //! 4. Image DB — image is stored in DB with correct kind
 //! 5. PDF DB   — PDF chunks are stored in DB, content searchable
-//! 6. Full     — index entire asserts/ dir, verify stats
+//! 6. Full     — index entire assets/ dir, verify stats
 //! 7. TestDB   — build a persistent test.sqlite at test_data/ for inspection
 //! ──────────────────────────────────────────────────────────────
 
@@ -39,16 +39,16 @@ fn project_root() -> PathBuf {
 }
 
 fn audio_asset() -> PathBuf {
-    project_root().join("asserts/audio/The_Squirrel_and_the_Tree_House.mp3")
+    project_root().join("assets/audio/The_Squirrel_and_the_Tree_House.mp3")
 }
 fn image_asset() -> PathBuf {
-    project_root().join("asserts/images/test_img01.png")
+    project_root().join("assets/images/test_img01.png")
 }
 fn pdf_asset() -> PathBuf {
-    project_root().join("asserts/pdf/test_pdf01.pdf")
+    project_root().join("assets/pdf/test_pdf01.pdf")
 }
-fn asserts_dir() -> PathBuf {
-    project_root().join("asserts")
+fn assets_dir() -> PathBuf {
+    project_root().join("assets")
 }
 
 /// Build a SearchEngine backed by a temp SQLite database.
@@ -345,7 +345,7 @@ async fn test_image_search_by_filename() {
     let engine = make_engine(&db_path).await;
 
     // Index only the images directory.
-    let images_dir = project_root().join("asserts/images");
+    let images_dir = project_root().join("assets/images");
     let stats = engine
         .index_directory(&images_dir)
         .await
@@ -387,7 +387,7 @@ async fn test_image_search_by_filename() {
 }
 
 // =============================================================================
-// 6. Full pipeline — index entire asserts/ directory
+// 6. Full pipeline — index entire assets/ directory
 // =============================================================================
 
 /// Index all assets and verify per-type file counts and chunk counts.
@@ -397,8 +397,8 @@ async fn test_full_pipeline_index_all_assets() {
     let db_path = tmp.path().join("test.sqlite");
     let engine = make_engine(&db_path).await;
 
-    let assets = asserts_dir();
-    assert!(assets.exists(), "asserts/ directory must exist");
+    let assets = assets_dir();
+    assert!(assets.exists(), "assets/ directory must exist");
 
     let stats = engine
         .index_directory(&assets)
@@ -459,7 +459,7 @@ async fn build_persistent_test_db() {
     }
 
     let engine = make_engine(&db_path).await;
-    let assets = asserts_dir();
+    let assets = assets_dir();
 
     let stats = engine
         .index_directory(&assets)
@@ -560,7 +560,7 @@ async fn clip_search(
 async fn clip_positive_call_me_by_your_name_title() {
     let tmp = TempDir::new().unwrap();
     let engine = make_clip_engine(&tmp).await;
-    let images_dir = project_root().join("asserts/images");
+    let images_dir = project_root().join("assets/images");
     engine.index_directory(&images_dir).await.expect("index");
 
     let results = clip_search(&engine, "Call Me By Your Name", 5).await;
@@ -579,7 +579,7 @@ async fn clip_positive_call_me_by_your_name_title() {
 async fn clip_positive_romantic_movie_poster() {
     let tmp = TempDir::new().unwrap();
     let engine = make_clip_engine(&tmp).await;
-    let images_dir = project_root().join("asserts/images");
+    let images_dir = project_root().join("assets/images");
     engine.index_directory(&images_dir).await.expect("index");
 
     let results = clip_search(&engine, "romantic movie poster two young men blue background", 5).await;
@@ -599,7 +599,7 @@ async fn clip_positive_romantic_movie_poster() {
 async fn clip_positive_movie_poster_general() {
     let tmp = TempDir::new().unwrap();
     let engine = make_clip_engine(&tmp).await;
-    let images_dir = project_root().join("asserts/images");
+    let images_dir = project_root().join("assets/images");
     engine.index_directory(&images_dir).await.expect("index");
 
     // Use a descriptive query that combines visual + domain cues.
@@ -619,7 +619,7 @@ async fn clip_positive_movie_poster_general() {
 async fn clip_positive_timothee_chalamet() {
     let tmp = TempDir::new().unwrap();
     let engine = make_clip_engine(&tmp).await;
-    let images_dir = project_root().join("asserts/images");
+    let images_dir = project_root().join("assets/images");
     engine.index_directory(&images_dir).await.expect("index");
 
     let results = clip_search(&engine, "Timothee Chalamet", 5).await;
@@ -639,7 +639,7 @@ async fn clip_positive_timothee_chalamet() {
 async fn clip_negative_rate_limiting() {
     let tmp = TempDir::new().unwrap();
     let engine = make_clip_engine(&tmp).await;
-    let images_dir = project_root().join("asserts/images");
+    let images_dir = project_root().join("assets/images");
     engine.index_directory(&images_dir).await.expect("index");
 
     let results = clip_search(&engine, "rate limiting algorithm token bucket table", 5).await;
@@ -671,7 +671,7 @@ async fn clip_negative_rate_limiting() {
 async fn clip_negative_cooking_recipe() {
     let tmp = TempDir::new().unwrap();
     let engine = make_clip_engine(&tmp).await;
-    let images_dir = project_root().join("asserts/images");
+    let images_dir = project_root().join("assets/images");
     engine.index_directory(&images_dir).await.expect("index");
 
     // CLIP min threshold (0.63) should filter out unrelated pairs.
@@ -695,7 +695,7 @@ async fn clip_negative_cooking_recipe() {
 async fn clip_negative_technical_documentation() {
     let tmp = TempDir::new().unwrap();
     let engine = make_clip_engine(&tmp).await;
-    let images_dir = project_root().join("asserts/images");
+    let images_dir = project_root().join("assets/images");
     engine.index_directory(&images_dir).await.expect("index");
 
     let results = clip_search(&engine, "software architecture technical documentation API", 5).await;
@@ -725,7 +725,7 @@ async fn clip_negative_technical_documentation() {
 async fn clip_relative_ranking_movie_vs_tech() {
     let tmp = TempDir::new().unwrap();
     let engine = make_clip_engine(&tmp).await;
-    let images_dir = project_root().join("asserts/images");
+    let images_dir = project_root().join("assets/images");
     engine.index_directory(&images_dir).await.expect("index");
 
     // Descriptive visual query — specific enough to cross noise floor
