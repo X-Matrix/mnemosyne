@@ -95,11 +95,7 @@ impl<'a> ChunkRepo<'a> {
             .map_err(|e| Error::storage(e.to_string()))
     }
 
-    pub fn fts_search(
-        &self,
-        query: &str,
-        limit: usize,
-    ) -> Result<Vec<FtsRow>, Error> {
+    pub fn fts_search(&self, query: &str, limit: usize) -> Result<Vec<FtsRow>, Error> {
         let conn = self.db.conn.lock().unwrap();
         let char_count = query.chars().count();
 

@@ -84,10 +84,7 @@ impl<'a> EmbeddingRepo<'a> {
 
     /// Same as `all_with_metadata` but only returns embeddings whose dimension
     /// matches `dim`.  Required to avoid BERT (384-d) ↔ CLIP (512-d) mismatch.
-    pub fn all_with_metadata_by_dim(
-        &self,
-        dim: usize,
-    ) -> Result<Vec<EmbeddingRow>, Error> {
+    pub fn all_with_metadata_by_dim(&self, dim: usize) -> Result<Vec<EmbeddingRow>, Error> {
         let byte_len = (dim * 4) as i64; // each f32 = 4 bytes
         let conn = self.db.conn.lock().unwrap();
         let mut stmt = conn
