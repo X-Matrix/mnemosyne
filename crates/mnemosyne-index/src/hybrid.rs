@@ -67,14 +67,16 @@ impl SearchIndex for HybridIndex {
     ) -> mnemosyne_core::Result<Vec<SearchResult>> {
         let db = self.db.clone();
         let query_emb = query_embedding.clone();
+        let query_dim = query_emb.len(); // BERT=384, CLIP=512 — never mix!
 
         // ── Try ANN path first ────────────────────────────────────────────────
+        // Build (or reuse) an index containing ONLY same-dimensional embeddings.
         let db_for_load = db.clone();
         if let Some(ann_idx) = self
             .ann
             .get_or_build(async move {
                 Ok(EmbeddingRepo::new(&db_for_load)
-                    .all_with_metadata()?
+                    .all_with_metadata_by_dim(query_dim)?
                     .into_iter()
                     .map(|(cid, _fid, _cidx, _content, emb)| (cid, emb))
                     .collect())
@@ -115,7 +117,8 @@ impl SearchIndex for HybridIndex {
 
         // ── Brute-force fallback ──────────────────────────────────────────────
         tokio::task::spawn_blocking(move || -> mnemosyne_core::Result<Vec<SearchResult>> {
-            let all_rows = EmbeddingRepo::new(&db).all_with_metadata()?;
+            // Only load embeddings with the same dimension as the query.
+            let all_rows = EmbeddingRepo::new(&db).all_with_metadata_by_dim(query_dim)?;
             let file_repo = FileRepo::new(&db);
 
             let mut scored: Vec<(String, String, usize, String, f32)> = all_rows

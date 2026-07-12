@@ -1,4 +1,4 @@
-//! CLIP image embedding via HuggingFace Candle.
+//! CLIP image + text embedding via HuggingFace Candle.
 //!
 //! Compiled only with the `clip-backend` feature.
 //! Model: `openai/clip-vit-base-patch32` (512-dim, 224×224 input).
@@ -9,18 +9,23 @@ use candle_transformers::models::clip::{self, ClipConfig};
 use hf_hub::api::tokio::Api;
 use mnemosyne_core::Error;
 use std::path::Path;
+use tokenizers::Tokenizer;
 use tracing::info;
 
 /// Output embedding dimension for CLIP ViT-B/32.
 pub const CLIP_DIM: usize = 512;
+
+/// Max sequence length for CLIP text encoder (ViT-B/32).
+const CLIP_MAX_SEQ: usize = 77;
 
 /// CLIP normalization constants (ImageNet-style used by OpenAI CLIP).
 const CLIP_MEAN: [f32; 3] = [0.48145466, 0.4578275, 0.40821073];
 const CLIP_STD:  [f32; 3] = [0.26862954, 0.26130258, 0.27577711];
 
 pub struct ClipEmbedder {
-    model:  clip::ClipModel,
-    device: Device,
+    model:     clip::ClipModel,
+    tokenizer: Option<Tokenizer>,  // for text-to-image search
+    device:    Device,
 }
 
 /// Return the local model directory `~/.mnemosyne/models/{model_id}` if it exists.
@@ -64,17 +69,67 @@ impl ClipEmbedder {
         let model = clip::ClipModel::new(vb, &config)
             .map_err(|e| Error::model(e.to_string()))?;
 
-        info!("CLIP '{}' loaded (dim={CLIP_DIM}, device=CPU)", model_id);
-        Ok(Self { model, device })
+        // Load CLIP tokenizer for text encoding (optional — ok if missing).
+        let tokenizer = local_model_dir(model_id)
+            .and_then(|dir| {
+                let p = dir.join("tokenizer.json");
+                p.exists().then(|| Tokenizer::from_file(&p).ok()).flatten()
+            });
+
+        info!("CLIP '{}' loaded (dim={CLIP_DIM}, device=CPU, text_enc={})", model_id, tokenizer.is_some());
+        Ok(Self { model, tokenizer, device })
     }
 
-    /// Produce a 512-dim L2-normalised embedding for `image_path`.
+    /// Produce a 512-dim L2-normalised image embedding for `image_path`.
     pub fn embed_image(&self, image_path: &Path) -> Result<Vec<f32>, Error> {
         let pixels = preprocess_image(image_path)?;
         let tensor = Tensor::from_vec(pixels, (1usize, 3, 224, 224), &self.device)
             .map_err(|e| Error::model(e.to_string()))?;
 
         let features = self.model.get_image_features(&tensor)
+            .map_err(|e| Error::model(e.to_string()))?;
+
+        let vec: Vec<f32> = features.squeeze(0)
+            .map_err(|e| Error::model(e.to_string()))?
+            .to_vec1()
+            .map_err(|e| Error::model(e.to_string()))?;
+
+        Ok(l2_normalize(vec))
+    }
+
+    /// Produce a 512-dim L2-normalised text embedding for `text`.
+    ///
+    /// Encodes the text through CLIP's text transformer, producing a vector in
+    /// the same latent space as `embed_image()`.  This enables text-to-image
+    /// semantic search: embed the query with this method, then cosine-compare
+    /// against stored image embeddings.
+    ///
+    /// Returns an error if the CLIP tokenizer was not found in the local cache.
+    pub fn embed_text(&self, text: &str) -> Result<Vec<f32>, Error> {
+        let tokenizer = self.tokenizer.as_ref()
+            .ok_or_else(|| Error::model("CLIP tokenizer not loaded".to_string()))?;
+
+        // Tokenize and truncate to CLIP_MAX_SEQ − 2 (room for SOT/EOT).
+        let encoding = tokenizer.encode(text, false)
+            .map_err(|e| Error::model(e.to_string()))?;
+        let ids: Vec<u32> = encoding.get_ids().iter().copied()
+            .take(CLIP_MAX_SEQ - 2)
+            .collect();
+
+        // CLIP special tokens: SOT = 49406, EOT = 49407.
+        // Pad sequence to exactly CLIP_MAX_SEQ with zeros.
+        let sot: u32 = 49406;
+        let eot: u32 = 49407;
+        let mut seq = vec![sot];
+        seq.extend_from_slice(&ids);
+        seq.push(eot);
+        seq.resize(CLIP_MAX_SEQ, 0u32);
+
+        let input = Tensor::new(seq.as_slice(), &self.device)
+            .and_then(|t| t.unsqueeze(0))  // (1, 77)
+            .map_err(|e| Error::model(e.to_string()))?;
+
+        let features = self.model.get_text_features(&input)
             .map_err(|e| Error::model(e.to_string()))?;
 
         let vec: Vec<f32> = features.squeeze(0)

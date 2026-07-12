@@ -77,6 +77,43 @@ impl<'a> EmbeddingRepo<'a> {
 
         Ok(rows)
     }
+
+    /// Same as `all_with_metadata` but only returns embeddings whose dimension
+    /// matches `dim`.  Required to avoid BERT (384-d) ↔ CLIP (512-d) mismatch.
+    pub fn all_with_metadata_by_dim(
+        &self,
+        dim: usize,
+    ) -> Result<Vec<(String, String, i64, String, Vec<f32>)>, Error> {
+        let byte_len = (dim * 4) as i64; // each f32 = 4 bytes
+        let conn = self.db.conn.lock().unwrap();
+        let mut stmt = conn
+            .prepare(
+                "SELECT e.chunk_id, dc.file_id, dc.chunk_index, dc.content, e.embedding
+                 FROM embeddings e
+                 JOIN document_chunks dc ON dc.id = e.chunk_id
+                 WHERE LENGTH(e.embedding) = ?1",
+            )
+            .map_err(|e| Error::storage(e.to_string()))?;
+
+        let rows: Vec<_> = stmt
+            .query_map(rusqlite::params![byte_len], |row| {
+                Ok((
+                    row.get::<_, String>(0)?,
+                    row.get::<_, String>(1)?,
+                    row.get::<_, i64>(2)?,
+                    row.get::<_, String>(3)?,
+                    row.get::<_, Vec<u8>>(4)?,
+                ))
+            })
+            .map_err(|e| Error::storage(e.to_string()))?
+            .filter_map(|r| r.ok())
+            .map(|(cid, fid, cidx, content, bytes)| {
+                (cid, fid, cidx, content, bytes_to_f32_vec(&bytes))
+            })
+            .collect();
+
+        Ok(rows)
+    }
 }
 
 // ── helpers ──────────────────────────────────────────────────────────────────

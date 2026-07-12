@@ -299,32 +299,60 @@ impl SearchEngine {
     // ── Search ────────────────────────────────────────────────────────────────
 
     /// Execute a search query and return ranked results.
+    ///
+    /// When `clip-backend` is compiled in, the query is also embedded with the
+    /// CLIP text encoder so that image chunks (stored as 512-d CLIP vectors) are
+    /// included in vector / hybrid searches alongside text results.
     pub async fn search(&self, query: SearchQuery) -> Result<Vec<SearchResult>, Error> {
         if query.text.trim().is_empty() {
             return Ok(vec![]);
         }
 
-        let model = self.models.get_text_embedder(&self.text_model_id).await?;
-        let query_embedding = model.embed_text(&query.text).await?;
+        // ── Text (BERT) embedding for text / audio / PDF chunks ───────────────
+        let bert_model = self.models.get_text_embedder(&self.text_model_id).await?;
+        let bert_embedding = bert_model.embed_text(&query.text).await?;
 
         use mnemosyne_core::types::SearchMode;
-        let results = match &query.mode {
+
+        let mut results = match &query.mode {
             SearchMode::Vector => {
-                self.index
-                    .vector_search(&query_embedding, query.limit)
-                    .await?
+                self.index.vector_search(&bert_embedding, query.limit).await?
             }
             SearchMode::Keyword => {
-                self.index
-                    .keyword_search(&query.text, query.limit)
-                    .await?
+                self.index.keyword_search(&query.text, query.limit).await?
             }
             SearchMode::Hybrid => {
-                self.index
-                    .hybrid_search(&query, &query_embedding)
-                    .await?
+                self.index.hybrid_search(&query, &bert_embedding).await?
             }
         };
+
+        // ── CLIP text embedding for image chunks (clip-backend only) ──────────
+        // CLIP images are stored as 512-d vectors; they are invisible to the
+        // 384-d BERT search above.  Re-run vector search with the CLIP text
+        // embedding and merge the results.
+        #[cfg(feature = "clip-backend")]
+        if matches!(&query.mode, SearchMode::Vector | SearchMode::Hybrid) {
+            if let Ok(clip_text_emb) = self.embed_text_with_clip(&query.text).await {
+                let clip_limit = query.limit;
+                let mut clip_results = self.index
+                    .vector_search(&clip_text_emb, clip_limit)
+                    .await
+                    .unwrap_or_default();
+
+                // Merge: append CLIP results that are not already in the list.
+                let seen: std::collections::HashSet<String> = results
+                    .iter()
+                    .map(|r| format!("{}:{}", r.file_record.id, r.chunk_index))
+                    .collect();
+                clip_results.retain(|r| {
+                    !seen.contains(&format!("{}:{}", r.file_record.id, r.chunk_index))
+                });
+                results.extend(clip_results);
+                // Re-sort by score descending and trim to limit.
+                results.sort_by(|a, b| b.score.partial_cmp(&a.score).unwrap_or(std::cmp::Ordering::Equal));
+                results.truncate(query.limit);
+            }
+        }
 
         Ok(results)
     }
@@ -336,10 +364,35 @@ impl SearchEngine {
         tokio::task::spawn_blocking(move || {
             let file_repo = FileRepo::new(&db);
             let chunk_repo = mnemosyne_storage::ChunkRepo::new(&db);
+
+            // Count files per FileType from the database.
+            let mut files_by_type: std::collections::HashMap<String, u64> =
+                std::collections::HashMap::new();
+            {
+                let conn = db.conn.lock().unwrap();
+                let mut stmt = conn
+                    .prepare("SELECT file_type, COUNT(*) FROM files GROUP BY file_type")
+                    .map_err(|e| Error::storage(e.to_string()))?;
+                let rows = stmt
+                    .query_map([], |row| {
+                        Ok((row.get::<_, String>(0)?, row.get::<_, i64>(1)?))
+                    })
+                    .map_err(|e| Error::storage(e.to_string()))?;
+                for row in rows.flatten() {
+                    let (ft_json, count) = row;
+                    // file_type is stored as serde_json string e.g. "\"text\""
+                    let ft: FileType = serde_json::from_str(&ft_json)
+                        .unwrap_or(FileType::Unknown);
+                    // Use Debug format ("Text", "Image", …) — matches frontend keys
+                    *files_by_type.entry(format!("{:?}", ft)).or_default() +=
+                        count as u64;
+                }
+            }
+
             Ok(IndexStats {
                 total_files: file_repo.count()?,
                 total_chunks: chunk_repo.count()?,
-                files_by_type: Default::default(),
+                files_by_type,
                 index_size_bytes: 0,
             })
         })
@@ -442,6 +495,24 @@ impl SearchEngine {
             let model = self.models.get_text_embedder(&self.text_model_id).await?;
             model.embed_text(fallback).await
         }
+    }
+
+    /// Encode a text query with the CLIP text encoder to produce a 512-dim embedding
+    /// that can be compared against CLIP image embeddings stored in the index.
+    ///
+    /// This enables text-to-image semantic search when `clip-backend` is compiled in.
+    /// CLIP's text and image encoders share the same latent space, so a text query
+    /// like "a red car" will return semantically similar images.
+    #[cfg(feature = "clip-backend")]
+    async fn embed_text_with_clip(
+        &self,
+        text: &str,
+    ) -> Result<mnemosyne_core::types::Embedding, Error> {
+        let clip = self.models.get_clip_embedder(&self.vision_model_id).await?;
+        let text = text.to_string();
+        tokio::task::spawn_blocking(move || clip.embed_text(&text))
+            .await
+            .map_err(|e| Error::model(e.to_string()))?
     }
 
     /// Transcribe an audio file using Whisper and embed the transcript.

@@ -18,9 +18,10 @@ candle-backend = [
     "dep:candle-core", "dep:candle-nn", "dep:candle-transformers", "dep:tokenizers",
 ]
 clip-backend = [
-    # CLIP vision encoder only needs candle libs + image crate; no tokenizers.
+    # CLIP image + text encoder: needs candle, image, and tokenizers.
+    # tokenizers is used for CLIP text encoding (text-to-image search).
     "dep:candle-core", "dep:candle-nn", "dep:candle-transformers",
-    "dep:image",
+    "dep:image", "dep:tokenizers",
 ]
 whisper-backend = [
     # Whisper uses candle for inference + tokenizers for decoding + symphonia for audio I/O.
