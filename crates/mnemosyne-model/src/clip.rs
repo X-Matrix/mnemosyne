@@ -18,9 +18,10 @@ pub const CLIP_DIM: usize = 512;
 /// Max sequence length for CLIP text encoder (ViT-B/32).
 const CLIP_MAX_SEQ: usize = 77;
 
-/// CLIP normalization constants (ImageNet-style used by OpenAI CLIP).
-const CLIP_MEAN: [f32; 3] = [0.48145466, 0.4578275, 0.40821073];
-const CLIP_STD: [f32; 3] = [0.26862954, 0.26130258, 0.27577711];
+/// CLIP normalization constants (ImageNet-style, OpenAI CLIP ViT-B/32).
+/// Values truncated to 7 significant digits (f32 max precision).
+const CLIP_MEAN: [f32; 3] = [0.481_454_7, 0.457_827_5, 0.408_210_7];
+const CLIP_STD: [f32; 3] = [0.268_629_5, 0.261_302_6, 0.275_777_1];
 
 pub struct ClipEmbedder {
     model: clip::ClipModel,

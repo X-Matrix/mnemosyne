@@ -22,7 +22,7 @@ enum Backend {
         dim: usize,
     },
     #[cfg(feature = "candle-backend")]
-    Bert(BertEmbedder),
+    Bert(Box<BertEmbedder>),
 }
 
 impl Backend {
@@ -62,11 +62,11 @@ impl TextEmbedder {
         {
             let bert = BertEmbedder::load(model_id).await?;
             let dim = bert.dim;
-            return Ok(Self {
+            Ok(Self {
                 model_id: model_id.to_string(),
                 embedding_dim: dim,
-                backend: Arc::new(Backend::Bert(bert)),
-            });
+                backend: Arc::new(Backend::Bert(Box::new(bert))),
+            })
         }
 
         #[cfg(not(feature = "candle-backend"))]

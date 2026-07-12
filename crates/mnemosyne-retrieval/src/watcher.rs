@@ -68,7 +68,7 @@ impl FileWatcher {
 fn is_indexable(path: &Path) -> bool {
     if path
         .components()
-        .any(|c| c.as_os_str().to_str().map_or(false, |s| s.starts_with('.')))
+        .any(|c| c.as_os_str().to_str().is_some_and(|s| s.starts_with('.')))
     {
         return false;
     }

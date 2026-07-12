@@ -3,12 +3,12 @@
 //! Requires the `pdf` feature (enabled by default).
 //!
 //! Extraction strategy (tried in order):
-//!  1. `pdf-extract`  — fast, handles most Latin/ASCII PDFs.
-//!  2. `lopdf`        — native Rust CJK extractor; parses each page's content
-//!                      stream and decodes glyphs via the font's ToUnicode CMap.
-//!                      Handles Identity-H / Identity-V encoded CJK PDFs without
-//!                      requiring any external programs or C libraries.
-//!  3. Filename       — last-resort fallback for encrypted / damaged PDFs.
+//! 1. `pdf-extract`  — fast, handles most Latin/ASCII PDFs.
+//! 2. `lopdf`        — native Rust CJK extractor; parses each page's content
+//!    stream and decodes glyphs via the font's ToUnicode CMap.
+//!    Handles Identity-H / Identity-V encoded CJK PDFs without
+//!    requiring any external programs or C libraries.
+//! 3. Filename       — last-resort fallback for encrypted / damaged PDFs.
 
 use async_trait::async_trait;
 use mnemosyne_core::{traits::FileParser, types::ParsedContent, Error, Result};

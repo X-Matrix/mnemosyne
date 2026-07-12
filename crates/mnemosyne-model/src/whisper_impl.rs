@@ -128,7 +128,7 @@ impl WhisperTranscriber {
             .map_err(|e| Error::model(e.to_string()))?;
 
         // pcm_to_mel adds internal padding, so total_frames ≥ duration_s×100 fps.
-        let n_segs = (total_frames + N_FRAMES - 1) / N_FRAMES;
+        let n_segs = total_frames.div_ceil(N_FRAMES);
         info!(
             "Whisper: '{}' {:.1}s → {} segment(s)",
             filename, duration_s, n_segs

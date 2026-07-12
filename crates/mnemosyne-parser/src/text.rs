@@ -24,7 +24,7 @@ impl FileParser for TextParser {
     async fn parse(&self, path: &Path) -> Result<Vec<ParsedContent>> {
         debug!("TextParser: {}", path.display());
 
-        let raw = tokio::fs::read(path).await.map_err(|e| Error::Io(e))?;
+        let raw = tokio::fs::read(path).await.map_err(Error::Io)?;
 
         // Attempt UTF-8; fall back to lossy conversion.
         let text = match String::from_utf8(raw.clone()) {

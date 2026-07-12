@@ -540,6 +540,9 @@ impl SearchEngine {
 
     /// Embed an image file using the CLIP vision encoder.
     /// Falls back to filename-based text embedding if feature is not enabled.
+    // `return` inside #[cfg] blocks is flagged by clippy but is semantically
+    // required to exit the function before the not(feature) fallback branch.
+    #[allow(clippy::needless_return)]
     pub async fn embed_image(
         &self,
         path: &Path,
@@ -552,7 +555,7 @@ impl SearchEngine {
                 .await
                 .map_err(|e| Error::model(e.to_string()))?;
         }
-        // Fallback: text embedding on the filename.
+        // Fallback: text embedding on the filename (no CLIP compiled).
         #[cfg(not(feature = "clip-backend"))]
         {
             let fallback = path.file_name().and_then(|n| n.to_str()).unwrap_or("image");
@@ -580,6 +583,7 @@ impl SearchEngine {
     }
 
     /// Transcribe an audio file using Whisper and embed the transcript.
+    #[allow(clippy::needless_return)]
     pub async fn transcribe_audio(&self, path: &Path) -> Result<String, Error> {
         #[cfg(feature = "whisper-backend")]
         {
@@ -589,7 +593,7 @@ impl SearchEngine {
                 .await
                 .map_err(|e| Error::model(e.to_string()))?;
         }
-        // Fallback: return filename (whisper-backend not compiled).
+        // Fallback (whisper-backend not compiled): return filename.
         #[cfg(not(feature = "whisper-backend"))]
         Ok(path
             .file_name()

@@ -8,9 +8,9 @@ pub mod embedding_repo;
 pub mod file_repo;
 pub mod model_repo;
 
-pub use chunk_repo::ChunkRepo;
+pub use chunk_repo::{ChunkRepo, FtsRow};
 pub use db::Database;
-pub use embedding_repo::EmbeddingRepo;
+pub use embedding_repo::{EmbeddingRepo, EmbeddingRow};
 pub use file_repo::FileRepo;
 pub use model_repo::ModelRepo;
 

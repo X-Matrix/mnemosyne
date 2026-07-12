@@ -60,13 +60,16 @@ impl AnnIndex {
 
 // ── AnnCache — lazy-rebuilt, shared across async tasks ───────────────────────
 
+/// Cache entry: embedding dimension + index.
+type CacheEntry = Option<(usize, Arc<AnnIndex>)>;
+
 /// Thread-safe, lazily-built ANN index.
 ///
 /// The cached index is keyed by embedding dimension so that BERT (384-d)
 /// and CLIP (512-d) searches never share the same index.
 #[derive(Clone)]
 pub struct AnnCache {
-    inner: Arc<RwLock<Option<(usize, Arc<AnnIndex>)>>>,
+    inner: Arc<RwLock<CacheEntry>>,
 }
 
 impl AnnCache {

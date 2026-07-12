@@ -2,6 +2,10 @@ use crate::Database;
 use mnemosyne_core::Error;
 use rusqlite::params;
 
+/// Row returned by embedding queries:
+/// (chunk_id, file_id, chunk_index, content, embedding)
+pub type EmbeddingRow = (String, String, i64, String, Vec<f32>);
+
 pub struct EmbeddingRepo<'a> {
     pub db: &'a Database,
 }
@@ -47,7 +51,7 @@ impl<'a> EmbeddingRepo<'a> {
     }
 
     /// Return all (chunk_id, file_id, chunk_index, content, embedding) for vector search.
-    pub fn all_with_metadata(&self) -> Result<Vec<(String, String, i64, String, Vec<f32>)>, Error> {
+    pub fn all_with_metadata(&self) -> Result<Vec<EmbeddingRow>, Error> {
         let conn = self.db.conn.lock().unwrap();
         let mut stmt = conn
             .prepare(
@@ -83,7 +87,7 @@ impl<'a> EmbeddingRepo<'a> {
     pub fn all_with_metadata_by_dim(
         &self,
         dim: usize,
-    ) -> Result<Vec<(String, String, i64, String, Vec<f32>)>, Error> {
+    ) -> Result<Vec<EmbeddingRow>, Error> {
         let byte_len = (dim * 4) as i64; // each f32 = 4 bytes
         let conn = self.db.conn.lock().unwrap();
         let mut stmt = conn

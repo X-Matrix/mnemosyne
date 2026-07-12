@@ -2,6 +2,9 @@ use crate::Database;
 use mnemosyne_core::{types::ParsedContent, Error};
 use rusqlite::params;
 
+/// Row returned by `fts_search`: (chunk_id, file_id, chunk_index, content, bm25_score)
+pub type FtsRow = (String, String, i64, String, f64);
+
 pub struct ChunkRepo<'a> {
     pub db: &'a Database,
 }
@@ -96,7 +99,7 @@ impl<'a> ChunkRepo<'a> {
         &self,
         query: &str,
         limit: usize,
-    ) -> Result<Vec<(String, String, i64, String, f64)>, Error> {
+    ) -> Result<Vec<FtsRow>, Error> {
         let conn = self.db.conn.lock().unwrap();
         let char_count = query.chars().count();
 

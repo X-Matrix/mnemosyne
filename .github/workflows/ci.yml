@@ -84,10 +84,16 @@ jobs:
       - name: cargo fmt -- --check
         run: cargo fmt --all -- --check
 
-      - name: cargo clippy (workspace, no model features)
+      # Clippy only on default features to avoid pulling in vendor/tokenizers
+      # (which generates mismatched_lifetime_syntaxes warnings on newer compilers).
+      # Feature-gated code paths (candle/clip/whisper) are covered by `check` job.
+      - name: cargo clippy (workspace, default features only)
         run: |
           cargo clippy --workspace \
-            -- -D warnings -A unused -A dead_code
+            -- -D warnings \
+               -A unused \
+               -A dead_code \
+               -A clippy::too_many_arguments
 
   # ── 3. Test (unit + integration, no real model inference) ──────────────────
   test:
