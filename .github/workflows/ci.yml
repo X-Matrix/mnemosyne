@@ -1,0 +1,213 @@
+name: CI
+
+on:
+  push:
+    branches: [main, dev]
+  pull_request:
+    branches: [main]
+
+env:
+  RUST_BACKTRACE: 1
+  CARGO_TERM_COLOR: always
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Jobs
+# ─────────────────────────────────────────────────────────────────────────────
+jobs:
+
+  # ── 1. Check (fast, all platforms) ─────────────────────────────────────────
+  check:
+    name: Check (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, ubuntu-latest]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo registry + build
+        uses: Swatinem/rust-cache@v2
+        with:
+          key: ${{ matrix.os }}-check
+
+      # Linux: install system dependencies required by some crates
+      - name: Install Linux system deps
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends \
+            libgtk-3-dev libwebkit2gtk-4.1-dev libappindicator3-dev \
+            librsvg2-dev patchelf libssl-dev pkg-config
+
+      - name: cargo check (all crates, default features)
+        run: cargo check --workspace
+
+      - name: cargo check (storage + retrieval, all feature combos)
+        run: |
+          cargo check -p mnemosyne-storage
+          cargo check -p mnemosyne-parser
+          cargo check -p mnemosyne-index
+          cargo check -p mnemosyne-retrieval
+          # clip-backend compiles without oniguruma thanks to vendor/tokenizers patch
+          cargo check -p mnemosyne-retrieval --features clip-backend
+          cargo check -p mnemosyne-retrieval --features whisper-backend
+          cargo check -p mnemosyne-retrieval --features full
+
+  # ── 2. Lint (clippy + fmt) ──────────────────────────────────────────────────
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust stable + components
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy, rustfmt
+
+      - name: Cache cargo
+        uses: Swatinem/rust-cache@v2
+
+      - name: Install Linux system deps
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends \
+            libgtk-3-dev libwebkit2gtk-4.1-dev libappindicator3-dev \
+            librsvg2-dev patchelf libssl-dev pkg-config
+
+      - name: cargo fmt -- --check
+        run: cargo fmt --all -- --check
+
+      - name: cargo clippy (workspace, no model features)
+        run: |
+          cargo clippy --workspace \
+            -- -D warnings -A unused -A dead_code
+
+  # ── 3. Test (unit + integration, no real model inference) ──────────────────
+  test:
+    name: Test
+    runs-on: macos-latest        # macOS: matches dev environment, no extra deps
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo
+        uses: Swatinem/rust-cache@v2
+        with:
+          key: macos-test
+
+      # Core library tests (no Tauri, no model features)
+      - name: cargo test — core crates
+        run: |
+          cargo test -p mnemosyne-storage
+          cargo test -p mnemosyne-index
+          cargo test -p mnemosyne-parser
+
+      # Full pipeline integration tests (stub embeddings, no GPU/model required)
+      - name: cargo test — pipeline integration tests
+        run: |
+          cargo test -p mnemosyne-retrieval --test pipeline_test \
+            -- --nocapture 2>&1
+
+      # Note: CLIP / Whisper / BERT tests are marked #[ignore] because they
+      # require downloaded model files (~100 MB–1 GB).
+      # Run locally:
+      #   cargo test -p mnemosyne-retrieval --test pipeline_test \
+      #     --features clip-backend clip_ -- --ignored --nocapture
+
+  # ── 4. Build CLI + API server (release, macOS) ────────────────────────────
+  build-cli:
+    name: Build CLI & Server
+    runs-on: macos-latest
+    needs: [check, test]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo
+        uses: Swatinem/rust-cache@v2
+        with:
+          key: macos-release
+
+      - name: Build mnemosyne-cli (release)
+        run: cargo build --release -p mnemosyne-cli
+
+      - name: Build mnemosyne-server (release)
+        run: cargo build --release -p mnemosyne-api
+
+      - name: Smoke test — CLI help
+        run: ./target/release/mnemosyne-cli --help
+
+      - name: Upload CLI artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: mnemosyne-cli-macos-aarch64
+          path: target/release/mnemosyne-cli
+          retention-days: 7
+
+      - name: Upload server artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: mnemosyne-server-macos-aarch64
+          path: target/release/mnemosyne-server
+          retention-days: 7
+
+  # ── 5. Build Tauri desktop app (macOS only, on push to main) ────────────────
+  build-desktop:
+    name: Build Desktop App
+    runs-on: macos-latest
+    needs: [check, test]
+    # Only run on pushes to main (not every PR — Tauri build is slow)
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-apple-darwin
+
+      - name: Cache cargo
+        uses: Swatinem/rust-cache@v2
+        with:
+          key: macos-tauri
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install npm dependencies
+        run: npm ci
+
+      - name: Build Tauri app (release)
+        run: cargo build --release -p mnemosyne-tauri
+
+      - name: Bundle .app + .dmg
+        run: |
+          npm run build -- --target aarch64-apple-darwin
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ""       # skip code signing in CI
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ""
+
+      - name: Upload .dmg artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Mnemosyne-macos-aarch64-dmg
+          path: target/release/bundle/dmg/*.dmg
+          retention-days: 14
+          if-no-files-found: warn
