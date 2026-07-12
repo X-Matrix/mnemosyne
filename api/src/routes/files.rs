@@ -23,10 +23,7 @@ pub async fn list_files(
     State(state): State<Arc<AppState>>,
     Query(params): Query<ListParams>,
 ) -> Result<Json<serde_json::Value>, ApiError> {
-    let files = state
-        .engine
-        .list_files(params.limit, params.offset)
-        .await?;
+    let files = state.engine.list_files(params.limit, params.offset).await?;
     Ok(Json(serde_json::to_value(files)?))
 }
 

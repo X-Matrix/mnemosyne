@@ -1,5 +1,5 @@
-use mnemosyne_core::{traits::FileParser, types::ParsedContent, Error, Result};
 use async_trait::async_trait;
+use mnemosyne_core::{traits::FileParser, types::ParsedContent, Error, Result};
 use std::path::Path;
 use tracing::debug;
 
@@ -15,19 +15,16 @@ pub struct TextParser;
 impl FileParser for TextParser {
     fn supported_extensions(&self) -> &[&'static str] {
         &[
-            "txt", "md", "markdown", "csv", "json", "xml", "html", "htm",
-            "rst", "toml", "yaml", "yml", "log", "ini", "conf",
-            "py", "rs", "js", "ts", "go", "java", "c", "cpp", "h", "css",
-            "sh", "bat", "sql",
+            "txt", "md", "markdown", "csv", "json", "xml", "html", "htm", "rst", "toml", "yaml",
+            "yml", "log", "ini", "conf", "py", "rs", "js", "ts", "go", "java", "c", "cpp", "h",
+            "css", "sh", "bat", "sql",
         ]
     }
 
     async fn parse(&self, path: &Path) -> Result<Vec<ParsedContent>> {
         debug!("TextParser: {}", path.display());
 
-        let raw = tokio::fs::read(path)
-            .await
-            .map_err(|e| Error::Io(e))?;
+        let raw = tokio::fs::read(path).await.map_err(|e| Error::Io(e))?;
 
         // Attempt UTF-8; fall back to lossy conversion.
         let text = match String::from_utf8(raw.clone()) {
@@ -40,7 +37,10 @@ impl FileParser for TextParser {
         }
 
         let chunks = split_into_chunks(&text, CHUNK_SIZE, CHUNK_OVERLAP);
-        Ok(chunks.into_iter().map(|c| ParsedContent::Text { text: c }).collect())
+        Ok(chunks
+            .into_iter()
+            .map(|c| ParsedContent::Text { text: c })
+            .collect())
     }
 }
 

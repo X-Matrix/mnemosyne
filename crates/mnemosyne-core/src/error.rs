@@ -32,18 +32,26 @@ pub enum Error {
 
 impl Error {
     pub fn parse(msg: impl Into<String>) -> Self {
-        Self::Parse { message: msg.into() }
+        Self::Parse {
+            message: msg.into(),
+        }
     }
 
     pub fn model(msg: impl Into<String>) -> Self {
-        Self::Model { message: msg.into() }
+        Self::Model {
+            message: msg.into(),
+        }
     }
 
     pub fn storage(msg: impl Into<String>) -> Self {
-        Self::Storage { message: msg.into() }
+        Self::Storage {
+            message: msg.into(),
+        }
     }
 
     pub fn index(msg: impl Into<String>) -> Self {
-        Self::Index { message: msg.into() }
+        Self::Index {
+            message: msg.into(),
+        }
     }
 }

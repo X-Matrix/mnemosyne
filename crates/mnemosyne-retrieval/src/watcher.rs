@@ -51,33 +51,65 @@ impl FileWatcher {
                     }
                     debug!("File changed: {}", path.display());
                     match engine.index_file(&path).await {
-                        Ok(true)  => info!("Re-indexed: {}", path.display()),
+                        Ok(true) => info!("Re-indexed: {}", path.display()),
                         Ok(false) => debug!("Unchanged: {}", path.display()),
-                        Err(e)    => warn!("Re-index failed for {}: {e}", path.display()),
+                        Err(e) => warn!("Re-index failed for {}: {e}", path.display()),
                     }
                 }
             }
         });
 
-        Ok(Self { _debouncer: debouncer })
+        Ok(Self {
+            _debouncer: debouncer,
+        })
     }
 }
 
 fn is_indexable(path: &Path) -> bool {
-    if path.components().any(|c| {
-        c.as_os_str().to_str().map_or(false, |s| s.starts_with('.'))
-    }) {
+    if path
+        .components()
+        .any(|c| c.as_os_str().to_str().map_or(false, |s| s.starts_with('.')))
+    {
         return false;
     }
     if !path.is_file() {
         return false;
     }
-    let ext = path.extension().and_then(|e| e.to_str()).unwrap_or("").to_lowercase();
+    let ext = path
+        .extension()
+        .and_then(|e| e.to_str())
+        .unwrap_or("")
+        .to_lowercase();
     matches!(
         ext.as_str(),
-        "txt" | "md" | "markdown" | "csv" | "json" | "toml" | "yaml" | "yml"
-        | "log" | "rs" | "py" | "js" | "ts" | "go" | "sql" | "html" | "css"
-        | "jpg" | "jpeg" | "png" | "bmp" | "gif" | "webp"
-        | "mp3" | "wav" | "flac" | "mp4" | "avi" | "mov"
+        "txt"
+            | "md"
+            | "markdown"
+            | "csv"
+            | "json"
+            | "toml"
+            | "yaml"
+            | "yml"
+            | "log"
+            | "rs"
+            | "py"
+            | "js"
+            | "ts"
+            | "go"
+            | "sql"
+            | "html"
+            | "css"
+            | "jpg"
+            | "jpeg"
+            | "png"
+            | "bmp"
+            | "gif"
+            | "webp"
+            | "mp3"
+            | "wav"
+            | "flac"
+            | "mp4"
+            | "avi"
+            | "mov"
     )
 }

@@ -1,9 +1,9 @@
 use crate::Database;
+use chrono::{TimeZone, Utc};
 use mnemosyne_core::{
     types::{FileRecord, FileType},
     Error,
 };
-use chrono::{TimeZone, Utc};
 use rusqlite::params;
 use std::path::PathBuf;
 
@@ -55,7 +55,9 @@ impl<'a> FileRepo<'a> {
             .query_map(params![id], row_to_file_record)
             .map_err(|e| Error::storage(e.to_string()))?;
 
-        rows.next().transpose().map_err(|e| Error::storage(e.to_string()))
+        rows.next()
+            .transpose()
+            .map_err(|e| Error::storage(e.to_string()))
     }
 
     pub fn find_by_path(&self, path: &str) -> Result<Option<FileRecord>, Error> {
@@ -71,7 +73,9 @@ impl<'a> FileRepo<'a> {
             .query_map(params![path], row_to_file_record)
             .map_err(|e| Error::storage(e.to_string()))?;
 
-        rows.next().transpose().map_err(|e| Error::storage(e.to_string()))
+        rows.next()
+            .transpose()
+            .map_err(|e| Error::storage(e.to_string()))
     }
 
     pub fn list(&self, limit: usize, offset: usize) -> Result<Vec<FileRecord>, Error> {
@@ -109,8 +113,7 @@ impl<'a> FileRepo<'a> {
 
 fn row_to_file_record(row: &rusqlite::Row<'_>) -> rusqlite::Result<FileRecord> {
     let file_type_str: String = row.get(2)?;
-    let file_type: FileType =
-        serde_json::from_str(&file_type_str).unwrap_or(FileType::Unknown);
+    let file_type: FileType = serde_json::from_str(&file_type_str).unwrap_or(FileType::Unknown);
 
     let modified_at: Option<i64> = row.get(4)?;
     let indexed_at: Option<i64> = row.get(5)?;

@@ -82,7 +82,10 @@ async fn test_whisper_audio_parser_stub() {
         .await
         .expect("AudioParser::parse failed");
 
-    assert!(!chunks.is_empty(), "AudioParser must yield at least one chunk");
+    assert!(
+        !chunks.is_empty(),
+        "AudioParser must yield at least one chunk"
+    );
 
     let text = chunks[0].as_text();
     // Stub mode: expect filename or format info in the transcript text.
@@ -122,10 +125,7 @@ async fn test_whisper_audio_indexed_in_db() {
     let path = audio_asset();
     assert!(path.exists(), "Missing asset: {}", path.display());
 
-    let indexed = engine
-        .index_file(&path)
-        .await
-        .expect("index_file failed");
+    let indexed = engine.index_file(&path).await.expect("index_file failed");
     assert!(indexed, "Audio file should be newly indexed (true)");
 
     // Verify file record in DB.
@@ -137,7 +137,10 @@ async fn test_whisper_audio_indexed_in_db() {
         .expect("Audio file must be in DB after indexing");
 
     assert_eq!(file.file_type, FileType::Audio, "File type should be Audio");
-    println!("✓ [WHISPER DB] file_id={}, type={:?}, size={}B", file.id, file.file_type, file.size);
+    println!(
+        "✓ [WHISPER DB] file_id={}, type={:?}, size={}B",
+        file.id, file.file_type, file.size
+    );
 
     // Verify at least one chunk stored.
     let chunks = ChunkRepo::new(&db)
@@ -169,16 +172,19 @@ async fn test_image_parser_extracts_dimensions() {
         .await
         .expect("ImageParser::parse failed");
 
-    assert!(!chunks.is_empty(), "ImageParser must yield at least one chunk");
+    assert!(
+        !chunks.is_empty(),
+        "ImageParser must yield at least one chunk"
+    );
 
     let caption = chunks[0].as_text();
-    assert!(
-        !caption.is_empty(),
-        "Image caption must not be empty"
-    );
+    assert!(!caption.is_empty(), "Image caption must not be empty");
     // image-meta feature: caption contains "pixels" or "×" or the filename.
     assert!(
-        caption.contains("pixel") || caption.contains('×') || caption.contains("test_img01") || caption.contains("Image"),
+        caption.contains("pixel")
+            || caption.contains('×')
+            || caption.contains("test_img01")
+            || caption.contains("Image"),
         "Caption should describe image dimensions or filename, got: {caption:?}"
     );
     println!("✓ [IMAGE PARSER] caption = {caption:?}");
@@ -204,13 +210,22 @@ async fn test_image_file_stored_in_db() {
         .expect("Image must be in DB after indexing");
 
     assert_eq!(file.file_type, FileType::Image, "File type should be Image");
-    println!("✓ [IMAGE DB] file_id={}, type={:?}, size={}B", file.id, file.file_type, file.size);
+    println!(
+        "✓ [IMAGE DB] file_id={}, type={:?}, size={}B",
+        file.id, file.file_type, file.size
+    );
 
     let chunks = ChunkRepo::new(&db)
         .get_by_file(&file.id)
         .expect("ChunkRepo query");
-    assert!(!chunks.is_empty(), "Image must have at least one chunk in DB");
-    println!("✓ [IMAGE DB] caption stored = {:?}", chunks[0].content.as_text());
+    assert!(
+        !chunks.is_empty(),
+        "Image must have at least one chunk in DB"
+    );
+    println!(
+        "✓ [IMAGE DB] caption stored = {:?}",
+        chunks[0].content.as_text()
+    );
 }
 
 // =============================================================================
@@ -224,12 +239,12 @@ async fn test_pdf_parser_extracts_text() {
     assert!(path.exists(), "Missing asset: {}", path.display());
 
     let parser = PdfParser;
-    let chunks = parser
-        .parse(&path)
-        .await
-        .expect("PdfParser::parse failed");
+    let chunks = parser.parse(&path).await.expect("PdfParser::parse failed");
 
-    assert!(!chunks.is_empty(), "PdfParser must yield at least one chunk");
+    assert!(
+        !chunks.is_empty(),
+        "PdfParser must yield at least one chunk"
+    );
 
     let total_text: String = chunks
         .iter()
@@ -286,7 +301,10 @@ async fn test_pdf_content_stored_in_db() {
         .get_by_file(&file.id)
         .expect("ChunkRepo query");
 
-    assert!(!chunks.is_empty(), "PDF must have at least one text chunk in DB");
+    assert!(
+        !chunks.is_empty(),
+        "PDF must have at least one text chunk in DB"
+    );
     println!("✓ [PDF DB] {} chunk(s) stored:", chunks.len());
     for (i, chunk) in chunks.iter().enumerate() {
         let text = chunk.content.as_text();
@@ -301,7 +319,11 @@ async fn test_pdf_content_stored_in_db() {
     let keyword = first_text
         .split_whitespace()
         .find(|w| w.is_ascii() && w.len() >= 5)
-        .or_else(|| first_text.split_whitespace().find(|w| w.chars().count() >= 3))
+        .or_else(|| {
+            first_text
+                .split_whitespace()
+                .find(|w| w.chars().count() >= 3)
+        })
         .unwrap_or("test_pdf01")
         .to_string();
 
@@ -351,7 +373,10 @@ async fn test_image_search_by_filename() {
         .await
         .expect("index_directory failed");
 
-    assert!(stats.total_files >= 1, "At least one image should be indexed");
+    assert!(
+        stats.total_files >= 1,
+        "At least one image should be indexed"
+    );
     println!(
         "✓ [IMAGE SEARCH] indexed {} file(s), {} chunk(s)",
         stats.total_files, stats.total_chunks
@@ -436,7 +461,7 @@ async fn test_full_pipeline_index_all_assets() {
     let has_text = files.iter().any(|f| f.file_type == FileType::Text);
     assert!(has_audio, "No Audio file found in DB");
     assert!(has_image, "No Image file found in DB");
-    assert!(has_text,  "No Text/PDF file found in DB");
+    assert!(has_text, "No Text/PDF file found in DB");
 }
 
 // =============================================================================
@@ -477,9 +502,7 @@ async fn build_persistent_test_db() {
     let db = open_db(&db_path);
     let files = FileRepo::new(&db).list(50, 0).expect("list files");
     for f in &files {
-        let chunks = ChunkRepo::new(&db)
-            .get_by_file(&f.id)
-            .expect("get chunks");
+        let chunks = ChunkRepo::new(&db).get_by_file(&f.id).expect("get chunks");
         println!(
             "  {:?}  {}  ({} chunk(s))",
             f.file_type,
@@ -530,8 +553,8 @@ async fn clip_search(
 ) -> Vec<String> {
     engine
         .search(SearchQuery {
-            text:   query.to_string(),
-            mode:   SearchMode::Vector,
+            text: query.to_string(),
+            mode: SearchMode::Vector,
             limit,
             ..Default::default()
         })
@@ -567,7 +590,8 @@ async fn clip_positive_call_me_by_your_name_title() {
     println!("[+] query='Call Me By Your Name' → {:?}", results);
     assert!(
         results.contains(&"test_img02.png".to_string()),
-        "Expected test_img02.png in top-5 for title query, got: {:?}", results
+        "Expected test_img02.png in top-5 for title query, got: {:?}",
+        results
     );
 }
 
@@ -582,11 +606,17 @@ async fn clip_positive_romantic_movie_poster() {
     let images_dir = project_root().join("assets/images");
     engine.index_directory(&images_dir).await.expect("index");
 
-    let results = clip_search(&engine, "romantic movie poster two young men blue background", 5).await;
+    let results = clip_search(
+        &engine,
+        "romantic movie poster two young men blue background",
+        5,
+    )
+    .await;
     println!("[+] query='romantic movie poster...' → {:?}", results);
     assert!(
         results.contains(&"test_img02.png".to_string()),
-        "Expected test_img02.png, got: {:?}", results
+        "Expected test_img02.png, got: {:?}",
+        results
     );
 }
 
@@ -605,10 +635,14 @@ async fn clip_positive_movie_poster_general() {
     // Use a descriptive query that combines visual + domain cues.
     // Pure generic terms ("movie poster") may fall below the CLIP noise floor.
     let results = clip_search(&engine, "film poster two people blue sky romantic", 5).await;
-    println!("[+] query='film poster two people blue sky romantic' → {:?}", results);
+    println!(
+        "[+] query='film poster two people blue sky romantic' → {:?}",
+        results
+    );
     assert!(
         results.contains(&"test_img02.png".to_string()),
-        "Expected test_img02.png, got: {:?}", results
+        "Expected test_img02.png, got: {:?}",
+        results
     );
 }
 
@@ -626,7 +660,8 @@ async fn clip_positive_timothee_chalamet() {
     println!("[+] query='Timothee Chalamet' → {:?}", results);
     assert!(
         results.contains(&"test_img02.png".to_string()),
-        "Expected test_img02.png, got: {:?}", results
+        "Expected test_img02.png, got: {:?}",
+        results
     );
 }
 
@@ -653,7 +688,9 @@ async fn clip_negative_rate_limiting() {
     match (pos_img01, pos_img02) {
         (Some(r1), Some(r2)) => assert!(
             r1 < r2,
-            "img01 should rank above img02 for tech query, but got img01={} img02={}", r1, r2
+            "img01 should rank above img02 for tech query, but got img01={} img02={}",
+            r1,
+            r2
         ),
         (Some(_), None) => { /* img01 found, img02 not present — ideal */ }
         _ => {
@@ -683,7 +720,8 @@ async fn clip_negative_cooking_recipe() {
     if let Some(pos) = results.iter().position(|r| r == "test_img02.png") {
         assert!(
             pos > 0,
-            "test_img02.png should NOT be rank-0 for food query, got: {:?}", results
+            "test_img02.png should NOT be rank-0 for food query, got: {:?}",
+            results
         );
     }
 }
@@ -698,15 +736,19 @@ async fn clip_negative_technical_documentation() {
     let images_dir = project_root().join("assets/images");
     engine.index_directory(&images_dir).await.expect("index");
 
-    let results = clip_search(&engine, "software architecture technical documentation API", 5).await;
+    let results = clip_search(
+        &engine,
+        "software architecture technical documentation API",
+        5,
+    )
+    .await;
     println!("[-] query='software architecture...' → {:?}", results);
 
     // img01 (tech table) must rank before img02 (movie poster) if both appear.
     let pos_img02 = results.iter().position(|r| r == "test_img02.png");
     let pos_img01 = results.iter().position(|r| r == "test_img01.png");
     if let (Some(r1), Some(r2)) = (pos_img01, pos_img02) {
-        assert!(r1 < r2,
-            "img01 should rank above img02 for tech docs query");
+        assert!(r1 < r2, "img01 should rank above img02 for tech docs query");
     }
 }
 
@@ -730,12 +772,18 @@ async fn clip_relative_ranking_movie_vs_tech() {
 
     // Descriptive visual query — specific enough to cross noise floor
     let movie_results = clip_search(
-        &engine, "romantic film poster two young men leaning together blue background", 5
-    ).await;
+        &engine,
+        "romantic film poster two young men leaning together blue background",
+        5,
+    )
+    .await;
     // Technical table query
     let tech_results = clip_search(
-        &engine, "rate limiting algorithm comparison table fixed window sliding bucket", 5
-    ).await;
+        &engine,
+        "rate limiting algorithm comparison table fixed window sliding bucket",
+        5,
+    )
+    .await;
 
     println!("[REL] movie query → {:?}", movie_results);
     println!("[REL] tech  query → {:?}", tech_results);
@@ -743,7 +791,8 @@ async fn clip_relative_ranking_movie_vs_tech() {
     // Movie query: img02 must appear (descriptive enough to pass noise floor)
     assert!(
         movie_results.contains(&"test_img02.png".to_string()),
-        "img02 must appear for descriptive movie query, got: {:?}", movie_results
+        "img02 must appear for descriptive movie query, got: {:?}",
+        movie_results
     );
 
     // Tech query: img02 should not outrank img01

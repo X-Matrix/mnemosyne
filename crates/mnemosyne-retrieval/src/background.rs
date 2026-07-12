@@ -28,7 +28,11 @@ impl BackgroundIndexer {
         directories: Vec<PathBuf>,
         rescan_interval: Duration,
     ) -> Self {
-        Self { engine, directories, rescan_interval }
+        Self {
+            engine,
+            directories,
+            rescan_interval,
+        }
     }
 
     /// Start the background indexer.

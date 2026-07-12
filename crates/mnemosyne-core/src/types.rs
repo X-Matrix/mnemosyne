@@ -20,8 +20,8 @@ impl FileType {
             | "toml" | "yaml" | "yml" | "log" | "ini" | "conf" | "py" | "rs" | "js" | "ts"
             | "go" | "java" | "c" | "cpp" | "h" | "css" | "sh" | "bat" | "pdf" => Self::Text,
 
-            "jpg" | "jpeg" | "png" | "bmp" | "gif" | "webp" | "tiff" | "tif" | "svg"
-            | "heic" | "heif" => Self::Image,
+            "jpg" | "jpeg" | "png" | "bmp" | "gif" | "webp" | "tiff" | "tif" | "svg" | "heic"
+            | "heif" => Self::Image,
 
             "mp3" | "wav" | "flac" | "aac" | "ogg" | "m4a" | "wma" | "opus" => Self::Audio,
 
@@ -111,8 +111,12 @@ pub struct SearchQuery {
     pub keyword_weight: f32,
 }
 
-fn default_limit() -> usize { 20 }
-fn default_weight() -> f32  { 1.0 }
+fn default_limit() -> usize {
+    20
+}
+fn default_weight() -> f32 {
+    1.0
+}
 
 impl Default for SearchQuery {
     fn default() -> Self {
@@ -122,7 +126,7 @@ impl Default for SearchQuery {
             limit: 20,
             offset: 0,
             mode: SearchMode::Hybrid,
-            vector_weight:  1.0,
+            vector_weight: 1.0,
             keyword_weight: 1.0,
         }
     }

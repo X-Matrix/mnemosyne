@@ -3,8 +3,8 @@
 //! - **Default (stub)**: deterministic hash-based vectors — no native deps.
 //! - **`candle-backend` feature**: real BERT inference via Candle + HuggingFace.
 
-use mnemosyne_core::{traits::EmbeddingModel, types::Embedding, Error};
 use async_trait::async_trait;
+use mnemosyne_core::{traits::EmbeddingModel, types::Embedding, Error};
 use std::sync::Arc;
 use tracing::warn;
 
@@ -18,7 +18,9 @@ const STUB_DIM: usize = 384;
 // ── Backend enum ─────────────────────────────────────────────────────────────
 
 enum Backend {
-    Stub { dim: usize },
+    Stub {
+        dim: usize,
+    },
     #[cfg(feature = "candle-backend")]
     Bert(BertEmbedder),
 }
@@ -84,8 +86,12 @@ impl TextEmbedder {
 
 #[async_trait]
 impl EmbeddingModel for TextEmbedder {
-    fn model_id(&self) -> &str { &self.model_id }
-    fn embedding_dim(&self) -> usize { self.embedding_dim }
+    fn model_id(&self) -> &str {
+        &self.model_id
+    }
+    fn embedding_dim(&self) -> usize {
+        self.embedding_dim
+    }
 
     async fn embed_text(&self, text: &str) -> mnemosyne_core::Result<Embedding> {
         let text = text.to_string();

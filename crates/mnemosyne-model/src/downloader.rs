@@ -49,11 +49,19 @@ impl ModelDownloader {
     ///   • `Some("")` or `None` → **no system proxy** (avoids "Connection refused"
     ///     when a local proxy agent like Clash is configured but not running).
     ///   • `Some(url)` → use the supplied proxy.
-    pub async fn download(&self, model_id: &str, proxy_url: Option<&str>) -> Result<PathBuf, Error> {
+    pub async fn download(
+        &self,
+        model_id: &str,
+        proxy_url: Option<&str>,
+    ) -> Result<PathBuf, Error> {
         info!("Downloading model: {model_id}");
 
-        let model_dir = self.cache_dir.join(model_id.replace('/', std::path::MAIN_SEPARATOR_STR));
-        tokio::fs::create_dir_all(&model_dir).await.map_err(Error::Io)?;
+        let model_dir = self
+            .cache_dir
+            .join(model_id.replace('/', std::path::MAIN_SEPARATOR_STR));
+        tokio::fs::create_dir_all(&model_dir)
+            .await
+            .map_err(Error::Io)?;
 
         let endpoint = hf_endpoint();
 
@@ -72,7 +80,8 @@ impl ModelDownloader {
                 builder = builder.no_proxy();
             }
         }
-        let client = builder.build()
+        let client = builder
+            .build()
             .map_err(|e| Error::model(format!("http client: {e}")))?;
 
         // Try safetensors first; fall back to pytorch bin.
@@ -124,10 +133,7 @@ impl ModelDownloader {
                 .map_err(|e| Error::model(format!("GET {filename}: {e}")))?;
 
             if !resp.status().is_success() {
-                return Err(Error::model(format!(
-                    "{filename}: HTTP {}",
-                    resp.status()
-                )));
+                return Err(Error::model(format!("{filename}: HTTP {}", resp.status())));
             }
 
             let bytes = resp
@@ -135,9 +141,7 @@ impl ModelDownloader {
                 .await
                 .map_err(|e| Error::model(format!("read {filename}: {e}")))?;
 
-            tokio::fs::write(&dest, &bytes)
-                .await
-                .map_err(Error::Io)?;
+            tokio::fs::write(&dest, &bytes).await.map_err(Error::Io)?;
 
             info!("Saved {filename} ({} bytes)", bytes.len());
         }

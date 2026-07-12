@@ -71,7 +71,9 @@ pub struct AnnCache {
 
 impl AnnCache {
     pub fn new() -> Self {
-        Self { inner: Arc::new(RwLock::new(None)) }
+        Self {
+            inner: Arc::new(RwLock::new(None)),
+        }
     }
 
     /// Discard the cached index (triggers a rebuild on next search).
@@ -109,5 +111,7 @@ impl AnnCache {
 }
 
 impl Default for AnnCache {
-    fn default() -> Self { Self::new() }
+    fn default() -> Self {
+        Self::new()
+    }
 }

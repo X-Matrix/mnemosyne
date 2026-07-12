@@ -12,7 +12,9 @@ pub struct CommandError {
 
 impl From<mnemosyne_core::Error> for CommandError {
     fn from(e: mnemosyne_core::Error) -> Self {
-        Self { message: e.to_string() }
+        Self {
+            message: e.to_string(),
+        }
     }
 }
 
@@ -74,30 +76,41 @@ pub async fn index_directory_bg(
     let meta = std::fs::metadata(&path);
     match &meta {
         Ok(m) if m.is_dir() => tracing::info!("[index_directory_bg] path is a valid directory"),
-        Ok(m) => tracing::warn!("[index_directory_bg] path exists but is NOT a directory (is_file={})", m.is_file()),
+        Ok(m) => tracing::warn!(
+            "[index_directory_bg] path exists but is NOT a directory (is_file={})",
+            m.is_file()
+        ),
         Err(e) => {
             tracing::error!("[index_directory_bg] path metadata error: {} — {}", path, e);
-            return Err(CommandError { message: format!("路径无法访问: {e}") });
+            return Err(CommandError {
+                message: format!("路径无法访问: {e}"),
+            });
         }
     }
 
     let engine_guard = state.engine.read().await;
     let engine_ready = engine_guard.as_ref().is_some();
     tracing::info!("[index_directory_bg] engine ready={}", engine_ready);
-    let _engine = engine_guard
-        .as_ref()
-        .ok_or_else(|| { tracing::error!("[index_directory_bg] engine not ready!"); CommandError { message: "engine not ready".into() } })?;
+    let _engine = engine_guard.as_ref().ok_or_else(|| {
+        tracing::error!("[index_directory_bg] engine not ready!");
+        CommandError {
+            message: "engine not ready".into(),
+        }
+    })?;
     drop(engine_guard);
 
     // Mark as running
     {
         let mut map = state.indexing.lock().await;
-        map.insert(path.clone(), IndexProgress {
-            path: path.clone(),
-            running: true,
-            new_files: 0,
-            error: None,
-        });
+        map.insert(
+            path.clone(),
+            IndexProgress {
+                path: path.clone(),
+                running: true,
+                new_files: 0,
+                error: None,
+            },
+        );
     }
 
     // Clone needed handles for the spawned task
@@ -105,9 +118,15 @@ pub async fn index_directory_bg(
     let engine_ref = Arc::clone(&state.engine);
     let path_clone = path.clone();
 
-    tracing::info!("[index_directory_bg] spawning background task for: {}", path);
+    tracing::info!(
+        "[index_directory_bg] spawning background task for: {}",
+        path
+    );
     tauri::async_runtime::spawn(async move {
-        tracing::info!("[index_bg_task] starting index_directory for: {}", path_clone);
+        tracing::info!(
+            "[index_bg_task] starting index_directory for: {}",
+            path_clone
+        );
         let result = {
             let guard = engine_ref.read().await;
             if let Some(eng) = guard.as_ref() {
@@ -121,9 +140,13 @@ pub async fn index_directory_bg(
         let mut map = indexing_map.lock().await;
         match result {
             Ok(stats) => {
-                tracing::info!("[index_bg_task] completed: {} files indexed for {}", stats.total_files, path_clone);
+                tracing::info!(
+                    "[index_bg_task] completed: {} files indexed for {}",
+                    stats.total_files,
+                    path_clone
+                );
                 if let Some(p) = map.get_mut(&path_clone) {
-                    p.running   = false;
+                    p.running = false;
                     p.new_files = stats.total_files;
                 }
             }
@@ -131,7 +154,7 @@ pub async fn index_directory_bg(
                 tracing::error!("[index_bg_task] FAILED for {}: {}", path_clone, e);
                 if let Some(p) = map.get_mut(&path_clone) {
                     p.running = false;
-                    p.error   = Some(e.to_string());
+                    p.error = Some(e.to_string());
                 }
             }
         }
@@ -156,34 +179,37 @@ pub async fn index_directory(
     path: String,
 ) -> Result<IndexStats, CommandError> {
     let lock = state.engine.read().await;
-    let engine = lock
-        .as_ref()
-        .ok_or_else(|| CommandError { message: "engine not ready".into() })?;
+    let engine = lock.as_ref().ok_or_else(|| CommandError {
+        message: "engine not ready".into(),
+    })?;
     engine.index_directory(&path).await.map_err(Into::into)
 }
 
 /// Start watching a directory for changes and auto-reindex.
 #[tauri::command]
-pub async fn watch_directory(
-    state: State<'_, AppState>,
-    path: String,
-) -> Result<(), CommandError> {
+pub async fn watch_directory(state: State<'_, AppState>, path: String) -> Result<(), CommandError> {
     let engine_arc = {
         let guard = state.engine.read().await;
         if guard.is_none() {
-            return Err(CommandError { message: "engine not ready".into() });
+            return Err(CommandError {
+                message: "engine not ready".into(),
+            });
         }
         // Build a fresh engine for the watcher
         mnemosyne_retrieval::SearchEngine::builder()
             .build()
             .await
             .map(Arc::new)
-            .map_err(|e| CommandError { message: e.to_string() })?
+            .map_err(|e| CommandError {
+                message: e.to_string(),
+            })?
     };
 
     let watcher = FileWatcher::watch(&path, engine_arc)
         .await
-        .map_err(|e| CommandError { message: e.to_string() })?;
+        .map_err(|e| CommandError {
+            message: e.to_string(),
+        })?;
 
     state.watchers.lock().await.push(watcher);
     Ok(())
@@ -197,13 +223,11 @@ pub async fn stop_watching(state: State<'_, AppState>) -> Result<(), CommandErro
 }
 
 #[tauri::command]
-pub async fn get_stats(
-    state: State<'_, AppState>,
-) -> Result<IndexStats, CommandError> {
+pub async fn get_stats(state: State<'_, AppState>) -> Result<IndexStats, CommandError> {
     let lock = state.engine.read().await;
-    let engine = lock
-        .as_ref()
-        .ok_or_else(|| CommandError { message: "engine not ready".into() })?;
+    let engine = lock.as_ref().ok_or_else(|| CommandError {
+        message: "engine not ready".into(),
+    })?;
     engine.get_stats().await.map_err(Into::into)
 }
 
@@ -214,9 +238,9 @@ pub async fn list_files(
     offset: Option<usize>,
 ) -> Result<Vec<FileRecord>, CommandError> {
     let lock = state.engine.read().await;
-    let engine = lock
-        .as_ref()
-        .ok_or_else(|| CommandError { message: "engine not ready".into() })?;
+    let engine = lock.as_ref().ok_or_else(|| CommandError {
+        message: "engine not ready".into(),
+    })?;
     engine
         .list_files(limit.unwrap_or(50), offset.unwrap_or(0))
         .await
@@ -224,14 +248,11 @@ pub async fn list_files(
 }
 
 #[tauri::command]
-pub async fn remove_file(
-    state: State<'_, AppState>,
-    id: String,
-) -> Result<(), CommandError> {
+pub async fn remove_file(state: State<'_, AppState>, id: String) -> Result<(), CommandError> {
     let lock = state.engine.read().await;
-    let engine = lock
-        .as_ref()
-        .ok_or_else(|| CommandError { message: "engine not ready".into() })?;
+    let engine = lock.as_ref().ok_or_else(|| CommandError {
+        message: "engine not ready".into(),
+    })?;
     engine.remove_file(&id).await.map_err(Into::into)
 }
 
@@ -245,13 +266,19 @@ pub async fn preview_file(path: String) -> Result<serde_json::Value, CommandErro
     use mnemosyne_core::types::FileType;
     use std::path::Path;
 
-    let p   = Path::new(&path);
-    let ext = p.extension().and_then(|e| e.to_str()).unwrap_or("").to_lowercase();
-    let ft  = FileType::from_extension(&ext);
+    let p = Path::new(&path);
+    let ext = p
+        .extension()
+        .and_then(|e| e.to_str())
+        .unwrap_or("")
+        .to_lowercase();
+    let ft = FileType::from_extension(&ext);
 
     match ft {
         FileType::Text => {
-            let raw = tokio::fs::read(p).await.map_err(|e| CommandError { message: e.to_string() })?;
+            let raw = tokio::fs::read(p).await.map_err(|e| CommandError {
+                message: e.to_string(),
+            })?;
             // Try UTF-8; fall back to lossy
             let content: String = String::from_utf8(raw.clone())
                 .unwrap_or_else(|_| String::from_utf8_lossy(&raw).into_owned());
@@ -260,24 +287,28 @@ pub async fn preview_file(path: String) -> Result<serde_json::Value, CommandErro
         }
 
         FileType::Image => {
-            let meta = tokio::fs::metadata(p).await
-                .map_err(|e| CommandError { message: e.to_string() })?;
+            let meta = tokio::fs::metadata(p).await.map_err(|e| CommandError {
+                message: e.to_string(),
+            })?;
 
             const MAX_INLINE: u64 = 6 * 1024 * 1024; // 6 MB
             if meta.len() > MAX_INLINE {
-                return Ok(serde_json::json!({ "type": "image_large", "size": meta.len(), "ext": ext }));
+                return Ok(
+                    serde_json::json!({ "type": "image_large", "size": meta.len(), "ext": ext }),
+                );
             }
 
-            let data = tokio::fs::read(p).await
-                .map_err(|e| CommandError { message: e.to_string() })?;
+            let data = tokio::fs::read(p).await.map_err(|e| CommandError {
+                message: e.to_string(),
+            })?;
             let mime = match ext.as_str() {
                 "jpg" | "jpeg" => "image/jpeg",
-                "png"          => "image/png",
-                "gif"          => "image/gif",
-                "webp"         => "image/webp",
-                "bmp"          => "image/bmp",
-                "svg"          => "image/svg+xml",
-                _              => "image/jpeg",
+                "png" => "image/png",
+                "gif" => "image/gif",
+                "webp" => "image/webp",
+                "bmp" => "image/bmp",
+                "svg" => "image/svg+xml",
+                _ => "image/jpeg",
             };
             use base64::Engine as _;
             let b64 = base64::engine::general_purpose::STANDARD.encode(&data);
@@ -290,8 +321,9 @@ pub async fn preview_file(path: String) -> Result<serde_json::Value, CommandErro
         }
 
         _ => {
-            let meta = tokio::fs::metadata(p).await
-                .map_err(|e| CommandError { message: e.to_string() })?;
+            let meta = tokio::fs::metadata(p).await.map_err(|e| CommandError {
+                message: e.to_string(),
+            })?;
             Ok(serde_json::json!({
                 "type":      "binary",
                 "file_type": format!("{ft:?}"),

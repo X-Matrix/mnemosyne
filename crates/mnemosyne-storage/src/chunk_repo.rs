@@ -20,7 +20,13 @@ impl<'a> ChunkRepo<'a> {
         Self { db }
     }
 
-    pub fn upsert(&self, chunk_id: &str, file_id: &str, chunk_index: usize, content: &ParsedContent) -> Result<i64, Error> {
+    pub fn upsert(
+        &self,
+        chunk_id: &str,
+        file_id: &str,
+        chunk_index: usize,
+        content: &ParsedContent,
+    ) -> Result<i64, Error> {
         let conn = self.db.conn.lock().unwrap();
         let kind = match content {
             ParsedContent::Text { .. } => "text",
@@ -58,9 +64,18 @@ impl<'a> ChunkRepo<'a> {
                 let kind: String = row.get(3)?;
                 let text: String = row.get(4)?;
                 let content = match kind.as_str() {
-                    "image" => ParsedContent::Image { caption: text, tags: vec![] },
-                    "audio_transcript" => ParsedContent::AudioTranscript { transcript: text, language: None },
-                    "video_keyframe" => ParsedContent::VideoKeyframe { timestamp_secs: 0.0, description: text },
+                    "image" => ParsedContent::Image {
+                        caption: text,
+                        tags: vec![],
+                    },
+                    "audio_transcript" => ParsedContent::AudioTranscript {
+                        transcript: text,
+                        language: None,
+                    },
+                    "video_keyframe" => ParsedContent::VideoKeyframe {
+                        timestamp_secs: 0.0,
+                        description: text,
+                    },
                     _ => ParsedContent::Text { text },
                 };
                 Ok(ChunkRow {
@@ -77,7 +92,11 @@ impl<'a> ChunkRepo<'a> {
             .map_err(|e| Error::storage(e.to_string()))
     }
 
-    pub fn fts_search(&self, query: &str, limit: usize) -> Result<Vec<(String, String, i64, String, f64)>, Error> {
+    pub fn fts_search(
+        &self,
+        query: &str,
+        limit: usize,
+    ) -> Result<Vec<(String, String, i64, String, f64)>, Error> {
         let conn = self.db.conn.lock().unwrap();
         let char_count = query.chars().count();
 

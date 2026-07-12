@@ -10,12 +10,12 @@
 //!                      requiring any external programs or C libraries.
 //!  3. Filename       — last-resort fallback for encrypted / damaged PDFs.
 
-use mnemosyne_core::{traits::FileParser, types::ParsedContent, Error, Result};
 use async_trait::async_trait;
+use mnemosyne_core::{traits::FileParser, types::ParsedContent, Error, Result};
 use std::path::Path;
 use tracing::{debug, warn};
 
-const CHUNK_SIZE:    usize = 1500;
+const CHUNK_SIZE: usize = 1500;
 const CHUNK_OVERLAP: usize = 150;
 
 pub struct PdfParser;
@@ -51,8 +51,11 @@ impl FileParser for PdfParser {
             std::panic::set_hook(prev);
             match result {
                 Ok(Ok(t)) => t,
-                Ok(Err(e)) => { warn!("pdf-extract error: {e}"); String::new() }
-                Err(_) => String::new(),   // CJK / unsupported encoding
+                Ok(Err(e)) => {
+                    warn!("pdf-extract error: {e}");
+                    String::new()
+                }
+                Err(_) => String::new(), // CJK / unsupported encoding
             }
         })
         .await
@@ -68,11 +71,10 @@ impl FileParser for PdfParser {
 
         // ── Secondary: lopdf ToUnicode CMap (native CJK support) ─────────────
         let path2 = path.to_path_buf();
-        let lopdf_text = tokio::task::spawn_blocking(move || {
-            cjk::extract(&path2).unwrap_or_default()
-        })
-        .await
-        .unwrap_or_default();
+        let lopdf_text =
+            tokio::task::spawn_blocking(move || cjk::extract(&path2).unwrap_or_default())
+                .await
+                .unwrap_or_default();
 
         let lopdf_text = lopdf_text.trim().to_string();
         if !lopdf_text.is_empty() {
@@ -101,7 +103,9 @@ mod cjk {
 
     /// Extract text from a PDF using lopdf + ToUnicode CMap decoding.
     /// Returns an empty String if the PDF cannot be parsed or contains no text.
-    pub fn extract(path: &std::path::Path) -> Result<String, Box<dyn std::error::Error + Send + Sync>> {
+    pub fn extract(
+        path: &std::path::Path,
+    ) -> Result<String, Box<dyn std::error::Error + Send + Sync>> {
         let doc = Document::load(path)?;
         let mut all_text = String::new();
 
@@ -129,7 +133,11 @@ mod cjk {
                         _ => return None,
                     };
                     let cmap = parse_to_unicode_cmap(&String::from_utf8_lossy(&content));
-                    if cmap.is_empty() { None } else { Some((name, cmap)) }
+                    if cmap.is_empty() {
+                        None
+                    } else {
+                        Some((name, cmap))
+                    }
                 })
                 .collect();
 
@@ -165,7 +173,11 @@ mod cjk {
                         if let Some(Object::Array(arr)) = op.operands.first() {
                             for item in arr {
                                 if let Object::String(bytes, _) = item {
-                                    page_text.push_str(&decode(bytes, current_font.as_deref(), &font_maps));
+                                    page_text.push_str(&decode(
+                                        bytes,
+                                        current_font.as_deref(),
+                                        &font_maps,
+                                    ));
                                 }
                             }
                         }
@@ -206,21 +218,25 @@ mod cjk {
     /// Parse a ToUnicode CMap and return `char_code_bytes → Unicode_string`.
     fn parse_to_unicode_cmap(cmap: &str) -> HashMap<Vec<u8>, String> {
         #[derive(PartialEq)]
-        enum State { None, BfChar, BfRange }
+        enum State {
+            None,
+            BfChar,
+            BfRange,
+        }
         let mut map = HashMap::new();
         let mut state = State::None;
 
         for line in cmap.lines() {
             let line = line.trim();
             match line {
-                l if l.ends_with("beginbfchar")  => state = State::BfChar,
-                "endbfchar"                       => state = State::None,
+                l if l.ends_with("beginbfchar") => state = State::BfChar,
+                "endbfchar" => state = State::None,
                 l if l.ends_with("beginbfrange") => state = State::BfRange,
-                "endbfrange"                      => state = State::None,
+                "endbfrange" => state = State::None,
                 _ => match state {
-                    State::BfChar  => parse_bfchar(line, &mut map),
+                    State::BfChar => parse_bfchar(line, &mut map),
                     State::BfRange => parse_bfrange(line, &mut map),
-                    State::None    => {}
+                    State::None => {}
                 },
             }
         }
@@ -229,7 +245,9 @@ mod cjk {
 
     fn hex_bytes(token: &str) -> Option<Vec<u8>> {
         let inner = token.trim().strip_prefix('<')?.strip_suffix('>')?;
-        if inner.len() % 2 != 0 { return None; }
+        if inner.len() % 2 != 0 {
+            return None;
+        }
         (0..inner.len())
             .step_by(2)
             .map(|i| u8::from_str_radix(&inner[i..i + 2], 16).ok())
@@ -237,7 +255,9 @@ mod cjk {
     }
 
     fn utf16be_to_string(bytes: &[u8]) -> Option<String> {
-        if bytes.len() % 2 != 0 { return None; }
+        if bytes.len() % 2 != 0 {
+            return None;
+        }
         let units: Vec<u16> = bytes
             .chunks_exact(2)
             .map(|b| u16::from_be_bytes([b[0], b[1]]))
@@ -248,8 +268,8 @@ mod cjk {
     /// Parse one `<src> <dst>` line inside a `beginbfchar` block.
     fn parse_bfchar(line: &str, map: &mut HashMap<Vec<u8>, String>) {
         let mut tokens = line.split_whitespace();
-        let src   = tokens.next().and_then(hex_bytes);
-        let dst   = tokens.next().and_then(hex_bytes);
+        let src = tokens.next().and_then(hex_bytes);
+        let dst = tokens.next().and_then(hex_bytes);
         if let (Some(s), Some(d)) = (src, dst) {
             if let Some(ch) = utf16be_to_string(&d) {
                 map.insert(s, ch);
@@ -262,8 +282,10 @@ mod cjk {
     fn parse_bfrange(line: &str, map: &mut HashMap<Vec<u8>, String>) {
         let mut tokens = line.split_whitespace();
         let start_bytes = tokens.next().and_then(hex_bytes);
-        let end_bytes   = tokens.next().and_then(hex_bytes);
-        let (Some(start), Some(end)) = (start_bytes, end_bytes) else { return };
+        let end_bytes = tokens.next().and_then(hex_bytes);
+        let (Some(start), Some(end)) = (start_bytes, end_bytes) else {
+            return;
+        };
 
         // Remaining tokens may be a hex string or an array
         let rest: String = tokens.collect::<Vec<_>>().join(" ");
@@ -271,7 +293,7 @@ mod cjk {
 
         let code_width = start.len();
         let start_code = bytes_to_u32(&start);
-        let end_code   = bytes_to_u32(&end);
+        let end_code = bytes_to_u32(&end);
 
         if rest.starts_with('[') {
             // Array form: each entry maps to successive source codes
@@ -282,7 +304,9 @@ mod cjk {
                 .collect();
             for (i, entry) in entries.iter().enumerate() {
                 let code = start_code + i as u32;
-                if code > end_code { break; }
+                if code > end_code {
+                    break;
+                }
                 if let Some(dst) = hex_bytes(entry).and_then(|b| utf16be_to_string(&b)) {
                     map.insert(u32_to_bytes(code, code_width), dst);
                 }
@@ -363,10 +387,10 @@ fn split_text(text: &str, size: usize, overlap: usize) -> Vec<String> {
     while start < chars.len() {
         let end = (start + size).min(chars.len());
         chunks.push(chars[start..end].iter().collect());
-        if end == chars.len() { break; }
+        if end == chars.len() {
+            break;
+        }
         start += size - overlap;
     }
     chunks
 }
-
-
