@@ -230,7 +230,7 @@ impl SearchIndex for HybridIndex {
 
         let mut result_map: std::collections::HashMap<String, SearchResult> =
             std::collections::HashMap::new();
-        for r in vec_results.into_iter().chain(kw_results.into_iter()) {
+        for r in vec_results.into_iter().chain(kw_results) {
             let key = format!("{}:{}", r.file_record.id, r.chunk_index);
             result_map.entry(key).or_insert(r);
         }

@@ -1,5 +1,8 @@
 #![warn(clippy::all)]
 #![allow(clippy::upper_case_acronyms)]
+// Suppress `mismatched_lifetime_syntaxes` lint added in Rust 1.97+.
+// This is vendored third-party code; we only patch the onig/fancy-regex issue.
+#![allow(mismatched_lifetime_syntaxes)]
 #![doc(html_favicon_url = "https://huggingface.co/favicon.ico")]
 #![doc(html_logo_url = "https://huggingface.co/landing/assets/huggingface_logo.svg")]
 
