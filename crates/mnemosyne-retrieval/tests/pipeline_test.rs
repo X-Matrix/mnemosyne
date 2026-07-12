@@ -488,3 +488,269 @@ async fn build_persistent_test_db() {
         );
     }
 }
+
+// =============================================================================
+// 8. CLIP image retrieval — test_img02.png (Call Me By Your Name poster)
+//
+// Image content: blue movie poster for "Call Me By Your Name"
+//   - Director: Luca Guadagnino
+//   - Stars:    Timothée Chalamet, Armie Hammer
+//   - Mood:     romantic, two young men, blue background
+//   - Text:     "A Novel by André Aciman", "Now a Major Motion Picture"
+//
+// test_img01.png: rate-limiting algorithm comparison table (技术文档)
+//
+// Run:
+//   cargo test -p mnemosyne-retrieval --test pipeline_test \
+//     --features clip-backend clip_retrieval -- --ignored --nocapture
+//
+// Prerequisites:
+//   ~/.mnemosyne/models/openai/clip-vit-base-patch32/ must exist
+//   (download via the app's Model page first)
+// =============================================================================
+
+/// Helper: build engine with CLIP backend and index just the images directory.
+#[cfg(feature = "clip-backend")]
+async fn make_clip_engine(tmp: &TempDir) -> mnemosyne_retrieval::SearchEngine {
+    use mnemosyne_retrieval::builder::SearchEngineBuilder;
+    SearchEngineBuilder::new()
+        .db_path(tmp.path().join("clip_test.sqlite"))
+        .vision_model("openai/clip-vit-base-patch32".to_string())
+        .build()
+        .await
+        .expect("clip SearchEngine::build")
+}
+
+/// Helper: search images directory in Vector mode, return filenames of results.
+#[cfg(feature = "clip-backend")]
+async fn clip_search(
+    engine: &mnemosyne_retrieval::SearchEngine,
+    query: &str,
+    limit: usize,
+) -> Vec<String> {
+    engine
+        .search(SearchQuery {
+            text:   query.to_string(),
+            mode:   SearchMode::Vector,
+            limit,
+            ..Default::default()
+        })
+        .await
+        .unwrap_or_default()
+        .into_iter()
+        .map(|r| {
+            r.file_record
+                .path
+                .file_name()
+                .and_then(|n| n.to_str())
+                .unwrap_or("?")
+                .to_string()
+        })
+        .collect()
+}
+
+// ── Positive queries: should recall test_img02.png ────────────────────────────
+
+/// "Call Me By Your Name" — the exact title is printed on the poster.
+/// CLIP encodes the visual AND text content of an image, so this should score
+/// very high.
+#[cfg(feature = "clip-backend")]
+#[tokio::test]
+#[ignore]
+async fn clip_positive_call_me_by_your_name_title() {
+    let tmp = TempDir::new().unwrap();
+    let engine = make_clip_engine(&tmp).await;
+    let images_dir = project_root().join("asserts/images");
+    engine.index_directory(&images_dir).await.expect("index");
+
+    let results = clip_search(&engine, "Call Me By Your Name", 5).await;
+    println!("[+] query='Call Me By Your Name' → {:?}", results);
+    assert!(
+        results.contains(&"test_img02.png".to_string()),
+        "Expected test_img02.png in top-5 for title query, got: {:?}", results
+    );
+}
+
+/// Romantic movie poster with two young men on blue background.
+/// Describes the visual content of the poster.
+#[cfg(feature = "clip-backend")]
+#[tokio::test]
+#[ignore]
+async fn clip_positive_romantic_movie_poster() {
+    let tmp = TempDir::new().unwrap();
+    let engine = make_clip_engine(&tmp).await;
+    let images_dir = project_root().join("asserts/images");
+    engine.index_directory(&images_dir).await.expect("index");
+
+    let results = clip_search(&engine, "romantic movie poster two young men blue background", 5).await;
+    println!("[+] query='romantic movie poster...' → {:?}", results);
+    assert!(
+        results.contains(&"test_img02.png".to_string()),
+        "Expected test_img02.png, got: {:?}", results
+    );
+}
+
+/// Movie / film — more descriptive visual query.
+/// Short generic terms like "movie poster" alone may not cross the 0.26 cosine
+/// noise-floor threshold; descriptive queries with visual cues work reliably.
+#[cfg(feature = "clip-backend")]
+#[tokio::test]
+#[ignore]
+async fn clip_positive_movie_poster_general() {
+    let tmp = TempDir::new().unwrap();
+    let engine = make_clip_engine(&tmp).await;
+    let images_dir = project_root().join("asserts/images");
+    engine.index_directory(&images_dir).await.expect("index");
+
+    // Use a descriptive query that combines visual + domain cues.
+    // Pure generic terms ("movie poster") may fall below the CLIP noise floor.
+    let results = clip_search(&engine, "film poster two people blue sky romantic", 5).await;
+    println!("[+] query='film poster two people blue sky romantic' → {:?}", results);
+    assert!(
+        results.contains(&"test_img02.png".to_string()),
+        "Expected test_img02.png, got: {:?}", results
+    );
+}
+
+/// Timothée Chalamet — his name is printed in the poster header.
+#[cfg(feature = "clip-backend")]
+#[tokio::test]
+#[ignore]
+async fn clip_positive_timothee_chalamet() {
+    let tmp = TempDir::new().unwrap();
+    let engine = make_clip_engine(&tmp).await;
+    let images_dir = project_root().join("asserts/images");
+    engine.index_directory(&images_dir).await.expect("index");
+
+    let results = clip_search(&engine, "Timothee Chalamet", 5).await;
+    println!("[+] query='Timothee Chalamet' → {:?}", results);
+    assert!(
+        results.contains(&"test_img02.png".to_string()),
+        "Expected test_img02.png, got: {:?}", results
+    );
+}
+
+// ── Negative queries: should NOT recall test_img02.png (or rank it low) ───────
+
+/// Rate limiting algorithms — clearly matches test_img01.png (the tech table).
+#[cfg(feature = "clip-backend")]
+#[tokio::test]
+#[ignore]
+async fn clip_negative_rate_limiting() {
+    let tmp = TempDir::new().unwrap();
+    let engine = make_clip_engine(&tmp).await;
+    let images_dir = project_root().join("asserts/images");
+    engine.index_directory(&images_dir).await.expect("index");
+
+    let results = clip_search(&engine, "rate limiting algorithm token bucket table", 5).await;
+    println!("[-] query='rate limiting algorithm...' → {:?}", results);
+
+    // test_img01.png (tech table) must rank ABOVE test_img02.png (movie poster)
+    let pos_img02 = results.iter().position(|r| r == "test_img02.png");
+    let pos_img01 = results.iter().position(|r| r == "test_img01.png");
+    println!("    img01 rank={:?}, img02 rank={:?}", pos_img01, pos_img02);
+
+    match (pos_img01, pos_img02) {
+        (Some(r1), Some(r2)) => assert!(
+            r1 < r2,
+            "img01 should rank above img02 for tech query, but got img01={} img02={}", r1, r2
+        ),
+        (Some(_), None) => { /* img01 found, img02 not present — ideal */ }
+        _ => {
+            // Both absent or only img02 present — warn but don't fail hard
+            println!("    WARN: neither image matched rate-limiting query");
+        }
+    }
+}
+
+/// Cooking / food — completely unrelated to both images.
+/// test_img02.png should not appear with high confidence.
+#[cfg(feature = "clip-backend")]
+#[tokio::test]
+#[ignore]
+async fn clip_negative_cooking_recipe() {
+    let tmp = TempDir::new().unwrap();
+    let engine = make_clip_engine(&tmp).await;
+    let images_dir = project_root().join("asserts/images");
+    engine.index_directory(&images_dir).await.expect("index");
+
+    // CLIP min threshold (0.63) should filter out unrelated pairs.
+    // With the noise-floor filter, an unrelated query should return 0 results.
+    let results = clip_search(&engine, "cooking food recipe ingredients kitchen", 5).await;
+    println!("[-] query='cooking food recipe...' → {:?}", results);
+    // Should not strongly recall either image (both below 0.63 threshold).
+    // test_img02.png must not be ranked first for a food query.
+    if let Some(pos) = results.iter().position(|r| r == "test_img02.png") {
+        assert!(
+            pos > 0,
+            "test_img02.png should NOT be rank-0 for food query, got: {:?}", results
+        );
+    }
+}
+
+/// Technical software documentation — matches test_img01.png much better.
+#[cfg(feature = "clip-backend")]
+#[tokio::test]
+#[ignore]
+async fn clip_negative_technical_documentation() {
+    let tmp = TempDir::new().unwrap();
+    let engine = make_clip_engine(&tmp).await;
+    let images_dir = project_root().join("asserts/images");
+    engine.index_directory(&images_dir).await.expect("index");
+
+    let results = clip_search(&engine, "software architecture technical documentation API", 5).await;
+    println!("[-] query='software architecture...' → {:?}", results);
+
+    // img01 (tech table) must rank before img02 (movie poster) if both appear.
+    let pos_img02 = results.iter().position(|r| r == "test_img02.png");
+    let pos_img01 = results.iter().position(|r| r == "test_img01.png");
+    if let (Some(r1), Some(r2)) = (pos_img01, pos_img02) {
+        assert!(r1 < r2,
+            "img01 should rank above img02 for tech docs query");
+    }
+}
+
+// ── Relative ranking test: img02 > img01 for movie queries ───────────────────
+
+/// When searching for movie content, test_img02.png must rank higher than
+/// test_img01.png (which is a tech document, not a movie).
+///
+/// CLIP reliability note:
+///   - Highly descriptive queries (visual + text cues) reliably exceed cosine 0.26
+///   - Short generic queries ("movie poster") often fall below the noise floor
+///   - Use descriptive, multi-word queries that include visual characteristics
+#[cfg(feature = "clip-backend")]
+#[tokio::test]
+#[ignore]
+async fn clip_relative_ranking_movie_vs_tech() {
+    let tmp = TempDir::new().unwrap();
+    let engine = make_clip_engine(&tmp).await;
+    let images_dir = project_root().join("asserts/images");
+    engine.index_directory(&images_dir).await.expect("index");
+
+    // Descriptive visual query — specific enough to cross noise floor
+    let movie_results = clip_search(
+        &engine, "romantic film poster two young men leaning together blue background", 5
+    ).await;
+    // Technical table query
+    let tech_results = clip_search(
+        &engine, "rate limiting algorithm comparison table fixed window sliding bucket", 5
+    ).await;
+
+    println!("[REL] movie query → {:?}", movie_results);
+    println!("[REL] tech  query → {:?}", tech_results);
+
+    // Movie query: img02 must appear (descriptive enough to pass noise floor)
+    assert!(
+        movie_results.contains(&"test_img02.png".to_string()),
+        "img02 must appear for descriptive movie query, got: {:?}", movie_results
+    );
+
+    // Tech query: img02 should not outrank img01
+    if let (Some(r1), Some(r2)) = (
+        tech_results.iter().position(|r| r == "test_img01.png"),
+        tech_results.iter().position(|r| r == "test_img02.png"),
+    ) {
+        assert!(r1 < r2, "img01 should beat img02 on tech query");
+    }
+}

@@ -9,6 +9,10 @@ license.workspace   = true
 # ── Feature flags ─────────────────────────────────────────────────────────────
 # Propagate model backend features down from mnemosyne-model.
 # Enable with: cargo build -p mnemosyne-retrieval --features clip-backend,whisper-backend
+#
+# To run CLIP image retrieval tests (requires local model + real inference):
+#   cargo test -p mnemosyne-retrieval --test pipeline_test \
+#     --features clip-backend clip_retrieval -- --ignored --nocapture
 [features]
 candle-backend   = ["mnemosyne-model/candle-backend"]
 clip-backend     = ["mnemosyne-model/clip-backend"]
