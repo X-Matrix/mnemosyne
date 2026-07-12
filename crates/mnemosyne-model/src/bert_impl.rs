@@ -24,7 +24,11 @@ fn local_model_dir(model_id: &str) -> Option<std::path::PathBuf> {
     let dir = std::path::PathBuf::from(home)
         .join(".mnemosyne/models")
         .join(model_id);
-    if dir.is_dir() { Some(dir) } else { None }
+    if dir.is_dir() {
+        Some(dir)
+    } else {
+        None
+    }
 }
 
 impl BertEmbedder {
@@ -40,8 +44,8 @@ impl BertEmbedder {
                 } else {
                     dir.join("pytorch_model.bin")
                 };
-                let cfg  = dir.join("config.json");
-                let tok  = dir.join("tokenizer.json");
+                let cfg = dir.join("config.json");
+                let tok = dir.join("tokenizer.json");
                 if cfg.exists() && tok.exists() && weights.exists() {
                     info!("BERT: loading from local cache {}", dir.display());
                     (cfg, tok, weights)
@@ -69,7 +73,12 @@ impl BertEmbedder {
             .map_err(|e| Error::model(format!("tokenizer: {e}")))?;
 
         info!("BERT '{}' ready (dim={dim}, device=CPU)", model_id);
-        Ok(Self { model, tokenizer, device, dim })
+        Ok(Self {
+            model,
+            tokenizer,
+            device,
+            dim,
+        })
     }
 
     /// Encode a single text string into a normalised embedding.
@@ -85,9 +94,9 @@ impl BertEmbedder {
                 .map_err(|e| Error::model(e.to_string()))
         };
 
-        let ids   = make(encoding.get_ids())?;
+        let ids = make(encoding.get_ids())?;
         let types = make(encoding.get_type_ids())?;
-        let mask  = make(encoding.get_attention_mask())?;
+        let mask = make(encoding.get_attention_mask())?;
 
         let output = self
             .model
@@ -125,8 +134,7 @@ fn load_var_builder(
                 .map_err(|e| Error::model(e.to_string()))
         }
     } else {
-        VarBuilder::from_pth(path, dtype, device)
-            .map_err(|e| Error::model(e.to_string()))
+        VarBuilder::from_pth(path, dtype, device).map_err(|e| Error::model(e.to_string()))
     }
 }
 
@@ -137,13 +145,19 @@ async fn download_bert_files(
 ) -> Result<(std::path::PathBuf, std::path::PathBuf, std::path::PathBuf), Error> {
     let api = Api::new().map_err(|e| Error::model(e.to_string()))?;
     let repo = api.model(model_id.to_string());
-    let config_path    = repo.get("config.json").await
+    let config_path = repo
+        .get("config.json")
+        .await
         .map_err(|e| Error::model(format!("config.json: {e}")))?;
-    let tokenizer_path = repo.get("tokenizer.json").await
+    let tokenizer_path = repo
+        .get("tokenizer.json")
+        .await
         .map_err(|e| Error::model(format!("tokenizer.json: {e}")))?;
     let weights_path = match repo.get("model.safetensors").await {
         Ok(p) => p,
-        Err(_) => repo.get("pytorch_model.bin").await
+        Err(_) => repo
+            .get("pytorch_model.bin")
+            .await
             .map_err(|e| Error::model(format!("weights: {e}")))?,
     };
     Ok((config_path, tokenizer_path, weights_path))

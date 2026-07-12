@@ -6,7 +6,7 @@ use tauri::State;
 pub async fn get_logs(state: State<'_, AppState>) -> Result<Vec<LogEntry>, String> {
     Ok(match state.log_buffer.lock() {
         Ok(buf) => buf.iter().cloned().collect(),
-        Err(_)  => vec![],
+        Err(_) => vec![],
     })
 }
 

@@ -107,17 +107,25 @@ async fn main() -> Result<()> {
         Commands::Index { path } => {
             println!("Indexing: {path}");
             let stats = engine.index_directory(&path).await?;
-            println!("Done: {} files indexed, {} total chunks", stats.total_files, stats.total_chunks);
+            println!(
+                "Done: {} files indexed, {} total chunks",
+                stats.total_files, stats.total_chunks
+            );
             for (ft, count) in &stats.files_by_type {
                 println!("  {ft}: {count}");
             }
         }
 
-        Commands::Search { query, limit, mode, json } => {
+        Commands::Search {
+            query,
+            limit,
+            mode,
+            json,
+        } => {
             let search_mode = match mode.as_str() {
-                "vector"  => SearchMode::Vector,
+                "vector" => SearchMode::Vector,
                 "keyword" => SearchMode::Keyword,
-                _         => SearchMode::Hybrid,
+                _ => SearchMode::Hybrid,
             };
             let results = engine
                 .search(SearchQuery {

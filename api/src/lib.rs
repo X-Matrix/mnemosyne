@@ -5,7 +5,10 @@ mod state;
 pub use error::ApiError;
 pub use state::AppState;
 
-use axum::{Router, routing::{delete, get, post}};
+use axum::{
+    routing::{delete, get, post},
+    Router,
+};
 use std::{net::SocketAddr, sync::Arc};
 use tower_http::{cors::CorsLayer, trace::TraceLayer};
 use tracing::info;
@@ -23,11 +26,10 @@ pub async fn run() -> anyhow::Result<()> {
         )
         .init();
 
-    let db_path = std::env::var("MNEMOSYNE_DB")
-        .unwrap_or_else(|_| {
-            let home = std::env::var("HOME").unwrap_or_else(|_| ".".into());
-            format!("{home}/.mnemosyne/db.sqlite")
-        });
+    let db_path = std::env::var("MNEMOSYNE_DB").unwrap_or_else(|_| {
+        let home = std::env::var("HOME").unwrap_or_else(|_| ".".into());
+        format!("{home}/.mnemosyne/db.sqlite")
+    });
 
     let port: u16 = std::env::var("MNEMOSYNE_PORT")
         .ok()
@@ -46,13 +48,13 @@ pub async fn run() -> anyhow::Result<()> {
         // Search
         .route("/api/search", post(routes::search::search))
         // Indexing
-        .route("/api/index",  post(routes::index::index_directory))
-        .route("/api/stats",  get(routes::index::stats))
+        .route("/api/index", post(routes::index::index_directory))
+        .route("/api/stats", get(routes::index::stats))
         // Files
-        .route("/api/files",          get(routes::files::list_files))
-        .route("/api/files/{id}",     delete(routes::files::remove_file))
+        .route("/api/files", get(routes::files::list_files))
+        .route("/api/files/{id}", delete(routes::files::remove_file))
         // Models
-        .route("/api/models",          get(routes::models::list_models))
+        .route("/api/models", get(routes::models::list_models))
         .route("/api/models/download", post(routes::models::download_model))
         // Health
         .route("/health", get(|| async { "ok" }))

@@ -32,10 +32,15 @@ impl ModelRegistry {
     pub async fn get_text_embedder(&self, model_id: &str) -> Result<Arc<TextEmbedder>, Error> {
         {
             let g = self.text_models.read().unwrap();
-            if let Some(m) = g.get(model_id) { return Ok(Arc::clone(m)); }
+            if let Some(m) = g.get(model_id) {
+                return Ok(Arc::clone(m));
+            }
         }
         let m = Arc::new(TextEmbedder::load(model_id).await?);
-        self.text_models.write().unwrap().insert(model_id.to_string(), Arc::clone(&m));
+        self.text_models
+            .write()
+            .unwrap()
+            .insert(model_id.to_string(), Arc::clone(&m));
         Ok(m)
     }
 
@@ -44,10 +49,15 @@ impl ModelRegistry {
     pub async fn get_clip_embedder(&self, model_id: &str) -> Result<Arc<ClipEmbedder>, Error> {
         {
             let g = self.clip_models.read().unwrap();
-            if let Some(m) = g.get(model_id) { return Ok(Arc::clone(m)); }
+            if let Some(m) = g.get(model_id) {
+                return Ok(Arc::clone(m));
+            }
         }
         let m = Arc::new(ClipEmbedder::load(model_id).await?);
-        self.clip_models.write().unwrap().insert(model_id.to_string(), Arc::clone(&m));
+        self.clip_models
+            .write()
+            .unwrap()
+            .insert(model_id.to_string(), Arc::clone(&m));
         Ok(m)
     }
 
@@ -56,14 +66,21 @@ impl ModelRegistry {
     pub async fn get_whisper(&self, model_id: &str) -> Result<Arc<WhisperTranscriber>, Error> {
         {
             let g = self.whisper_models.read().unwrap();
-            if let Some(m) = g.get(model_id) { return Ok(Arc::clone(m)); }
+            if let Some(m) = g.get(model_id) {
+                return Ok(Arc::clone(m));
+            }
         }
         let m = Arc::new(WhisperTranscriber::load(model_id).await?);
-        self.whisper_models.write().unwrap().insert(model_id.to_string(), Arc::clone(&m));
+        self.whisper_models
+            .write()
+            .unwrap()
+            .insert(model_id.to_string(), Arc::clone(&m));
         Ok(m)
     }
 }
 
 impl Default for ModelRegistry {
-    fn default() -> Self { Self::new() }
+    fn default() -> Self {
+        Self::new()
+    }
 }

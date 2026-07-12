@@ -1,7 +1,7 @@
 use crate::Database;
+use chrono::Utc;
 use mnemosyne_core::Error;
 use rusqlite::params;
-use chrono::Utc;
 
 use serde::{Deserialize, Serialize};
 
@@ -22,7 +22,12 @@ impl<'a> ModelRepo<'a> {
         Self { db }
     }
 
-    pub fn register(&self, model_id: &str, local_path: &str, version: Option<&str>) -> Result<(), Error> {
+    pub fn register(
+        &self,
+        model_id: &str,
+        local_path: &str,
+        version: Option<&str>,
+    ) -> Result<(), Error> {
         let now = Utc::now().timestamp();
         let conn = self.db.conn.lock().unwrap();
         conn.execute(
@@ -58,7 +63,9 @@ impl<'a> ModelRepo<'a> {
             })
             .map_err(|e| Error::storage(e.to_string()))?;
 
-        rows.next().transpose().map_err(|e| Error::storage(e.to_string()))
+        rows.next()
+            .transpose()
+            .map_err(|e| Error::storage(e.to_string()))
     }
 
     pub fn list(&self) -> Result<Vec<ModelRecord>, Error> {

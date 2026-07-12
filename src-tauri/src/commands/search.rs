@@ -10,7 +10,9 @@ pub struct SearchError {
 
 impl From<mnemosyne_core::Error> for SearchError {
     fn from(e: mnemosyne_core::Error) -> Self {
-        Self { message: e.to_string() }
+        Self {
+            message: e.to_string(),
+        }
     }
 }
 
@@ -20,9 +22,9 @@ pub async fn search_files(
     query: SearchQuery,
 ) -> Result<serde_json::Value, SearchError> {
     let lock = state.engine.read().await;
-    let engine = lock
-        .as_ref()
-        .ok_or_else(|| SearchError { message: "engine not ready".into() })?;
+    let engine = lock.as_ref().ok_or_else(|| SearchError {
+        message: "engine not ready".into(),
+    })?;
 
     let results = engine.search(query).await?;
     Ok(serde_json::to_value(results).unwrap_or_default())

@@ -12,22 +12,24 @@ pub struct Database {
 
 impl Database {
     pub fn open(path: &Path) -> Result<Self, Error> {
-        let conn = Connection::open(path)
-            .map_err(|e| Error::storage(e.to_string()))?;
+        let conn = Connection::open(path).map_err(|e| Error::storage(e.to_string()))?;
         conn.execute_batch("PRAGMA journal_mode=WAL; PRAGMA foreign_keys=ON;")
             .map_err(|e| Error::storage(e.to_string()))?;
-        let db = Self { conn: Arc::new(Mutex::new(conn)) };
+        let db = Self {
+            conn: Arc::new(Mutex::new(conn)),
+        };
         db.try_load_sqlite_vector();
         db.migrate()?;
         Ok(db)
     }
 
     pub fn open_in_memory() -> Result<Self, Error> {
-        let conn = Connection::open_in_memory()
-            .map_err(|e| Error::storage(e.to_string()))?;
+        let conn = Connection::open_in_memory().map_err(|e| Error::storage(e.to_string()))?;
         conn.execute_batch("PRAGMA foreign_keys=ON;")
             .map_err(|e| Error::storage(e.to_string()))?;
-        let db = Self { conn: Arc::new(Mutex::new(conn)) };
+        let db = Self {
+            conn: Arc::new(Mutex::new(conn)),
+        };
         db.migrate()?;
         Ok(db)
     }

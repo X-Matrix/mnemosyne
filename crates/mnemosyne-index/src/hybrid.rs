@@ -1,11 +1,11 @@
 use crate::{ann::AnnCache, cosine, rrf};
+use async_trait::async_trait;
 use mnemosyne_core::{
     traits::SearchIndex,
     types::{Embedding, IndexedChunk, MatchType, SearchQuery, SearchResult},
     Error,
 };
 use mnemosyne_storage::{ChunkRepo, Database, EmbeddingRepo, FileRepo};
-use async_trait::async_trait;
 use rusqlite::params;
 
 /// Hybrid search index backed by SQLite + optional HNSW ANN.
@@ -16,7 +16,10 @@ pub struct HybridIndex {
 
 impl HybridIndex {
     pub fn new(db: Database) -> Self {
-        Self { db, ann: AnnCache::new() }
+        Self {
+            db,
+            ann: AnnCache::new(),
+        }
     }
 }
 
@@ -96,7 +99,11 @@ impl SearchIndex for HybridIndex {
                         .prepare("SELECT file_id, chunk_index, content FROM document_chunks WHERE id = ?1")
                         .map_err(|e| Error::storage(e.to_string()))?;
                     st.query_row(rusqlite::params![chunk_id], |r| {
-                        Ok((r.get::<_, String>(0)?, r.get::<_, i64>(1)?, r.get::<_, String>(2)?))
+                        Ok((
+                            r.get::<_, String>(0)?,
+                            r.get::<_, i64>(1)?,
+                            r.get::<_, String>(2)?,
+                        ))
                     })
                     .ok()
                 };
@@ -125,7 +132,13 @@ impl SearchIndex for HybridIndex {
                 .into_iter()
                 .map(|(cid, fid, cidx, content, emb)| {
                     let sim = cosine::cosine_similarity(&query_emb, &emb);
-                    (cid, fid, cidx as usize, content, cosine::similarity_to_score(sim))
+                    (
+                        cid,
+                        fid,
+                        cidx as usize,
+                        content,
+                        cosine::similarity_to_score(sim),
+                    )
                 })
                 .collect();
 
@@ -207,8 +220,13 @@ impl SearchIndex for HybridIndex {
             .map(|r| (format!("{}:{}", r.file_record.id, r.chunk_index), r.score))
             .collect();
 
-        let fused = rrf::fuse(&vec_ranked, &kw_ranked, query.limit,
-            query.vector_weight, query.keyword_weight);
+        let fused = rrf::fuse(
+            &vec_ranked,
+            &kw_ranked,
+            query.limit,
+            query.vector_weight,
+            query.keyword_weight,
+        );
 
         let mut result_map: std::collections::HashMap<String, SearchResult> =
             std::collections::HashMap::new();
@@ -230,5 +248,3 @@ impl SearchIndex for HybridIndex {
         Ok(final_results)
     }
 }
-
-

@@ -20,15 +20,17 @@ where
         event: &tracing::Event<'_>,
         _ctx: tracing_subscriber::layer::Context<'_, S>,
     ) {
-        let meta    = event.metadata();
-        let level   = meta.level().to_string().to_uppercase();
-        let target  = meta.target().to_string();
+        let meta = event.metadata();
+        let level = meta.level().to_string().to_uppercase();
+        let target = meta.target().to_string();
 
         let mut message = String::new();
         struct Visitor<'a>(&'a mut String);
         impl<'a> tracing::field::Visit for Visitor<'a> {
             fn record_str(&mut self, field: &tracing::field::Field, val: &str) {
-                if field.name() == "message" { self.0.push_str(val); }
+                if field.name() == "message" {
+                    self.0.push_str(val);
+                }
             }
             fn record_debug(&mut self, field: &tracing::field::Field, val: &dyn std::fmt::Debug) {
                 if field.name() == "message" && self.0.is_empty() {
@@ -39,10 +41,17 @@ where
         event.record(&mut Visitor(&mut message));
 
         let ts = chrono::Local::now().format("%H:%M:%S%.3f").to_string();
-        let entry = LogEntry { ts, level, target, message };
+        let entry = LogEntry {
+            ts,
+            level,
+            target,
+            message,
+        };
 
         if let Ok(mut buf) = self.buffer.lock() {
-            if buf.len() >= 500 { buf.pop_front(); }
+            if buf.len() >= 500 {
+                buf.pop_front();
+            }
             buf.push_back(entry);
         }
     }
@@ -63,7 +72,9 @@ pub fn run() {
                 .unwrap_or_else(|_| EnvFilter::new("info,mnemosyne=debug")),
         )
         .with(tracing_subscriber::fmt::layer().with_writer(std::io::stderr))
-        .with(LogCaptureLayer { buffer: Arc::clone(&log_buf) })
+        .with(LogCaptureLayer {
+            buffer: Arc::clone(&log_buf),
+        })
         .init();
 
     use std::sync::Arc;
@@ -73,27 +84,38 @@ pub fn run() {
         .setup(move |app| {
             app.manage(AppState::empty_with_log(Arc::clone(&log_buf)));
 
-            let engine_lock  = app.state::<AppState>().engine.clone();
+            let engine_lock = app.state::<AppState>().engine.clone();
 
-            let home    = std::env::var("HOME").unwrap_or_else(|_| ".".into());
+            let home = std::env::var("HOME").unwrap_or_else(|_| ".".into());
             let db_path = std::path::PathBuf::from(&home)
                 .join(".mnemosyne")
                 .join("db.sqlite");
 
             // Read persisted active models for all three categories.
             let initial = commands::models::read_persisted_models();
-            if let Some(ref m) = initial.text   { tracing::info!("Restoring text model: {m}"); }
-            if let Some(ref m) = initial.vision { tracing::info!("Restoring vision model: {m}"); }
-            if let Some(ref m) = initial.audio  { tracing::info!("Restoring audio model: {m}"); }
+            if let Some(ref m) = initial.text {
+                tracing::info!("Restoring text model: {m}");
+            }
+            if let Some(ref m) = initial.vision {
+                tracing::info!("Restoring vision model: {m}");
+            }
+            if let Some(ref m) = initial.audio {
+                tracing::info!("Restoring audio model: {m}");
+            }
 
             tracing::info!("Using database: {}", db_path.display());
 
             tauri::async_runtime::spawn(async move {
-                let mut builder = mnemosyne_retrieval::SearchEngine::builder()
-                    .db_path(&db_path);
-                if let Some(m) = initial.text   { builder = builder.text_model(m); }
-                if let Some(m) = initial.vision { builder = builder.vision_model(m); }
-                if let Some(m) = initial.audio  { builder = builder.audio_model(m); }
+                let mut builder = mnemosyne_retrieval::SearchEngine::builder().db_path(&db_path);
+                if let Some(m) = initial.text {
+                    builder = builder.text_model(m);
+                }
+                if let Some(m) = initial.vision {
+                    builder = builder.vision_model(m);
+                }
+                if let Some(m) = initial.audio {
+                    builder = builder.audio_model(m);
+                }
                 match builder.build().await {
                     Ok(engine) => {
                         *engine_lock.write().await = Some(engine);
@@ -129,4 +151,3 @@ pub fn run() {
         .run(tauri::generate_context!())
         .expect("error while running Mnemosyne");
 }
-
