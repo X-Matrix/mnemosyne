@@ -335,19 +335,32 @@ impl SearchEngine {
         }
 
         // ── CLIP text embedding for image chunks (clip-backend only) ──────────
-        // CLIP images are stored as 512-d vectors; they are invisible to the
-        // 384-d BERT search above.  Re-run vector search with the CLIP text
-        // embedding and merge the results.
+        // CLIP text-to-image search is only meaningful in pure Vector mode.
+        //
+        // Why not in Hybrid/Keyword:
+        //   CLIP cosine similarity for unrelated text-image pairs is typically
+        //   0.15~0.25.  With (sim+1)/2 normalisation this maps to 0.57~0.62,
+        //   which looks like a confident match but is just noise.  Users doing
+        //   keyword or hybrid search expect text-content results, not images that
+        //   happen to have a loosely similar CLIP embedding.
+        //
+        // In Vector mode we do include CLIP results but only when cosine > 0.26
+        // (noise floor threshold).  similarity_to_score(0.26) ≈ 0.63.
         #[cfg(feature = "clip-backend")]
-        if matches!(&query.mode, SearchMode::Vector | SearchMode::Hybrid) {
+        if matches!(&query.mode, SearchMode::Vector) {
             if let Ok(clip_text_emb) = self.embed_text_with_clip(&query.text).await {
-                let clip_limit = query.limit;
+                let clip_limit = query.limit * 2; // fetch more before filtering
                 let mut clip_results = self.index
                     .vector_search(&clip_text_emb, clip_limit)
                     .await
                     .unwrap_or_default();
 
-                // Merge: append CLIP results that are not already in the list.
+                // CLIP noise-floor filter: cosine < 0.26 → score < 0.63.
+                // Keeps only genuinely related image results.
+                const CLIP_MIN_SCORE: f32 = 0.63;
+                clip_results.retain(|r| r.score >= CLIP_MIN_SCORE);
+
+                // Merge: append CLIP results not already in the list.
                 let seen: std::collections::HashSet<String> = results
                     .iter()
                     .map(|r| format!("{}:{}", r.file_record.id, r.chunk_index))
@@ -356,8 +369,9 @@ impl SearchEngine {
                     !seen.contains(&format!("{}:{}", r.file_record.id, r.chunk_index))
                 });
                 results.extend(clip_results);
-                // Re-sort by score descending and trim to limit.
-                results.sort_by(|a, b| b.score.partial_cmp(&a.score).unwrap_or(std::cmp::Ordering::Equal));
+                results.sort_by(|a, b| {
+                    b.score.partial_cmp(&a.score).unwrap_or(std::cmp::Ordering::Equal)
+                });
                 results.truncate(query.limit);
             }
         }
