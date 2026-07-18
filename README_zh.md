@@ -303,7 +303,7 @@ mnemosyne search "项目会议记录"
 
 ### ANN 向量搜索 (sqlite-vector + HNSW)
 
-当索引大小超过 **2,000 个块**时，系统会自动切换到 HNSW（分层可导航小世界）进行近似最近邻搜索，将搜索速度从 O(n) 提高到 O(log n)。
+当索引大小超过 **2,000 个块**时，系统会自动切换到 HNSW进行近似最近邻搜索，将搜索速度从 O(n) 提高到 O(log n)。
 
 或者，安装 [sqlite-vector](https://github.com/sqliteai/sqlite-vector) 扩展以在 SQL 端启用向量操作：
 
