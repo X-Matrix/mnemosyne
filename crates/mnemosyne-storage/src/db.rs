@@ -1,13 +1,18 @@
 use mnemosyne_core::Error;
 use rusqlite::Connection;
 use std::path::Path;
-use std::sync::{Arc, Mutex};
+use std::sync::{
+    atomic::{AtomicBool, Ordering},
+    Arc, Mutex,
+};
 use tracing::{info, warn};
 
 /// Thread-safe wrapper around a single SQLite connection.
 #[derive(Clone)]
 pub struct Database {
     pub conn: Arc<Mutex<Connection>>,
+    /// True when the sqlite-vector extension was successfully loaded and verified.
+    pub sqlite_vector_loaded: Arc<AtomicBool>,
 }
 
 impl Database {
@@ -17,6 +22,7 @@ impl Database {
             .map_err(|e| Error::storage(e.to_string()))?;
         let db = Self {
             conn: Arc::new(Mutex::new(conn)),
+            sqlite_vector_loaded: Arc::new(AtomicBool::new(false)),
         };
         db.try_load_sqlite_vector();
         db.migrate()?;
@@ -29,9 +35,15 @@ impl Database {
             .map_err(|e| Error::storage(e.to_string()))?;
         let db = Self {
             conn: Arc::new(Mutex::new(conn)),
+            sqlite_vector_loaded: Arc::new(AtomicBool::new(false)),
         };
         db.migrate()?;
         Ok(db)
+    }
+
+    /// Returns true if the sqlite-vector extension is loaded and functional.
+    pub fn sqlite_vector_loaded(&self) -> bool {
+        self.sqlite_vector_loaded.load(Ordering::Acquire)
     }
 
     /// Try to load the sqlite-vector extension from well-known locations.
@@ -73,6 +85,14 @@ impl Database {
             match result {
                 Ok(_) => {
                     info!("sqlite-vector extension loaded from {path}");
+                    // Verify the extension is functional by calling vec_version().
+                    match conn.query_row("SELECT vec_version()", [], |r| r.get::<_, String>(0)) {
+                        Ok(ver) => {
+                            info!("sqlite-vector {ver} ready — KNN search enabled");
+                            self.sqlite_vector_loaded.store(true, Ordering::Release);
+                        }
+                        Err(e) => warn!("sqlite-vector loaded but vec_version() failed: {e}"),
+                    }
                     break;
                 }
                 Err(e) => warn!("Failed to load sqlite-vector from {path}: {e}"),

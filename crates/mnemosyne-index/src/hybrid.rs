@@ -65,8 +65,11 @@ impl SearchIndex for HybridIndex {
         .await
         .map_err(|e| Error::index(e.to_string()))??;
 
-        // Invalidate ANN cache so it rebuilds on next search.
-        self.ann.invalidate().await;
+        // When sqlite-vector is active it owns the index; the pure-Rust ANN
+        // cache is not used, so skip the invalidation to avoid wasted work.
+        if !self.db.sqlite_vector_loaded() {
+            self.ann.invalidate().await;
+        }
         Ok::<(), mnemosyne_core::Error>(())
     }
 
@@ -91,6 +94,40 @@ impl SearchIndex for HybridIndex {
         let db = self.db.clone();
         let query_emb = query_embedding.clone();
         let query_dim = query_emb.len(); // BERT=384, CLIP=512 — never mix!
+
+        // ── sqlite-vector KNN path (when extension is loaded) ─────────────────
+        // Uses the vec0 virtual table HNSW index via SQL; falls through to the
+        // pure-Rust paths below only when the extension is absent.
+        if db.sqlite_vector_loaded() {
+            return tokio::task::spawn_blocking(move || {
+                let emb_repo = EmbeddingRepo::new(&db);
+                let file_repo = FileRepo::new(&db);
+
+                // Ensure the vec0 table exists and is in sync with the BLOB store.
+                emb_repo.sync_to_vec0(query_dim)?;
+
+                let hits = emb_repo.vector_knn(&query_emb, limit)?;
+
+                let mut results = Vec::with_capacity(hits.len());
+                for (_, file_id, chunk_index, content, dist) in hits {
+                    // vec0 returns cosine distance (0 = identical, 2 = opposite).
+                    // Convert to a [0, 1] similarity score.
+                    let score = (1.0_f32 - dist).clamp(0.0, 1.0);
+                    if let Some(fr) = file_repo.get(&file_id)? {
+                        results.push(SearchResult {
+                            file_record: fr,
+                            score,
+                            snippet: Some(content.chars().take(200).collect()),
+                            match_type: MatchType::Vector,
+                            chunk_index: chunk_index as usize,
+                        });
+                    }
+                }
+                Ok(results)
+            })
+            .await
+            .map_err(|e| Error::index(e.to_string()))?;
+        }
 
         // ── Try ANN path first ────────────────────────────────────────────────
         // Build (or reuse) an index containing ONLY same-dimensional embeddings.

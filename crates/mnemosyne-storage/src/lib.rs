@@ -10,7 +10,7 @@ pub mod model_repo;
 
 pub use chunk_repo::{ChunkRepo, FtsRow};
 pub use db::Database;
-pub use embedding_repo::{EmbeddingRepo, EmbeddingRow};
+pub use embedding_repo::{EmbeddingRepo, EmbeddingRow, KnnRow};
 pub use file_repo::FileRepo;
 pub use model_repo::ModelRepo;
 
