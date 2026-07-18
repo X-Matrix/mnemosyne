@@ -2585,7 +2585,7 @@
             qs('#prev-badge').textContent = 'PDF';
             // Convert base64 → Blob URL so WKWebView can render natively
             const bytes = Uint8Array.from(atob(data.b64), c => c.charCodeAt(0));
-            const blob  = new Blob([bytes], { type: 'application/pdf' });
+            const blob = new Blob([bytes], { type: 'application/pdf' });
             prevBlobUrl = URL.createObjectURL(blob);
             qs('#prev-body').innerHTML =
               `<iframe class="prev-pdf" src="${prevBlobUrl}" title="${esc(nm)}"></iframe>`;
@@ -2603,7 +2603,7 @@
               <div class="prev-audio-icon">🎵</div>
               <audio class="prev-audio" controls autoplay src="${data.data_url}"></audio>
               <div class="prev-meta" style="width:100%;max-width:460px;padding:0">
-                <div class="prev-mr"><span class="prev-mk">格式</span><span>${(data.ext||'').toUpperCase()} · ${esc(data.mime||'')}</span></div>
+                <div class="prev-mr"><span class="prev-mk">格式</span><span>${(data.ext || '').toUpperCase()} · ${esc(data.mime || '')}</span></div>
                 <div class="prev-mr"><span class="prev-mk">大小</span><span>${fmtSz(data.size)}</span></div>
                 <div class="prev-mr"><span class="prev-mk">路径</span><span style="font-family:monospace;font-size:11px;word-break:break-all">${esc(path)}</span></div>
               </div>
