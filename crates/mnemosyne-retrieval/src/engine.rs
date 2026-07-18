@@ -490,24 +490,9 @@ impl SearchEngine {
                     // Use Debug format ("Text", "Image", …) — matches frontend keys
                     *files_by_type.entry(format!("{:?}", ft)).or_default() += count as u64;
                 }
-
-                // PDF files: stored as FileType::Text with .pdf extension.
-                // Count them separately so the sidebar can show Text vs PDF.
-                let pdf_count: i64 = conn
-                    .query_row(
-                        "SELECT COUNT(*) FROM files WHERE LOWER(path) LIKE '%.pdf'",
-                        [],
-                        |r| r.get(0),
-                    )
-                    .unwrap_or(0);
-                if pdf_count > 0 {
-                    files_by_type.insert("Pdf".to_string(), pdf_count as u64);
-                    // Remove PDF from the Text bucket to avoid double-counting.
-                    if let Some(v) = files_by_type.get_mut("Text") {
-                        *v = v.saturating_sub(pdf_count as u64);
-                    }
-                }
             }
+            // Note: PDF files now have FileType::Pdf (not Text), so they appear
+            // in their own bucket automatically from the GROUP BY query above.
 
             Ok(IndexStats {
                 total_files: file_repo.count()?,

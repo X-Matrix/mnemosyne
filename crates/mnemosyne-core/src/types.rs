@@ -7,6 +7,9 @@ use std::path::PathBuf;
 #[serde(rename_all = "lowercase")]
 pub enum FileType {
     Text,
+    /// PDF documents — stored separately from Text so they can be filtered
+    /// independently via `SearchQuery::file_types`.
+    Pdf,
     Image,
     Audio,
     Video,
@@ -18,7 +21,9 @@ impl FileType {
         match ext.to_lowercase().as_str() {
             "txt" | "md" | "markdown" | "csv" | "json" | "xml" | "html" | "htm" | "rst"
             | "toml" | "yaml" | "yml" | "log" | "ini" | "conf" | "py" | "rs" | "js" | "ts"
-            | "go" | "java" | "c" | "cpp" | "h" | "css" | "sh" | "bat" | "pdf" => Self::Text,
+            | "go" | "java" | "c" | "cpp" | "h" | "css" | "sh" | "bat" => Self::Text,
+
+            "pdf" => Self::Pdf,
 
             "jpg" | "jpeg" | "png" | "bmp" | "gif" | "webp" | "tiff" | "tif" | "svg" | "heic"
             | "heif" => Self::Image,

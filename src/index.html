@@ -1966,11 +1966,9 @@
         showLoad('搜索中…');
         const t0 = Date.now();
         const cfg = getSearchWeights();
-        // file_types filter:
-        // - 'pdf' → send no file_type filter (PDF is stored as 'text' FileType),
-        //   then filter results client-side by .pdf extension
-        // - other filters → send to backend
-        const ft = (filter === 'all' || filter === 'pdf') ? null : [filter];
+        // All file-type filters are sent to the backend.
+        // PDF now has its own FileType::Pdf so no client-side workaround needed.
+        const ft = filter === 'all' ? null : [filter];
         try {
           let rs = await invoke('search_files', {
             query: {
@@ -1984,10 +1982,6 @@
             }
           });
           rs = rs || [];
-          // Client-side PDF filter (PDFs are stored as FileType::text with .pdf ext)
-          if (filter === 'pdf') {
-            rs = rs.filter(r => (r.file_record?.path ?? '').toLowerCase().endsWith('.pdf'));
-          }
           // Client-side score threshold
           if (cfg.score_threshold > 0) {
             rs = rs.filter(r => (r.score ?? 0) >= cfg.score_threshold);
@@ -2013,9 +2007,8 @@
         ra.innerHTML = rs.map(r => {
           const ft = (r.file_record?.file_type ?? 'unknown').toLowerCase();
           const nm = (r.file_record?.path ?? '').split('/').pop() ?? '?';
-          const pdf = nm.toLowerCase().endsWith('.pdf');
-          const cls = pdf ? 'tb-p' : { text: 'tb-t', image: 'tb-i', audio: 'tb-a', video: 'tb-v', unknown: 'tb-u' }[ft] ?? 'tb-u';
-          const lbl = pdf ? 'PDF' : { text: 'TXT', image: 'IMG', audio: 'AUDIO', video: 'VIDEO', unknown: '?' }[ft] ?? ft.toUpperCase();
+          const cls = { text: 'tb-t', pdf: 'tb-p', image: 'tb-i', audio: 'tb-a', video: 'tb-v', unknown: 'tb-u' }[ft] ?? 'tb-u';
+          const lbl = { text: 'TXT', pdf: 'PDF', image: 'IMG', audio: 'AUDIO', video: 'VIDEO', unknown: '?' }[ft] ?? ft.toUpperCase();
           const pct = ((r.score ?? 0) * 100).toFixed(0);
           const sn = r.snippet ? esc(r.snippet.slice(0, 200)) : '';
           const rPath = String(r.file_record?.path ?? '');
@@ -2204,9 +2197,8 @@
         qs('#file-list').innerHTML = files.map(f => {
           const ft = (f.file_type ?? 'unknown').toLowerCase();
           const nm = (f.path ?? '').split('/').pop() ?? '?';
-          const pdf = nm.toLowerCase().endsWith('.pdf');
-          const cls = pdf ? 'tb-p' : { text: 'tb-t', image: 'tb-i', audio: 'tb-a', video: 'tb-v', unknown: 'tb-u' }[ft] ?? 'tb-u';
-          const lbl = pdf ? 'PDF' : { text: 'TXT', image: 'IMG', audio: 'AUDIO', video: 'VIDEO', unknown: '?' }[ft] ?? ft.toUpperCase();
+          const cls = { text: 'tb-t', pdf: 'tb-p', image: 'tb-i', audio: 'tb-a', video: 'tb-v', unknown: 'tb-u' }[ft] ?? 'tb-u';
+          const lbl = { text: 'TXT', pdf: 'PDF', image: 'IMG', audio: 'AUDIO', video: 'VIDEO', unknown: '?' }[ft] ?? ft.toUpperCase();
           const pathStr = String(f.path ?? '');
           return `<div class="file-row" style="cursor:pointer" onclick="g.previewFile('${esc(pathStr)}')">
       <span class="tb ${cls}" style="flex-shrink:0">${lbl}</span>
@@ -2743,7 +2735,7 @@ mnemosyne serve --port 8080`;
           const ft = s.files_by_type ?? {};
           qs('#fa').textContent = s.total_files ?? 0;
           qs('#ft_').textContent = ft['Text'] ?? '';
-          qs('#fp').textContent = ft['Pdf'] ?? ft['Text'] ?? '';
+          qs('#fp').textContent = ft['Pdf'] ?? '';
           qs('#fi').textContent = ft['Image'] ?? '';
           qs('#fau').textContent = ft['Audio'] ?? '';
           qs('#fv').textContent = ft['Video'] ?? '';
