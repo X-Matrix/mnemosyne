@@ -31,7 +31,7 @@ pub const DEFAULT_IGNORED_DIRS: &[&str] = &[
     ".mypy_cache",
     ".ruff_cache",
     ".eggs",
-    "*.egg-info",   // kept for documentation; matched by name prefix check
+    "*.egg-info", // kept for documentation; matched by name prefix check
     // ── Rust ─────────────────────────────────────────────────────────────────
     "target",
     // ── Java / Kotlin / Android ───────────────────────────────────────────────
@@ -41,7 +41,7 @@ pub const DEFAULT_IGNORED_DIRS: &[&str] = &[
     // ── iOS / macOS ──────────────────────────────────────────────────────────
     "Pods",
     "DerivedData",
-    ".build",       // Swift PM
+    ".build", // Swift PM
     // ── Frontend build output ────────────────────────────────────────────────
     "dist",
     "out",
@@ -67,7 +67,7 @@ pub const DEFAULT_IGNORED_DIRS: &[&str] = &[
     ".Trashes",
     ".fseventsd",
     // ── Misc ─────────────────────────────────────────────────────────────────
-    "vendor",       // Go / PHP vendor dirs (not the same as Rust workspace vendor)
+    "vendor", // Go / PHP vendor dirs (not the same as Rust workspace vendor)
     "__generated__",
     ".terraform",
     ".vagrant",

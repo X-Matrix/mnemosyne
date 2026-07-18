@@ -167,20 +167,14 @@ impl<'a> EmbeddingRepo<'a> {
             .map_err(|e| Error::storage(e.to_string()))?;
 
         let vec_count: i64 = conn
-            .query_row(
-                &format!("SELECT COUNT(*) FROM {table}"),
-                [],
-                |r| r.get(0),
-            )
+            .query_row(&format!("SELECT COUNT(*) FROM {table}"), [], |r| r.get(0))
             .map_err(|e| Error::storage(e.to_string()))?;
 
         if emb_count == vec_count {
             return Ok(()); // already in sync
         }
 
-        info!(
-            "Syncing {emb_count} embeddings (dim={dim}) into {table} (had {vec_count})"
-        );
+        info!("Syncing {emb_count} embeddings (dim={dim}) into {table} (had {vec_count})");
 
         // Full repopulation from the authoritative BLOB store.
         conn.execute(&format!("DELETE FROM {table}"), [])
@@ -200,9 +194,7 @@ impl<'a> EmbeddingRepo<'a> {
 
         for (rowid, bytes) in rows {
             conn.execute(
-                &format!(
-                    "INSERT OR REPLACE INTO {table}(rowid, embedding) VALUES (?1, ?2)"
-                ),
+                &format!("INSERT OR REPLACE INTO {table}(rowid, embedding) VALUES (?1, ?2)"),
                 params![rowid, bytes],
             )
             .map_err(|e| Error::storage(e.to_string()))?;

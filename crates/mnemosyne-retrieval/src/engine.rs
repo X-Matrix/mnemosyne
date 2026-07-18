@@ -393,42 +393,69 @@ impl SearchEngine {
         // CLIP text→image search and merging its results.
         //
         // Modes:
-        //   Vector  — included (primary use-case for image search)
-        //   Hybrid  — included (images should appear alongside text results)
-        //   Keyword — excluded (FTS5 on captions like "Image: foo.png (WxH)"
-        //             has no semantic meaning; pure text users expect text)
-        //
-        // Noise-floor guard: cosine < 0.26 → score < 0.63.  This rejects CLIP
-        // matches that are just "loosely similar" rather than genuinely related.
+        //   Vector  — included; merge & re-sort; threshold 0.63 (cosine ≥ 0.26).
+        //   Hybrid  — included but carefully controlled:
+        //     • Strict threshold 0.75 (cosine ≥ 0.50) — random screenshots score
+        //       ~0.65 for most queries and must be excluded.
+        //     • Hard cap at 5 images — prevents images flooding text results.
+        //     • No re-sort — RRF text scores (~0.016) and CLIP cosine scores
+        //       (~0.65+) are on incompatible scales; re-sorting always puts images
+        //       first regardless of relevance.  Images are appended after text.
+        //   Keyword — excluded; FTS5 on captions has no semantic value.
         #[cfg(feature = "clip-backend")]
         if matches!(&query.mode, SearchMode::Vector | SearchMode::Hybrid) {
             if let Ok(clip_text_emb) = self.embed_text_with_clip(&query.text).await {
-                let clip_limit = query.limit * 2; // fetch more before filtering
+                let is_hybrid = matches!(&query.mode, SearchMode::Hybrid);
+
+                // Threshold: cosine ≥ 0.50 in hybrid (genuine match only),
+                //            cosine ≥ 0.26 in pure vector (more permissive).
+                const CLIP_MIN_VECTOR: f32 = 0.63;
+                const CLIP_MIN_HYBRID: f32 = 0.75;
+                const CLIP_MAX_HYBRID: usize = 5; // hard cap on images in hybrid
+
+                let clip_min_score = if is_hybrid {
+                    CLIP_MIN_HYBRID
+                } else {
+                    CLIP_MIN_VECTOR
+                };
+                let clip_fetch = if is_hybrid {
+                    CLIP_MAX_HYBRID * 4
+                } else {
+                    query.limit * 2
+                };
+
                 let mut clip_results = self
                     .index
-                    .vector_search(&clip_text_emb, clip_limit)
+                    .vector_search(&clip_text_emb, clip_fetch)
                     .await
                     .unwrap_or_default();
 
-                // CLIP noise-floor filter: cosine < 0.26 → score < 0.63.
-                // Keeps only genuinely related image results.
-                const CLIP_MIN_SCORE: f32 = 0.63;
-                clip_results.retain(|r| r.score >= CLIP_MIN_SCORE);
+                clip_results.retain(|r| r.score >= clip_min_score);
 
-                // Merge: append CLIP results not already in the list.
+                // Deduplicate against existing results.
                 let seen: std::collections::HashSet<String> = results
                     .iter()
                     .map(|r| format!("{}:{}", r.file_record.id, r.chunk_index))
                     .collect();
                 clip_results
                     .retain(|r| !seen.contains(&format!("{}:{}", r.file_record.id, r.chunk_index)));
-                results.extend(clip_results);
-                results.sort_by(|a, b| {
-                    b.score
-                        .partial_cmp(&a.score)
-                        .unwrap_or(std::cmp::Ordering::Equal)
-                });
-                results.truncate(query.limit);
+
+                if is_hybrid {
+                    // Cap and append AFTER text results (no re-sort — scale mismatch).
+                    clip_results.truncate(CLIP_MAX_HYBRID);
+                    let text_slots = query.limit.saturating_sub(clip_results.len());
+                    results.truncate(text_slots);
+                    results.extend(clip_results);
+                } else {
+                    // Vector mode: merge and sort by cosine score (same scale).
+                    results.extend(clip_results);
+                    results.sort_by(|a, b| {
+                        b.score
+                            .partial_cmp(&a.score)
+                            .unwrap_or(std::cmp::Ordering::Equal)
+                    });
+                    results.truncate(query.limit);
+                }
             }
         }
 
@@ -512,11 +539,10 @@ impl SearchEngine {
         let db = self.db.clone();
         let path_str = path.to_string_lossy().to_string();
 
-        let record = tokio::task::spawn_blocking(move || {
-            FileRepo::new(&db).find_by_path(&path_str)
-        })
-        .await
-        .map_err(|e| Error::storage(e.to_string()))??;
+        let record =
+            tokio::task::spawn_blocking(move || FileRepo::new(&db).find_by_path(&path_str))
+                .await
+                .map_err(|e| Error::storage(e.to_string()))??;
 
         match record {
             Some(rec) => {
