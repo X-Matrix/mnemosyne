@@ -1,5 +1,5 @@
 use crate::TextEmbedder;
-use mnemosyne_core::{traits::EmbeddingModel, Error};
+use mnemosyne_core::Error;
 use std::collections::HashMap;
 use std::sync::{Arc, RwLock};
 

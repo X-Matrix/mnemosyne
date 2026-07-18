@@ -28,6 +28,7 @@ const N_FRAMES: usize = 3000; // 30 s × 100 fps
 /// Whisper-base generates ~4 tokens/second; 80 tokens covers ~20 s of speech.
 /// Kept deliberately small to bound O(n²) self-attention decode cost on CPU.
 const MAX_DECODE_TOKENS: usize = 80;
+#[allow(dead_code)]
 const N_FFT: usize = 400;
 
 pub struct WhisperTranscriber {

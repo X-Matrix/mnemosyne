@@ -6,21 +6,22 @@
 use async_trait::async_trait;
 use mnemosyne_core::{traits::EmbeddingModel, types::Embedding, Error};
 use std::sync::Arc;
-use tracing::warn;
 
 #[cfg(feature = "candle-backend")]
 use super::bert_impl::BertEmbedder;
+#[cfg(not(feature = "candle-backend"))]
+use tracing::warn;
 
 /// Default model identifier.
 pub const DEFAULT_TEXT_MODEL: &str = "sentence-transformers/all-MiniLM-L6-v2";
+#[cfg(not(feature = "candle-backend"))]
 const STUB_DIM: usize = 384;
 
 // ── Backend enum ─────────────────────────────────────────────────────────────
 
 enum Backend {
-    Stub {
-        dim: usize,
-    },
+    #[cfg(not(feature = "candle-backend"))]
+    Stub { dim: usize },
     #[cfg(feature = "candle-backend")]
     Bert(Box<BertEmbedder>),
 }
@@ -28,17 +29,17 @@ enum Backend {
 impl Backend {
     fn embed(&self, text: &str) -> Result<Vec<f32>, Error> {
         match self {
+            #[cfg(not(feature = "candle-backend"))]
             Self::Stub { dim } => Ok(stub_embed(text, *dim)),
             #[cfg(feature = "candle-backend")]
             Self::Bert(bert) => bert.embed(text),
         }
     }
 
+    #[cfg(not(feature = "candle-backend"))]
     fn dim(&self) -> usize {
         match self {
             Self::Stub { dim } => *dim,
-            #[cfg(feature = "candle-backend")]
-            Self::Bert(b) => b.dim,
         }
     }
 }
@@ -111,7 +112,7 @@ impl EmbeddingModel for TextEmbedder {
 }
 
 // ── Stub embedding ────────────────────────────────────────────────────────────
-
+#[cfg(not(feature = "candle-backend"))]
 fn stub_embed(text: &str, dim: usize) -> Vec<f32> {
     use std::collections::hash_map::DefaultHasher;
     use std::hash::{Hash, Hasher};

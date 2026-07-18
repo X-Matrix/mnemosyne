@@ -78,7 +78,7 @@ impl Database {
                 Err(e) => warn!("Failed to load sqlite-vector from {path}: {e}"),
             }
         }
-        let _ = unsafe { conn.load_extension_disable() };
+        let _ = conn.load_extension_disable();
     }
 
     fn migrate(&self) -> Result<(), Error> {

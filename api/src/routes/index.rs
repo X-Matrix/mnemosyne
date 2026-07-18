@@ -1,6 +1,6 @@
 use crate::{ApiError, AppState};
 use axum::{extract::State, Json};
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 use std::sync::Arc;
 
 #[derive(Deserialize)]

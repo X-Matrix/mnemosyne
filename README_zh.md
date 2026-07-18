@@ -1,5 +1,6 @@
 <div align="center">
-  <h1>🧠 Mnemosyne</h1>
+  <img src="src-tauri/icons/128x128.png" alt="Mnemosyne" width="80" />
+  <h1>Mnemosyne</h1>
   <p><strong>一个智能的、本地优先的文件搜索与分析系统。</strong></p>
   <p>
     <a href="https://github.com/mnemosyne-proj/mnemosyne/actions"><img src="https://github.com/mnemosyne-proj/mnemosyne/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
