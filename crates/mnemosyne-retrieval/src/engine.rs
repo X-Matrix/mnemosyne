@@ -333,7 +333,8 @@ impl SearchEngine {
     ///
     /// When `clip-backend` is compiled in, the query is also embedded with the
     /// CLIP text encoder so that image chunks (stored as 512-d CLIP vectors) are
-    /// included in vector / hybrid searches alongside text results.
+    /// included in Vector and Hybrid searches alongside text results.
+    /// Keyword mode is excluded — FTS5 on image captions has no semantic value.
     pub async fn search(&self, query: SearchQuery) -> Result<Vec<SearchResult>, Error> {
         if query.text.trim().is_empty() {
             return Ok(vec![]);
@@ -364,19 +365,22 @@ impl SearchEngine {
         }
 
         // ── CLIP text embedding for image chunks (clip-backend only) ──────────
-        // CLIP text-to-image search is only meaningful in pure Vector mode.
+        // Images are stored with 512-dim CLIP vectors, which live in a completely
+        // separate embedding space from the 384-dim BERT space used for text /
+        // audio / PDF chunks.  The BERT-based hybrid_search therefore never sees
+        // images regardless of the query.  We fix this by running an additional
+        // CLIP text→image search and merging its results.
         //
-        // Why not in Hybrid/Keyword:
-        //   CLIP cosine similarity for unrelated text-image pairs is typically
-        //   0.15~0.25.  With (sim+1)/2 normalisation this maps to 0.57~0.62,
-        //   which looks like a confident match but is just noise.  Users doing
-        //   keyword or hybrid search expect text-content results, not images that
-        //   happen to have a loosely similar CLIP embedding.
+        // Modes:
+        //   Vector  — included (primary use-case for image search)
+        //   Hybrid  — included (images should appear alongside text results)
+        //   Keyword — excluded (FTS5 on captions like "Image: foo.png (WxH)"
+        //             has no semantic meaning; pure text users expect text)
         //
-        // In Vector mode we do include CLIP results but only when cosine > 0.26
-        // (noise floor threshold).  similarity_to_score(0.26) ≈ 0.63.
+        // Noise-floor guard: cosine < 0.26 → score < 0.63.  This rejects CLIP
+        // matches that are just "loosely similar" rather than genuinely related.
         #[cfg(feature = "clip-backend")]
-        if matches!(&query.mode, SearchMode::Vector) {
+        if matches!(&query.mode, SearchMode::Vector | SearchMode::Hybrid) {
             if let Ok(clip_text_emb) = self.embed_text_with_clip(&query.text).await {
                 let clip_limit = query.limit * 2; // fetch more before filtering
                 let mut clip_results = self
