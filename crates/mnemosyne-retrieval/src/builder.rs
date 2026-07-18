@@ -1,4 +1,5 @@
 use crate::engine::SearchEngine;
+use crate::ignore::IgnoreConfig;
 use mnemosyne_core::Error;
 use mnemosyne_index::HybridIndex;
 use mnemosyne_model::{ModelRegistry, DEFAULT_TEXT_MODEL};
@@ -18,6 +19,7 @@ pub struct SearchEngineBuilder {
     text_model_id: String,
     vision_model_id: String,
     audio_model_id: String,
+    ignore_config: IgnoreConfig,
 }
 
 impl SearchEngineBuilder {
@@ -27,6 +29,7 @@ impl SearchEngineBuilder {
             text_model_id: DEFAULT_TEXT_MODEL.to_string(),
             vision_model_id: DEFAULT_VISION_MODEL.to_string(),
             audio_model_id: DEFAULT_AUDIO_MODEL.to_string(),
+            ignore_config: IgnoreConfig::default(),
         }
     }
 
@@ -45,6 +48,13 @@ impl SearchEngineBuilder {
     }
     pub fn audio_model(mut self, model_id: impl Into<String>) -> Self {
         self.audio_model_id = model_id.into();
+        self
+    }
+
+    /// Override the ignore configuration (directories to skip during indexing).
+    /// Defaults to [`IgnoreConfig::default`] which covers the most common cases.
+    pub fn ignore_config(mut self, config: IgnoreConfig) -> Self {
+        self.ignore_config = config;
         self
     }
 
@@ -74,6 +84,7 @@ impl SearchEngineBuilder {
             self.text_model_id,
             self.vision_model_id,
             self.audio_model_id,
+            Arc::new(self.ignore_config),
         ))
     }
 }

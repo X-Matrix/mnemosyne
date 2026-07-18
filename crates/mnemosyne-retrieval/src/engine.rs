@@ -1,3 +1,4 @@
+use crate::ignore::IgnoreConfig;
 use chrono::TimeZone;
 use mnemosyne_core::{
     traits::{EmbeddingModel, SearchIndex},
@@ -30,6 +31,7 @@ pub struct SearchEngine {
     pub(crate) text_model_id: String,
     pub(crate) vision_model_id: String,
     pub(crate) audio_model_id: String,
+    pub(crate) ignore_config: Arc<IgnoreConfig>,
 }
 
 impl SearchEngine {
@@ -41,6 +43,7 @@ impl SearchEngine {
         text_model_id: String,
         vision_model_id: String,
         audio_model_id: String,
+        ignore_config: Arc<IgnoreConfig>,
     ) -> Self {
         Self {
             db,
@@ -50,7 +53,13 @@ impl SearchEngine {
             text_model_id,
             vision_model_id,
             audio_model_id,
+            ignore_config,
         }
+    }
+
+    /// Expose the current ignore configuration.
+    pub fn ignore_config(&self) -> &IgnoreConfig {
+        &self.ignore_config
     }
 
     pub fn builder() -> crate::builder::SearchEngineBuilder {
@@ -121,9 +130,21 @@ impl SearchEngine {
         let mut total_walked = 0usize;
         let mut walkdir_errors = 0usize;
         let mut unsupported_count = 0usize;
+
+        let ignore = Arc::clone(&self.ignore_config);
+        let root = dir.clone();
         let entries: Vec<_> = WalkDir::new(&dir)
             .follow_links(true)
             .into_iter()
+            .filter_entry(move |e| {
+                // Prune ignored directories early so we never descend into them.
+                if e.file_type().is_dir() {
+                    let is_root = e.path() == root;
+                    !ignore.should_skip_dir(e.path(), is_root)
+                } else {
+                    true
+                }
+            })
             .filter_map(|e| match e {
                 Ok(entry) => {
                     total_walked += 1;

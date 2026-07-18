@@ -3,13 +3,13 @@
 //! Uses `notify-debouncer-mini` with a Tokio channel bridge so event
 //! processing runs inside the Tokio runtime.
 
+use crate::engine::SearchEngine;
+use crate::ignore::IgnoreConfig;
 use mnemosyne_core::Error;
 use notify::RecursiveMode;
 use notify_debouncer_mini::{new_debouncer, DebounceEventResult};
 use std::{path::Path, sync::Arc, time::Duration};
 use tracing::{debug, info, warn};
-
-use crate::engine::SearchEngine;
 
 /// A running file-system watcher. Drop to stop watching.
 pub struct FileWatcher {
@@ -35,6 +35,7 @@ impl FileWatcher {
             .watch(&dir, RecursiveMode::Recursive)
             .map_err(|e| Error::Other(anyhow::anyhow!("watch start: {e}")))?;
 
+        let ignore = Arc::clone(&engine.ignore_config);
         tokio::spawn(async move {
             while let Some(result) = rx.recv().await {
                 let events = match result {
@@ -46,7 +47,7 @@ impl FileWatcher {
                 };
                 for event in events {
                     let path = event.path.clone();
-                    if !is_indexable(&path) {
+                    if !is_indexable(&path, &ignore) {
                         continue;
                     }
                     debug!("File changed: {}", path.display());
@@ -65,11 +66,9 @@ impl FileWatcher {
     }
 }
 
-fn is_indexable(path: &Path) -> bool {
-    if path
-        .components()
-        .any(|c| c.as_os_str().to_str().is_some_and(|s| s.starts_with('.')))
-    {
+fn is_indexable(path: &Path, ignore: &IgnoreConfig) -> bool {
+    // Reject files inside ignored or hidden directories.
+    if ignore.should_skip_path(path) {
         return false;
     }
     if !path.is_file() {
