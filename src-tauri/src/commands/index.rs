@@ -274,6 +274,34 @@ pub async fn preview_file(path: String) -> Result<serde_json::Value, CommandErro
         .to_lowercase();
     let ft = FileType::from_extension(&ext);
 
+    // ── PDF ───────────────────────────────────────────────────────────────────
+    // PDFs are classified as FileType::Text; handle before the match so the
+    // text branch doesn't try to decode them as UTF-8.
+    if ext == "pdf" {
+        let meta = tokio::fs::metadata(p).await.map_err(|e| CommandError {
+            message: e.to_string(),
+        })?;
+        const MAX_PDF: u64 = 20 * 1024 * 1024; // 20 MB
+        if meta.len() > MAX_PDF {
+            return Ok(serde_json::json!({
+                "type": "pdf_large",
+                "size": meta.len(),
+                "ext":  "pdf"
+            }));
+        }
+        let data = tokio::fs::read(p).await.map_err(|e| CommandError {
+            message: e.to_string(),
+        })?;
+        use base64::Engine as _;
+        let b64 = base64::engine::general_purpose::STANDARD.encode(&data);
+        return Ok(serde_json::json!({
+            "type":     "pdf",
+            "b64":      b64,
+            "size":     data.len(),
+            "ext":      "pdf"
+        }));
+    }
+
     match ft {
         FileType::Text => {
             let raw = tokio::fs::read(p).await.map_err(|e| CommandError {
@@ -321,6 +349,44 @@ pub async fn preview_file(path: String) -> Result<serde_json::Value, CommandErro
         }
 
         _ => {
+            // ── Audio ─────────────────────────────────────────────────────────
+            if matches!(ft, FileType::Audio) {
+                let meta = tokio::fs::metadata(p).await.map_err(|e| CommandError {
+                    message: e.to_string(),
+                })?;
+                const MAX_AUDIO: u64 = 50 * 1024 * 1024; // 50 MB
+                if meta.len() > MAX_AUDIO {
+                    return Ok(serde_json::json!({
+                        "type": "audio_large",
+                        "size": meta.len(),
+                        "ext":  ext
+                    }));
+                }
+                let data = tokio::fs::read(p).await.map_err(|e| CommandError {
+                    message: e.to_string(),
+                })?;
+                let mime = match ext.as_str() {
+                    "mp3" => "audio/mpeg",
+                    "wav" => "audio/wav",
+                    "flac" => "audio/flac",
+                    "ogg" | "oga" => "audio/ogg",
+                    "aac" => "audio/aac",
+                    "m4a" => "audio/mp4",
+                    "opus" => "audio/opus",
+                    "wma" => "audio/x-ms-wma",
+                    _ => "audio/mpeg",
+                };
+                use base64::Engine as _;
+                let b64 = base64::engine::general_purpose::STANDARD.encode(&data);
+                return Ok(serde_json::json!({
+                    "type":     "audio",
+                    "data_url": format!("data:{mime};base64,{b64}"),
+                    "size":     data.len(),
+                    "ext":      ext,
+                    "mime":     mime
+                }));
+            }
+
             let meta = tokio::fs::metadata(p).await.map_err(|e| CommandError {
                 message: e.to_string(),
             })?;

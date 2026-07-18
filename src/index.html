@@ -1275,6 +1275,40 @@
       flex-shrink: 0
     }
 
+    /* ── PDF preview ────────────────────────────────────────────────────────── */
+    .prev-pdf {
+      width: 100%;
+      height: calc(84vh - 58px);
+      border: none;
+      display: block;
+      border-radius: 0 0 10px 10px;
+      background: #fff
+    }
+
+    /* ── Audio preview ───────────────────────────────────────────────────────── */
+    .prev-audio-wrap {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 36px 24px 28px;
+      gap: 22px
+    }
+
+    .prev-audio-icon {
+      font-size: 64px;
+      line-height: 1;
+      filter: drop-shadow(0 4px 12px rgba(0, 0, 0, .4))
+    }
+
+    .prev-audio {
+      width: 100%;
+      max-width: 460px;
+      border-radius: 8px;
+      outline: none;
+      accent-color: var(--acc)
+    }
+
     /* ── REST API toggle ─────────────────────────────────────────────────────── */
     .tog {
       width: 38px;
@@ -2508,9 +2542,19 @@
 
       // ── File Preview ──────────────────────────────────────────────────────────────
       let prevPath = '';
+      let prevBlobUrl = null; // tracked for cleanup
+
+      function releasePrevBlob() {
+        if (prevBlobUrl) { URL.revokeObjectURL(prevBlobUrl); prevBlobUrl = null; }
+      }
 
       g.previewFile = async (path) => {
         if (!path) return;
+        releasePrevBlob();
+        // Stop any audio currently playing
+        const oldAudio = qs('#prev-body audio');
+        if (oldAudio) { oldAudio.pause(); oldAudio.src = ''; }
+
         prevPath = path;
         const nm = path.split('/').pop() ?? path;
         qs('#prev-title').textContent = nm;
@@ -2525,15 +2569,54 @@
           if (data.type === 'text') {
             qs('#prev-badge').textContent = (data.ext || 'TXT').toUpperCase();
             qs('#prev-body').innerHTML = `<pre class="prev-txt">${esc(data.content)}</pre>`;
+
           } else if (data.type === 'image') {
             qs('#prev-badge').textContent = (data.ext || 'IMG').toUpperCase();
             qs('#prev-body').innerHTML = `<div class="prev-img-wrap"><img class="prev-img" src="${data.data_url}" alt="${esc(nm)}"/></div>`;
+
           } else if (data.type === 'image_large') {
             qs('#prev-badge').textContent = (data.ext || 'IMG').toUpperCase();
             qs('#prev-body').innerHTML = `<div class="prev-meta">
               <div class="prev-mr"><span class="prev-mk">大小</span><span>${fmtSz(data.size)}</span></div>
               <div class="prev-mr"><span class="prev-mk">说明</span><span>图片超过 6 MB，无法内联预览，请用 Finder 打开</span></div>
             </div>`;
+
+          } else if (data.type === 'pdf') {
+            qs('#prev-badge').textContent = 'PDF';
+            // Convert base64 → Blob URL so WKWebView can render natively
+            const bytes = Uint8Array.from(atob(data.b64), c => c.charCodeAt(0));
+            const blob  = new Blob([bytes], { type: 'application/pdf' });
+            prevBlobUrl = URL.createObjectURL(blob);
+            qs('#prev-body').innerHTML =
+              `<iframe class="prev-pdf" src="${prevBlobUrl}" title="${esc(nm)}"></iframe>`;
+
+          } else if (data.type === 'pdf_large') {
+            qs('#prev-badge').textContent = 'PDF';
+            qs('#prev-body').innerHTML = `<div class="prev-meta">
+              <div class="prev-mr"><span class="prev-mk">大小</span><span>${fmtSz(data.size)}</span></div>
+              <div class="prev-mr"><span class="prev-mk">说明</span><span>PDF 超过 20 MB，无法内联预览，请用 Finder 打开</span></div>
+            </div>`;
+
+          } else if (data.type === 'audio') {
+            qs('#prev-badge').textContent = (data.ext || 'MP3').toUpperCase();
+            qs('#prev-body').innerHTML = `<div class="prev-audio-wrap">
+              <div class="prev-audio-icon">🎵</div>
+              <audio class="prev-audio" controls autoplay src="${data.data_url}"></audio>
+              <div class="prev-meta" style="width:100%;max-width:460px;padding:0">
+                <div class="prev-mr"><span class="prev-mk">格式</span><span>${(data.ext||'').toUpperCase()} · ${esc(data.mime||'')}</span></div>
+                <div class="prev-mr"><span class="prev-mk">大小</span><span>${fmtSz(data.size)}</span></div>
+                <div class="prev-mr"><span class="prev-mk">路径</span><span style="font-family:monospace;font-size:11px;word-break:break-all">${esc(path)}</span></div>
+              </div>
+            </div>`;
+
+          } else if (data.type === 'audio_large') {
+            qs('#prev-badge').textContent = (data.ext || 'AUDIO').toUpperCase();
+            qs('#prev-body').innerHTML = `<div class="prev-meta">
+              <div class="prev-mr"><span class="prev-mk">大小</span><span>${fmtSz(data.size)}</span></div>
+              <div class="prev-mr"><span class="prev-mk">说明</span><span>音频超过 50 MB，无法内联预览，请用 Finder 打开</span></div>
+              <div class="prev-mr"><span class="prev-mk">路径</span><span style="font-family:monospace;font-size:11px;word-break:break-all">${esc(path)}</span></div>
+            </div>`;
+
           } else {
             qs('#prev-badge').textContent = (data.ext || data.file_type || '?').toUpperCase();
             const ftLabel = { audio: '🎵 音频', video: '🎬 视频', unknown: '📄 文件' }[data.file_type?.toLowerCase()] ?? data.file_type ?? '未知';
@@ -2548,7 +2631,13 @@
         }
       };
 
-      g.closePreview = () => { qs('#prev-ov').classList.remove('open'); prevPath = ''; };
+      g.closePreview = () => {
+        const audio = qs('#prev-body audio');
+        if (audio) { audio.pause(); audio.src = ''; }
+        releasePrevBlob();
+        qs('#prev-ov').classList.remove('open');
+        prevPath = '';
+      };
       g.openPreviewFile = () => { if (prevPath) openFile(prevPath); };
 
       // ── Settings ──────────────────────────────────────────────────────────────────
