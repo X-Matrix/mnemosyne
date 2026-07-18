@@ -504,6 +504,29 @@ impl SearchEngine {
         self.index.remove_file(file_id).await
     }
 
+    /// Remove a file from the index by its filesystem path.
+    ///
+    /// Returns `Ok(true)` if the file was found and removed, `Ok(false)` if it
+    /// was not in the index (already clean).
+    pub async fn remove_file_by_path(&self, path: &Path) -> Result<bool, Error> {
+        let db = self.db.clone();
+        let path_str = path.to_string_lossy().to_string();
+
+        let record = tokio::task::spawn_blocking(move || {
+            FileRepo::new(&db).find_by_path(&path_str)
+        })
+        .await
+        .map_err(|e| Error::storage(e.to_string()))??;
+
+        match record {
+            Some(rec) => {
+                self.index.remove_file(&rec.id).await?;
+                Ok(true)
+            }
+            None => Ok(false),
+        }
+    }
+
     // ── Embedding routing ─────────────────────────────────────────────────────
 
     /// Generate embeddings for a batch of parsed content chunks.

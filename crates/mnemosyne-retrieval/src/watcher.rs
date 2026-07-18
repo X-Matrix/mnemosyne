@@ -47,15 +47,32 @@ impl FileWatcher {
                 };
                 for event in events {
                     let path = event.path.clone();
-                    if !is_indexable(&path, &ignore) {
+
+                    if ignore.should_skip_path(&path) {
                         continue;
                     }
-                    debug!("File changed: {}", path.display());
-                    match engine.index_file(&path).await {
-                        Ok(true) => info!("Re-indexed: {}", path.display()),
-                        Ok(false) => debug!("Unchanged: {}", path.display()),
-                        Err(e) => warn!("Re-index failed for {}: {e}", path.display()),
+
+                    if path.is_file() {
+                        // File exists — re-index if it has a supported extension.
+                        if !has_supported_extension(&path) {
+                            continue;
+                        }
+                        debug!("File changed: {}", path.display());
+                        match engine.index_file(&path).await {
+                            Ok(true) => info!("Re-indexed: {}", path.display()),
+                            Ok(false) => debug!("Unchanged: {}", path.display()),
+                            Err(e) => warn!("Re-index failed for {}: {e}", path.display()),
+                        }
+                    } else if !path.exists() {
+                        // Path is gone — the file was deleted or moved away.
+                        info!("File removed: {}", path.display());
+                        match engine.remove_file_by_path(&path).await {
+                            Ok(true) => info!("Removed from index: {}", path.display()),
+                            Ok(false) => debug!("Not in index: {}", path.display()),
+                            Err(e) => warn!("Remove from index failed for {}: {e}", path.display()),
+                        }
                     }
+                    // path exists but is a directory — ignore
                 }
             }
         });
@@ -66,14 +83,7 @@ impl FileWatcher {
     }
 }
 
-fn is_indexable(path: &Path, ignore: &IgnoreConfig) -> bool {
-    // Reject files inside ignored or hidden directories.
-    if ignore.should_skip_path(path) {
-        return false;
-    }
-    if !path.is_file() {
-        return false;
-    }
+fn has_supported_extension(path: &Path) -> bool {
     let ext = path
         .extension()
         .and_then(|e| e.to_str())

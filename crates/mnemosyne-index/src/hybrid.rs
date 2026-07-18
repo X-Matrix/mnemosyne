@@ -76,14 +76,20 @@ impl SearchIndex for HybridIndex {
     async fn remove_file(&self, file_id: &str) -> mnemosyne_core::Result<()> {
         let db = self.db.clone();
         let file_id = file_id.to_string();
-        tokio::task::spawn_blocking(move || {
+        tokio::task::spawn_blocking(move || -> mnemosyne_core::Result<()> {
             let conn = db.conn.lock().unwrap();
             conn.execute("DELETE FROM files WHERE id = ?1", params![file_id])
                 .map_err(|e| Error::storage(e.to_string()))?;
             Ok(())
         })
         .await
-        .map_err(|e| Error::index(e.to_string()))?
+        .map_err(|e| Error::index(e.to_string()))??;
+
+        // Stale embeddings were removed by CASCADE; invalidate in-memory index.
+        if !self.db.sqlite_vector_loaded() {
+            self.ann.invalidate().await;
+        }
+        Ok(())
     }
 
     async fn vector_search(
