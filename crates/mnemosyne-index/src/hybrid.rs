@@ -7,11 +7,17 @@ use mnemosyne_core::{
 };
 use mnemosyne_storage::{ChunkRepo, Database, EmbeddingRepo, FileRepo};
 use rusqlite::params;
+use std::sync::{
+    atomic::{AtomicBool, Ordering},
+    Arc,
+};
 
 /// Hybrid search index backed by SQLite + optional HNSW ANN.
 pub struct HybridIndex {
     db: Database,
     ann: AnnCache,
+    /// When true, HNSW is used regardless of index size (for testing).
+    force_hnsw: Arc<AtomicBool>,
 }
 
 impl HybridIndex {
@@ -19,7 +25,21 @@ impl HybridIndex {
         Self {
             db,
             ann: AnnCache::new(),
+            force_hnsw: Arc::new(AtomicBool::new(false)),
         }
+    }
+
+    /// Enable or disable force-HNSW mode.
+    /// When enabled, the ANN index is used even if the embedding count is below
+    /// `ANN_THRESHOLD` (useful for testing HNSW correctness).
+    pub async fn set_force_hnsw(&self, force: bool) {
+        self.force_hnsw.store(force, Ordering::Relaxed);
+        self.ann.invalidate().await;
+    }
+
+    /// Return the current force-HNSW setting.
+    pub fn get_force_hnsw(&self) -> bool {
+        self.force_hnsw.load(Ordering::Relaxed)
     }
 }
 
@@ -75,9 +95,10 @@ impl SearchIndex for HybridIndex {
         // ── Try ANN path first ────────────────────────────────────────────────
         // Build (or reuse) an index containing ONLY same-dimensional embeddings.
         let db_for_load = db.clone();
+        let force = self.force_hnsw.load(Ordering::Relaxed);
         if let Some(ann_idx) = self
             .ann
-            .get_or_build(query_dim, async move {
+            .get_or_build(query_dim, force, async move {
                 Ok(EmbeddingRepo::new(&db_for_load)
                     .all_with_metadata_by_dim(query_dim)?
                     .into_iter()

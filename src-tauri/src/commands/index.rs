@@ -333,3 +333,25 @@ pub async fn preview_file(path: String) -> Result<serde_json::Value, CommandErro
         }
     }
 }
+
+// ── HNSW force-enable toggle ──────────────────────────────────────────────────
+
+/// Enable / disable force-HNSW mode.
+/// When enabled, the HNSW index is built and used even when the number of
+/// stored embeddings is below the normal 2 000-entry threshold.
+#[tauri::command]
+pub async fn set_force_hnsw(state: State<'_, AppState>, force: bool) -> Result<(), String> {
+    let guard = state.engine.read().await;
+    if let Some(engine) = guard.as_ref() {
+        engine.set_force_hnsw(force).await;
+        tracing::info!("force_hnsw set to {force}");
+    }
+    Ok(())
+}
+
+/// Return the current force-HNSW setting.
+#[tauri::command]
+pub async fn get_force_hnsw(state: State<'_, AppState>) -> Result<bool, String> {
+    let guard = state.engine.read().await;
+    Ok(guard.as_ref().is_some_and(|e| e.get_force_hnsw()))
+}

@@ -98,6 +98,16 @@ impl SearchEngine {
         }
     }
 
+    /// Enable or disable force-HNSW mode (bypasses the 2000-embedding threshold).
+    pub async fn set_force_hnsw(&self, force: bool) {
+        self.index.set_force_hnsw(force).await;
+    }
+
+    /// Return the current force-HNSW setting.
+    pub fn get_force_hnsw(&self) -> bool {
+        self.index.get_force_hnsw()
+    }
+
     // ── Indexing ─────────────────────────────────────────────────────────────
 
     /// Recursively index all supported files under `dir`.
@@ -489,9 +499,7 @@ impl SearchEngine {
         for chunk in chunks {
             let emb = match chunk {
                 // ── Image: CLIP vision embedding (clip-backend) or caption text ──
-                ParsedContent::Image {
-                    caption: _caption, ..
-                } => {
+                ParsedContent::Image { caption, .. } => {
                     #[cfg(feature = "clip-backend")]
                     {
                         let clip = self.models.get_clip_embedder(&self.vision_model_id).await?;

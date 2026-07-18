@@ -1345,8 +1345,7 @@
     <!-- ── Title Bar ──────────────────────────────────────────────────────────────── -->
     <header class="tbar">
       <div class="tbar-logo">
-        <div class="tbar-ico">🧠</div>
-        Mnemo<span>syne</span>
+        Mnemosyne</span>
       </div>
 
       <!-- Search (only visible on search tab) -->
@@ -1396,6 +1395,13 @@
             <line x1="16" y1="13" x2="8" y2="13" />
             <line x1="16" y1="17" x2="8" y2="17" />
           </svg>日志
+        </button>
+        <button class="tab" data-v="help" onclick="g.nav('help',this)">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="10" />
+            <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" />
+            <line x1="12" y1="17" x2="12.01" y2="17" />
+          </svg>帮助
         </button>
       </nav>
 
@@ -1591,11 +1597,19 @@
               </div>
             </div>
 
-            <!-- CLI -->
+            <!-- CLI section moved to 帮助 tab -->
+
+            <!-- 索引配置 -->
             <div class="sfm-sec">
-              <div class="sfm-title">CLI 快速参考</div>
-              <div style="margin-bottom:8px;font-size:12px;color:var(--mu)">所有 GUI 功能均可通过 CLI 操作：</div>
-              <div class="code-block" id="cli-ref"></div>
+              <div class="sfm-title">索引配置</div>
+              <div class="sfm-row">
+                <span class="sfm-label">强制启用 HNSW</span>
+                <button class="tog" id="hnsw-tog" onclick="g.toggleForceHnsw()"></button>
+                <span id="hnsw-status-text" style="font-size:12px;color:var(--mu);margin-left:8px">关闭（自动）</span>
+              </div>
+              <div style="font-size:11px;color:var(--mu2);margin-top:4px;line-height:1.6">
+                开启后，即使索引量不足 2 000 条也强制使用 HNSW 近似检索，方便验证 ANN 功能是否生效。
+              </div>
             </div>
 
             <!-- API Server -->
@@ -1619,6 +1633,10 @@
                 启动后可通过 <code style="color:var(--acc)">GET /health</code> · <code
                   style="color:var(--acc)">POST /api/search</code> · <code
                   style="color:var(--acc)">GET /api/files</code> 访问，支持 CORS
+              </div>
+              <div style="font-size:12px;color:var(--mu);margin-bottom:6px;line-height:1.7">
+                Swagger UI：<code id="api-swagger-link" style="color:var(--blue);cursor:pointer"
+                  onclick="g.openSwagger()">http://localhost:8080/api/docs</code>
               </div>
               <div style="font-size:12px;color:var(--mu);margin-bottom:10px;line-height:1.7">
                 或从终端独立运行：
@@ -1685,6 +1703,48 @@
               <div class="em-ico" style="font-size:36px">📋</div>
               <div class="em-t" style="font-size:15px">暂无日志</div>
               <p>执行索引、搜索等操作后日志将出现在此处。</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- ── HELP VIEW ───────────────────────────────────────────────────────────── -->
+        <div class="pview" id="v-help">
+          <div class="toolbar">
+            <div class="h2">帮助</div>
+          </div>
+          <div class="iscroll sfm">
+            <!-- CLI Quick Reference -->
+            <div class="sfm-sec">
+              <div class="sfm-title">CLI 快速参考</div>
+              <div style="margin-bottom:8px;font-size:12px;color:var(--mu)">所有 GUI 功能均可通过 CLI 操作：</div>
+              <div class="code-block" id="cli-ref"></div>
+            </div>
+            <!-- REST API Reference -->
+            <div class="sfm-sec">
+              <div class="sfm-title">REST API 参考</div>
+              <div style="font-size:12px;color:var(--mu);margin-bottom:10px;line-height:1.7">
+                启动 REST API 后，可通过以下端点访问：
+              </div>
+              <div class="code-block" style="line-height:1.8">GET /health — 健康检查（JSON）
+                GET /api/docs — Swagger UI 文档
+                GET /api/docs/openapi.json — OpenAPI 3.0 规格
+                POST /api/search — 语义/关键词搜索
+                POST /api/index — 索引目录
+                GET /api/stats — 统计信息
+                GET /api/files — 已索引文件列表
+                DEL /api/files/{id} — 删除文件记录
+                GET /api/models — 模型列表
+                POST /api/models/download — 下载模型</div>
+              <div style="font-size:11px;color:var(--mu2);margin-top:10px">
+                所有 JSON 响应均支持 CORS，可从浏览器直接调用。
+              </div>
+            </div>
+            <!-- Keyboard shortcuts -->
+            <div class="sfm-sec">
+              <div class="sfm-title">键盘快捷键</div>
+              <div class="sfm-row"><span class="sfm-label">⌘/Ctrl + K</span><span class="sfm-val">聚焦搜索框</span></div>
+              <div class="sfm-row"><span class="sfm-label">⌘/Ctrl + I</span><span class="sfm-val">切换到索引标签</span></div>
+              <div class="sfm-row"><span class="sfm-label">Escape</span><span class="sfm-val">关闭预览 / 清空搜索</span></div>
             </div>
           </div>
         </div>
@@ -1807,7 +1867,8 @@
         qs('#filter-sec').style.display = view === 'search' ? 'block' : 'none';
 
         if (view === 'index') { renderDirs(); g.loadFiles(); }
-        if (view === 'settings') { updateSettings(); loadApiStatus(); }
+        if (view === 'settings') { updateSettings(); loadApiStatus(); loadHnswStatus(); }
+        if (view === 'help') { updateHelp(); }
         if (view === 'models') loadModelList();
         if (view === 'logs') { logAutoRefresh = true; qs('#log-auto-ico').textContent = '⏸'; fetchLogs(); }
       };
@@ -2501,8 +2562,12 @@
         // Restore proxy input
         const saved = localStorage.getItem('mn-proxy-url') || '';
         if (qs('#proxy-input')) qs('#proxy-input').value = saved;
+      }
 
-        qs('#cli-ref').textContent =
+      function updateHelp() {
+        const el = qs('#cli-ref');
+        if (!el) return;
+        el.textContent =
           `# 索引目录（递归）
 mnemosyne index ~/Documents
 
@@ -2529,6 +2594,50 @@ mnemosyne model-download sentence-transformers/all-MiniLM-L6-v2
 # 启动 REST API
 mnemosyne serve --port 8080`;
       }
+
+      // ── HNSW force toggle ─────────────────────────────────────────────────────────
+      let hnswForced = false;
+
+      async function loadHnswStatus() {
+        try {
+          const v = await invoke('get_force_hnsw');
+          hnswForced = !!v;
+          updateHnswUI();
+        } catch (_) { }
+      }
+
+      function updateHnswUI() {
+        const tog = qs('#hnsw-tog');
+        const txt = qs('#hnsw-status-text');
+        if (!tog) return;
+        if (hnswForced) {
+          tog.classList.add('on');
+          txt.textContent = '已开启（强制使用 HNSW）';
+          txt.style.color = 'var(--yellow)';
+        } else {
+          tog.classList.remove('on');
+          txt.textContent = '关闭（自动）';
+          txt.style.color = 'var(--mu)';
+        }
+      }
+
+      g.toggleForceHnsw = async () => {
+        hnswForced = !hnswForced;
+        try {
+          await invoke('set_force_hnsw', { force: hnswForced });
+          updateHnswUI();
+          toast(hnswForced ? 'HNSW 已强制开启' : 'HNSW 已恢复自动模式', 'ok');
+        } catch (e) {
+          hnswForced = !hnswForced; // revert on error
+          toast('切换失败: ' + (e?.message ?? e), 'er');
+        }
+      };
+
+      g.openSwagger = () => {
+        const port = parseInt(qs('#api-port-input')?.value) || 8080;
+        const url = `http://localhost:${port}/api/docs`;
+        window.open(url, '_blank');
+      };
 
       g.confirmClear = () => {
         if (!confirm('确认清空所有索引数据？此操作不可撤销！')) return;

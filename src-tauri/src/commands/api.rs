@@ -1,6 +1,7 @@
 use crate::state::AppState;
 use axum::{
     extract::State as AxumState,
+    response::Html,
     routing::{delete, get, post},
     Json, Router,
 };
@@ -77,11 +78,15 @@ pub async fn get_api_status(state: State<'_, AppState>) -> Result<ApiStatus, Str
 
 async fn serve(engine: EngineRef, port: u16) -> anyhow::Result<()> {
     let app = Router::new()
+        // Meta
         .route("/health", get(health))
+        .route("/api/docs", get(swagger_ui))
+        .route("/api/docs/openapi.json", get(openapi_json))
+        // Data
         .route("/api/stats", get(api_stats))
         .route("/api/search", post(api_search))
         .route("/api/files", get(api_files))
-        .route("/api/files/:id", delete(api_remove_file))
+        .route("/api/files/{id}", delete(api_remove_file)) // fixed: was :id (Axum 0.7 syntax)
         .route("/api/index", post(api_index))
         .layer(CorsLayer::permissive())
         .with_state(engine);
@@ -92,8 +97,91 @@ async fn serve(engine: EngineRef, port: u16) -> anyhow::Result<()> {
     Ok(())
 }
 
-async fn health() -> &'static str {
-    "ok"
+async fn health() -> axum::Json<serde_json::Value> {
+    axum::Json(serde_json::json!({
+        "status": "ok",
+        "version": env!("CARGO_PKG_VERSION")
+    }))
+}
+
+async fn openapi_json() -> (axum::http::StatusCode, axum::http::HeaderMap, String) {
+    let spec = r#"{
+  "openapi": "3.0.3",
+  "info": { "title": "Mnemosyne API", "version": "0.1.0",
+             "description": "Local file semantic search REST API" },
+  "paths": {
+    "/health": {
+      "get": { "summary": "Health check", "tags": ["meta"],
+        "responses": { "200": { "description": "Service is up" } } }
+    },
+    "/api/stats": {
+      "get": { "summary": "Index statistics", "tags": ["index"],
+        "responses": { "200": { "description": "IndexStats" } } }
+    },
+    "/api/search": {
+      "post": { "summary": "Semantic / keyword search", "tags": ["search"],
+        "requestBody": { "required": true,
+          "content": { "application/json": { "schema": {
+            "type": "object",
+            "properties": {
+              "text":           { "type": "string", "example": "机器学习" },
+              "mode":           { "type": "string", "enum": ["Hybrid","Vector","Keyword"], "default": "Hybrid" },
+              "limit":          { "type": "integer", "default": 20 },
+              "vector_weight":  { "type": "number", "default": 0.7 },
+              "keyword_weight": { "type": "number", "default": 0.3 }
+            }, "required": ["text"] } } } },
+        "responses": { "200": { "description": "Array of SearchResult" } } }
+    },
+    "/api/files": {
+      "get": { "summary": "List indexed files", "tags": ["files"],
+        "parameters": [
+          { "name": "limit", "in": "query", "schema": { "type": "integer", "default": 200 } },
+          { "name": "offset", "in": "query", "schema": { "type": "integer", "default": 0 } }
+        ],
+        "responses": { "200": { "description": "Array of FileRecord" } } }
+    },
+    "/api/files/{id}": {
+      "delete": { "summary": "Remove file from index", "tags": ["files"],
+        "parameters": [ { "name": "id", "in": "path", "required": true,
+                          "schema": { "type": "string" } } ],
+        "responses": { "200": { "description": "Deleted" } } }
+    },
+    "/api/index": {
+      "post": { "summary": "Index a directory", "tags": ["index"],
+        "requestBody": { "required": true,
+          "content": { "application/json": { "schema": {
+            "type": "object", "properties": { "path": { "type": "string" } },
+            "required": ["path"] } } } },
+        "responses": { "200": { "description": "IndexStats" } } }
+    }
+  }
+}"#;
+    let mut headers = axum::http::HeaderMap::new();
+    headers.insert(
+        axum::http::header::CONTENT_TYPE,
+        "application/json".parse().unwrap(),
+    );
+    (axum::http::StatusCode::OK, headers, spec.to_string())
+}
+
+async fn swagger_ui() -> axum::response::Html<String> {
+    axum::response::Html(
+        r#"<!DOCTYPE html>
+<html>
+<head><title>Mnemosyne API Docs</title>
+  <meta charset="utf-8"/>
+  <link rel="stylesheet" href="https://unpkg.com/swagger-ui-dist/swagger-ui.css">
+</head>
+<body>
+  <div id="swagger-ui"></div>
+  <script src="https://unpkg.com/swagger-ui-dist/swagger-ui-bundle.js"></script>
+  <script>
+    SwaggerUIBundle({ url: '/api/docs/openapi.json', dom_id: '#swagger-ui',
+      presets: [SwaggerUIBundle.presets.apis, SwaggerUIBundle.SwaggerUIStandalonePreset] });
+  </script>
+</body></html>"#
+            .to_string(),
+    )
 }
 
 async fn api_stats(AxumState(engine): AxumState<EngineRef>) -> Json<serde_json::Value> {

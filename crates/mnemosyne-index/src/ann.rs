@@ -87,9 +87,13 @@ impl AnnCache {
     /// Return the cached index for `dim`-dimensional embeddings, rebuilding
     /// if necessary.  Caches are dimension-specific: a CLIP-512 query never
     /// reuses a BERT-384 index.
+    ///
+    /// `force` bypasses the `ANN_THRESHOLD` check so HNSW is used even for
+    /// small indexes (useful for testing).
     pub async fn get_or_build(
         &self,
         dim: usize,
+        force: bool,
         load_fn: impl std::future::Future<Output = Result<Vec<(String, Vec<f32>)>, Error>>,
     ) -> Result<Option<Arc<AnnIndex>>, Error> {
         // Fast-path: already built for this dimension.
@@ -102,7 +106,10 @@ impl AnnCache {
 
         // Slow-path: (re)build.
         let pairs = load_fn.await?;
-        if pairs.len() < ANN_THRESHOLD {
+        if pairs.is_empty() {
+            return Ok(None);
+        }
+        if pairs.len() < ANN_THRESHOLD && !force {
             return Ok(None); // Too small — use brute force.
         }
 
