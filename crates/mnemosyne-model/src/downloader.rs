@@ -42,6 +42,21 @@ const TEXT_MODEL_FILES_FALLBACK: &[&str] = &[
     "pytorch_model.bin",
 ];
 
+/// Chinese CLIP models (OFA-Sys/chinese-clip-*) use `vocab.txt` instead of
+/// `tokenizer.json`.  The weights are saved as `pytorch_model.bin`.
+const CHINESE_CLIP_FILES: &[&str] = &[
+    "config.json",
+    "vocab.txt",
+    "tokenizer_config.json",
+    "pytorch_model.bin",
+];
+
+/// Returns true for Chinese CLIP model IDs.
+fn is_chinese_clip(model_id: &str) -> bool {
+    let id = model_id.to_lowercase();
+    id.contains("chinese-clip") || id.starts_with("ofa-sys/")
+}
+
 /// Downloads model files from HuggingFace Hub into the local cache.
 pub struct ModelDownloader {
     cache_dir: PathBuf,
@@ -94,24 +109,30 @@ impl ModelDownloader {
             .build()
             .map_err(|e| Error::model(format!("http client: {e}")))?;
 
-        // Try safetensors first; fall back to pytorch bin.
-        let mut files_ok = self
-            .download_files(model_id, TEXT_MODEL_FILES, &model_dir, &endpoint, &client)
-            .await;
-
-        if files_ok.is_err() {
-            files_ok = self
-                .download_files(
+        // Chinese CLIP models use vocab.txt instead of tokenizer.json.
+        // All other models try safetensors first, then pytorch bin.
+        let result = if is_chinese_clip(model_id) {
+            self.download_files(model_id, CHINESE_CLIP_FILES, &model_dir, &endpoint, &client)
+                .await
+        } else {
+            let r = self
+                .download_files(model_id, TEXT_MODEL_FILES, &model_dir, &endpoint, &client)
+                .await;
+            if r.is_err() {
+                self.download_files(
                     model_id,
                     TEXT_MODEL_FILES_FALLBACK,
                     &model_dir,
                     &endpoint,
                     &client,
                 )
-                .await;
-        }
+                .await
+            } else {
+                r
+            }
+        };
 
-        files_ok?;
+        result?;
 
         info!("Model '{}' cached at {}", model_id, model_dir.display());
         Ok(model_dir)
