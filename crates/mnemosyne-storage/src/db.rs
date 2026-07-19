@@ -74,29 +74,35 @@ impl Database {
         // rusqlite requires enabling extension loading first.
         // SAFETY: we call this only during database initialisation.
         unsafe {
-            if conn.load_extension_enable().is_err() {
-                return;
+            match conn.load_extension_enable() {
+                Ok(()) => {}
+                Err(e) => {
+                    warn!("sqlite-vec: load_extension_enable failed: {e}");
+                    return;
+                }
             }
         }
         for path in &candidates {
-            if !std::path::Path::new(path).exists() {
+            let exists = std::path::Path::new(path).exists();
+            if !exists {
+                info!("sqlite-vec: candidate not found: {path}");
                 continue;
             }
+            info!("sqlite-vec: trying to load {path}");
             let result = unsafe { conn.load_extension(path, None) };
             match result {
                 Ok(_) => {
-                    info!("sqlite-vector extension loaded from {path}");
-                    // Verify the extension is functional by calling vec_version().
+                    info!("sqlite-vec extension loaded from {path}");
                     match conn.query_row("SELECT vec_version()", [], |r| r.get::<_, String>(0)) {
                         Ok(ver) => {
-                            info!("sqlite-vector {ver} ready — KNN search enabled");
+                            info!("sqlite-vec {ver} ready — KNN search enabled");
                             self.sqlite_vector_loaded.store(true, Ordering::Release);
                         }
-                        Err(e) => warn!("sqlite-vector loaded but vec_version() failed: {e}"),
+                        Err(e) => warn!("sqlite-vec loaded but vec_version() failed: {e}"),
                     }
                     break;
                 }
-                Err(e) => warn!("Failed to load sqlite-vector from {path}: {e}"),
+                Err(e) => warn!("sqlite-vec: load_extension({path}) failed: {e}"),
             }
         }
         let _ = conn.load_extension_disable();

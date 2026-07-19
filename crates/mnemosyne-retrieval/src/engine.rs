@@ -558,7 +558,7 @@ impl SearchEngine {
         for chunk in chunks {
             let emb = match chunk {
                 // ── Image: CLIP vision embedding (clip-backend) or caption text ──
-                ParsedContent::Image { caption, .. } => {
+                ParsedContent::Image { caption: _, .. } => {
                     #[cfg(feature = "clip-backend")]
                     {
                         let clip = self.models.get_clip_embedder(&self.vision_model_id).await?;

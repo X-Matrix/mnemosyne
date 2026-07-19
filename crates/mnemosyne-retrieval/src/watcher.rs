@@ -4,7 +4,6 @@
 //! processing runs inside the Tokio runtime.
 
 use crate::engine::SearchEngine;
-use crate::ignore::IgnoreConfig;
 use mnemosyne_core::Error;
 use notify::RecursiveMode;
 use notify_debouncer_mini::{new_debouncer, DebounceEventResult};
