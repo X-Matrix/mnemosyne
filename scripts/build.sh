@@ -127,34 +127,84 @@ if [[ "$INSTALL_SQLITE_VECTOR" == "true" ]]; then
   LIB_DIR="$HOME/.mnemosyne/lib"
   mkdir -p "$LIB_DIR"
 
-  BASE_URL="https://github.com/sqliteai/sqlite-vector/releases/latest/download"
+  # sqlite-vec (asg017/sqlite-vec) — provides the vec0 virtual table used for
+  # HNSW KNN search.  Releases ship as .tar.gz archives containing vec0.dylib.
+  BASE_URL="https://github.com/asg017/sqlite-vec/releases/latest/download"
 
   case "$(uname -s)" in
     Darwin)
-      EXT_FILE="sqlite_vector.dylib"
+      EXT_FILE="vec0.dylib"
       ARCH=$(uname -m)
-      # sqlite-vector ships universal binaries; use the same file for both arches
-      DOWNLOAD_URL="$BASE_URL/sqlite_vector-macos.dylib"
+      if [[ "$ARCH" == "arm64" ]]; then
+        DOWNLOAD_CANDIDATES=(
+          "$BASE_URL/sqlite-vec-loadable-macos-aarch64.tar.gz"
+          "$BASE_URL/sqlite-vec-0.1.9-loadable-macos-aarch64.tar.gz"
+        )
+      else
+        DOWNLOAD_CANDIDATES=(
+          "$BASE_URL/sqlite-vec-loadable-macos-x86_64.tar.gz"
+          "$BASE_URL/sqlite-vec-0.1.9-loadable-macos-x86_64.tar.gz"
+        )
+      fi
       ;;
     Linux)
-      EXT_FILE="sqlite_vector.so"
-      DOWNLOAD_URL="$BASE_URL/sqlite_vector-linux-x86_64.so"
+      EXT_FILE="vec0.so"
+      DOWNLOAD_CANDIDATES=(
+        "$BASE_URL/sqlite-vec-loadable-linux-x86_64.tar.gz"
+        "$BASE_URL/sqlite-vec-0.1.9-loadable-linux-x86_64.tar.gz"
+      )
       ;;
     *)
       warn "Auto-download not supported on $(uname -s). Download manually from:"
-      warn "  https://github.com/sqliteai/sqlite-vector/releases"
+      warn "  https://github.com/asg017/sqlite-vec/releases"
       EXT_FILE=""
+      DOWNLOAD_CANDIDATES=()
       ;;
   esac
 
   if [[ -n "${EXT_FILE:-}" ]]; then
     TARGET="$LIB_DIR/$EXT_FILE"
-    if curl -fsSL "$DOWNLOAD_URL" -o "$TARGET"; then
-      success "sqlite-vector saved to $TARGET"
-      echo "   KNN vector search will be active on next run."
-    else
-      warn "Download failed. Get the library manually and place it at:"
-      warn "  $TARGET"
+
+    # ── Proxy support ────────────────────────────────────────────────────────
+    # Honour any proxy already set in the environment; fall back to common
+    # local proxy ports if nothing is set.
+    if [[ -z "${https_proxy:-}${HTTPS_PROXY:-}" ]]; then
+      for port in 7890 1087 8080; do
+        if curl -s --max-time 2 --proxy "http://127.0.0.1:$port" \
+            "https://www.google.com" -o /dev/null 2>/dev/null; then
+          export https_proxy="http://127.0.0.1:$port"
+          export http_proxy="http://127.0.0.1:$port"
+          export all_proxy="socks5://127.0.0.1:$port"
+          info "Detected local proxy on port $port"
+          break
+        fi
+      done
+    fi
+    [[ -n "${https_proxy:-}" ]] && info "Using proxy: $https_proxy"
+
+    # ── Try each candidate URL until one succeeds ────────────────────────────
+    DOWNLOADED=false
+    for url in "${DOWNLOAD_CANDIDATES[@]}"; do
+      info "Trying: $(basename "$url") ..."
+      # Archives contain vec0.dylib / vec0.so — extract just that file.
+      if curl -fsSL --retry 2 --max-time 60 "$url" \
+          | tar -xzO "$EXT_FILE" > "$TARGET" 2>/dev/null; then
+        if [[ -s "$TARGET" ]]; then
+          success "sqlite-vec ($EXT_FILE) saved to $TARGET"
+          echo "   URL: $url"
+          echo "   KNN vector search will be active on next run."
+          DOWNLOADED=true
+          break
+        fi
+      fi
+      rm -f "$TARGET"   # clean up empty/partial file
+    done
+
+    if [[ "$DOWNLOADED" == "false" ]]; then
+      warn "All download candidates failed. Install manually:"
+      warn "  mkdir -p ~/.mnemosyne/lib"
+      warn "  # Download from: https://github.com/asg017/sqlite-vec/releases"
+      warn "  # Extract $EXT_FILE and place it at: $TARGET"
     fi
   fi
 fi

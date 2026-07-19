@@ -46,27 +46,28 @@ impl Database {
         self.sqlite_vector_loaded.load(Ordering::Acquire)
     }
 
-    /// Try to load the sqlite-vector extension from well-known locations.
+    /// Try to load the sqlite-vec extension from well-known locations.
     ///
+    /// The extension is `asg017/sqlite-vec` (`vec0.dylib` on macOS).
     /// Locations tried (in order):
-    ///  1. `~/.mnemosyne/lib/sqlite_vector.dylib` (macOS) / `.so` (Linux) / `.dll` (Windows)
-    ///  2. `./sqlite_vector` (current directory)
+    ///  1. `~/.mnemosyne/lib/vec0.dylib`   (macOS)
+    ///  2. `~/.mnemosyne/lib/vec0.so`      (Linux)
+    ///  3. `./vec0.dylib` / `./vec0.so`    (current directory)
     ///
-    /// Silently skips if not found — the system falls back to Rust-side
-    /// brute-force cosine similarity.
+    /// Silently skips if not found — falls back to Rust-side HNSW / cosine.
     fn try_load_sqlite_vector(&self) {
-        let ext_name = if cfg!(target_os = "macos") {
-            "sqlite_vector.dylib"
+        let (ext_name, ext_name_alt) = if cfg!(target_os = "macos") {
+            ("vec0.dylib", "vec0.dylib")
         } else if cfg!(target_os = "windows") {
-            "sqlite_vector.dll"
+            ("vec0.dll", "vec0.dll")
         } else {
-            "sqlite_vector.so"
+            ("vec0.so", "vec0.so")
         };
 
         let home = std::env::var("HOME").unwrap_or_else(|_| ".".into());
         let candidates = [
             format!("{home}/.mnemosyne/lib/{ext_name}"),
-            format!("./{ext_name}"),
+            format!("./{ext_name_alt}"),
         ];
 
         let conn = self.conn.lock().unwrap();

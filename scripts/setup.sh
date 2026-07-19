@@ -174,12 +174,12 @@ mkdir -p "$HOME/.mnemosyne/lib"
 
 # ── sqlite-vector (optional) ──────────────────────────────────────────────────
 echo ""
-info "Optional: sqlite-vector extension for ANN performance"
-echo "   Run the following to install (macOS):"
+info "Optional: sqlite-vec extension for KNN vector search (asg017/sqlite-vec)"
+echo "   Run the following to install (macOS arm64):"
 echo ""
 echo "   mkdir -p ~/.mnemosyne/lib"
-echo "   curl -L https://github.com/sqliteai/sqlite-vector/releases/latest/download/sqlite_vector.dylib \\"
-echo "     -o ~/.mnemosyne/lib/sqlite_vector.dylib"
+echo "   curl -fsSL https://github.com/asg017/sqlite-vec/releases/latest/download/sqlite-vec-0.1.9-loadable-macos-aarch64.tar.gz \\"
+echo "     | tar -xzO vec0.dylib > ~/.mnemosyne/lib/vec0.dylib"
 echo ""
 
 # ── Done ──────────────────────────────────────────────────────────────────────
