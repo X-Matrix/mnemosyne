@@ -3,7 +3,6 @@
   <h1>Mnemosyne</h1>
   <p><strong>An intelligent, local-first file search and analysis system.</strong></p>
   <p>
-    <a href="https://github.com/mnemosyne-proj/mnemosyne/actions"><img src="https://github.com/mnemosyne-proj/mnemosyne/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
     <img src="https://img.shields.io/badge/Rust-1.75+-orange?logo=rust" alt="Rust">
     <img src="https://img.shields.io/badge/Tauri-2.x-blue?logo=tauri" alt="Tauri">
     <img src="https://img.shields.io/badge/SQLite-3.x-green?logo=sqlite" alt="SQLite">
@@ -15,13 +14,15 @@
 
 ## About
 
-Mnemosyne provides intelligent search and analysis for your local files, featuring:
+Mnemosyne provides intelligent search and analysis for your local files:
 
-- **Hybrid Search**: Combines vector-based semantic search with FTS5 keyword search, using Reciprocal Rank Fusion (RRF) to merge and rank results.
-- **Multi-Format Support**: Handles text (txt, md, csv, json...), PDFs, images, audio, and video files.
-- **Multiple UIs**: Access it via a desktop GUI (Tauri 2), a command-line interface (CLI), or a REST API.
-- **Real-time Updates**: A file watcher automatically detects changes and performs incremental indexing.
-- **Zero External Services**: All data is stored locally in a single SQLite file, requiring no separate database server.
+- **Hybrid Search**: Vector semantic search + FTS5 keyword search, fused with Reciprocal Rank Fusion (RRF).
+- **Multi-Format**: Text (txt/md/csv/json...), PDF, images, audio, video.
+- **Multilingual Models**: BGE-M3 (100+ languages) and Chinese CLIP for Chinese text-to-image search.
+- **Multiple UIs**: Desktop GUI (Tauri 2), CLI, REST API.
+- **Real-time Updates**: File watcher detects changes and updates the index incrementally. **File deletions are automatically removed from the index.**
+- **Smart Directory Filtering**: Automatically skips `node_modules`, `.git`, `target`, and 60+ other irrelevant directories.
+- **Zero External Services**: All data stored in a single SQLite file.
 
 ---
 
@@ -31,21 +32,23 @@ Mnemosyne provides intelligent search and analysis for your local files, featuri
 |---|---|
 | Text File Indexing (txt/md/csv/json/py/rs...) | ✅ Fully Implemented |
 | PDF Text Extraction | ✅ Fully Implemented |
-| Image Metadata Extraction (Dimensions) | ✅ Fully Implemented |
-| Audio/Video File Indexing | ✅ Stub (Path + Metadata) |
-| FTS5 Keyword Search (BM25) | ✅ Fully Implemented |
-| Vector Similarity Search | ✅ Cosine Similarity (Brute-force) |
-| RRF Hybrid Search | ✅ Fully Implemented |
-| Incremental Indexing (SHA-256 Change Detection) | ✅ Fully Implemented |
-| Real-time File Watcher | ✅ Fully Implemented |
-| Background Periodic Rescan | ✅ Fully Implemented |
-| REST API Server | ✅ Fully Implemented |
-| CLI Tool | ✅ Fully Implemented |
-| Desktop GUI (Tauri 2) | ✅ Skeleton Implemented |
-| Real BERT Inference (via `candle`) | ✅ `candle-backend` feature |
 | CLIP Image Embeddings | ✅ `clip-backend` feature |
 | Whisper Audio Transcription | ✅ `whisper-backend` feature |
-| ANN Vector Search (via `sqlite-vector`) | ✅ Dynamic Loading + HNSW Fallback |
+| FTS5 Keyword Search (BM25) | ✅ Fully Implemented |
+| sqlite-vec KNN Vector Search (HNSW) | ✅ Dynamic Runtime Loading |
+| Pure Rust HNSW Fallback | ✅ Fully Implemented |
+| RRF Hybrid Search | ✅ Fully Implemented |
+| Incremental Indexing (SHA-256 Change Detection) | ✅ Fully Implemented |
+| Real-time File Watcher (incl. deletion sync) | ✅ Fully Implemented |
+| Directory Ignore Filtering (60+ rules) | ✅ Fully Implemented |
+| REST API Server (with Swagger UI) | ✅ Fully Implemented |
+| CLI Tool | ✅ Fully Implemented |
+| Desktop GUI (Tauri 2) | ✅ Full Implementation |
+| BERT Text Embeddings (via `candle`) | ✅ `candle-backend` feature |
+| BGE-M3 Multilingual Embeddings (1024-dim) | ✅ `candle-backend` feature |
+| OpenAI CLIP (English image search) | ✅ `clip-backend` feature |
+| Chinese CLIP (Chinese image search) | ✅ `clip-backend` feature |
+| Apple Silicon Metal GPU Acceleration | ✅ `metal-backend` (auto-detected) |
 
 ---
 
@@ -59,32 +62,32 @@ Mnemosyne provides intelligent search and analysis for your local files, featuri
                    │
 ┌──────────────────▼──────────────────────────┐
 │         mnemosyne-retrieval                  │
-│   SearchEngine (Indexing + Search Facade)    │
-│   BackgroundIndexer │ FileWatcher            │
+│   SearchEngine · BackgroundIndexer           │
+│   FileWatcher · IgnoreConfig                 │
 └──┬────────────────┬────────────────┬────────┘
    │                │                │
-┌──▼───┐   ┌────────▼──┐   ┌────────▼──────┐
-│model │   │  parser   │   │    index      │
-│BERT  │   │Text/PDF/  │   │HybridIndex    │
-│stub  │   │Image/...  │   │Vector + FTS5  │
-└──────┘   └───────────┘   └──────┬────────┘
-                                   │
-                          ┌────────▼────────┐
-                          │   storage        │
-                          │SQLite (bundled)  │
-                          │files/chunks/embs │
-                          └─────────────────┘
+┌──▼──────────┐  ┌──▼───────┐  ┌────▼──────────┐
+│   model     │  │  parser  │  │    index       │
+│BERT/BGE-M3  │  │Text/PDF/ │  │ HybridIndex    │
+│CLIP/Whisper │  │Image/... │  │ Vector + FTS5  │
+└─────────────┘  └──────────┘  └──────┬────────┘
+                                        │
+                               ┌────────▼────────┐
+                               │    storage       │
+                               │ SQLite + WAL     │
+                               │ sqlite-vec (KNN) │
+                               └─────────────────┘
 ```
 
 ### Crate Dependency Graph
 
 ```
-mnemosyne-core          ← Base Types/Traits/Errors
-  ← mnemosyne-storage   ← SQLite CRUD Operations
-  ← mnemosyne-model     ← Text Embeddings (stub/candle)
-  ← mnemosyne-parser    ← File Parsing Plugins
-  ← mnemosyne-index     ← Hybrid Search Engine
-    ← mnemosyne-retrieval  ← SearchEngine Facade
+mnemosyne-core          ← Base types / traits / errors
+  ← mnemosyne-storage   ← SQLite CRUD + sqlite-vec integration
+  ← mnemosyne-model     ← Text / image / audio embeddings (Candle / Metal)
+  ← mnemosyne-parser    ← File parsing plugins
+  ← mnemosyne-index     ← Hybrid search engine
+    ← mnemosyne-retrieval  ← SearchEngine facade + IgnoreConfig
       ← cli / api / src-tauri
 ```
 
@@ -97,49 +100,49 @@ mnemosyne-core          ← Base Types/Traits/Errors
 | Tool | Version | Notes |
 |---|---|---|
 | Rust | ≥ 1.75 | `rustup update stable` |
-| Tauri CLI | 2.x | `cargo install tauri-cli` |
-| Node.js | ≥ 18 | For building the GUI frontend |
-| Git LFS | latest | `git lfs install` |
+| Tauri CLI | 2.x | `cargo install tauri-cli` (GUI only) |
+| Node.js | ≥ 18 | GUI frontend build only |
 
 On macOS, you also need Xcode Command Line Tools:
 ```bash
 xcode-select --install
 ```
 
-### Building
+### Building with build.sh (recommended)
 
 ```bash
-git clone <repo-url> mnemosyne
-cd mnemosyne
+git clone <repo-url> mnemosyne && cd mnemosyne
 
-# Pull LFS files
-git lfs pull
+# Full ML backend + auto-download sqlite-vec
+# Apple Silicon automatically enables Metal GPU acceleration
+./scripts/build.sh --full --sqlite-vector
 
-# Build CLI + REST API (fastest, no Node.js required)
-cargo build --release -p mnemosyne-cli -p mnemosyne-api
-
-# Build Desktop GUI
-npm install
-cargo tauri build
-
-# Enable full ML backend (BERT + CLIP + Whisper)
-cargo build --release -p mnemosyne-cli \
-  --features "mnemosyne-model/full"
-
-# Enable features individually
-cargo build --release -p mnemosyne-cli \
-  --features "mnemosyne-model/candle-backend"   # BERT only
-
-cargo build --release -p mnemosyne-cli \
-  --features "mnemosyne-model/clip-backend"     # BERT + CLIP
-
-cargo build --release -p mnemosyne-cli \
-  --features "mnemosyne-model/whisper-backend"  # BERT + Whisper
+# Common options
+./scripts/build.sh --candle              # BERT text only
+./scripts/build.sh --full --no-metal     # Disable Metal, force CPU
+./scripts/build.sh --full --gui          # Also build desktop GUI
+./scripts/build.sh --dev                 # Debug profile (faster compile)
 ```
 
-Build artifacts are located in `target/release/`:
-- `mnemosyne` — The CLI tool
-- `mnemosyne-server` — The REST API server
+**build.sh options:**
+
+| Option | Description |
+|---|---|
+| `--release` / `--dev` | Release (default) or Debug profile |
+| `--candle` / `--clip` / `--whisper` / `--full` | Enable ML backends |
+| `--gui` | Also build Tauri desktop app |
+| `--sqlite-vector` | Auto-download sqlite-vec to `~/.mnemosyne/lib/` |
+| `--no-metal` | Suppress Metal auto-detection on Apple Silicon |
+
+### Manual Cargo Build
+
+```bash
+# Full backend (add --features metal-backend for Apple Silicon)
+cargo build --release -p mnemosyne-cli \
+  --features "candle-backend,clip-backend,whisper-backend"
+```
+
+Build artifacts in `target/release/`: `mnemosyne` (CLI), `mnemosyne-server` (API)
 
 ---
 
@@ -148,198 +151,147 @@ Build artifacts are located in `target/release/`:
 ### CLI
 
 ```bash
-# Index a directory (recursively)
+# Index a directory (auto-skips node_modules/.git/etc.)
 mnemosyne index ~/Documents
 
-# Search (hybrid mode)
+# Hybrid search
 mnemosyne search "Rust memory safety"
 
-# Keyword-only search
+# Keyword / vector search
 mnemosyne search "async trait" --mode keyword --limit 20
-
-# Vector-only search
 mnemosyne search "machine learning papers" --mode vector
 
-# Output as JSON
-mnemosyne search "tokio runtime" --json
+# Download embedding models
+mnemosyne model-download BAAI/bge-m3                               # Multilingual (recommended)
+mnemosyne model-download OFA-Sys/chinese-clip-vit-base-patch16    # Chinese image search
+mnemosyne model-download openai/clip-vit-base-patch32             # English image search
+mnemosyne model-download openai/whisper-tiny                      # Audio transcription
 
-# Watch a directory for real-time updates
+# Real-time watching (file deletions are auto-removed from index)
 mnemosyne watch ~/Documents
 
-# View statistics
+# Stats / list / remove
 mnemosyne stats
-
-# List indexed files
 mnemosyne list --limit 50
-
-# Remove a file record
 mnemosyne remove <file-id>
 
-# Start the REST API server (defaults to port 8080)
+# Start REST API
 mnemosyne serve --port 8080
-
-# Specify a custom database path
-mnemosyne --db /path/to/db.sqlite index ~/Documents
 ```
 
 ### REST API
 
-Start the server:
 ```bash
-# Configure via environment variables
-MNEMOSYNE_PORT=8080 MNEMOSYNE_DB=~/.mnemosyne/db.sqlite mnemosyne-server
+curl -X POST http://localhost:8080/api/search \
+  -H "Content-Type: application/json" \
+  -d '{"text": "machine learning", "mode": "hybrid", "limit": 10}'
 ```
-
-**Endpoints:**
 
 | Method | Path | Description |
 |---|---|---|
-| `POST` | `/api/search` | Search for files |
+| `POST` | `/api/search` | Hybrid / vector / keyword search |
 | `POST` | `/api/index` | Index a directory |
-| `GET` | `/api/stats` | Get statistics |
-| `GET` | `/api/files` | List files (?limit&offset) |
-| `DELETE`| `/api/files/:id` | Delete a file record |
-| `GET` | `/api/models` | List downloaded models |
-| `POST` | `/api/models/download`| Download a model |
+| `GET` | `/api/stats` | Statistics |
+| `GET` | `/api/files` | List files |
+| `DELETE` | `/api/files/:id` | Delete file record |
+| `GET` | `/api/models` | Downloaded models |
+| `POST` | `/api/models/download` | Download a model |
+| `GET` | `/api/docs` | Swagger UI |
 | `GET` | `/health` | Health check |
 
-**Example (cURL):**
-```bash
-# Hybrid search
-curl -X POST http://localhost:8080/api/search \
-  -H "Content-Type: application/json" \
-  -d '{"text": "async programming", "mode": "hybrid", "limit": 10}'
+### Desktop GUI Features
 
-# Index a directory
-curl -X POST http://localhost:8080/api/index \
-  -H "Content-Type: application/json" \
-  -d '{"path": "/home/user/Documents"}'
-
-# Get stats
-curl http://localhost:8080/api/stats
-```
-
-**SearchQuery Payload:**
-```json
-{
-  "text": "Your query text",
-  "mode": "hybrid",      // "hybrid" | "vector" | "keyword"
-  "limit": 20,
-  "offset": 0,
-  "file_types": null     // null for all, or ["text","image","audio","video"]
-}
-```
-
-### Desktop GUI
-
-```bash
-npm run dev   # Development mode (hot-reloading)
-npm run build # Build the application
-```
-
-GUI Features:
-- Search bar (press Enter to search, with mode switching)
-- "Index Directory" button to add new paths
-- Left panel: Real-time stats and file type filters
-- Results list: File path, relevant snippets, and similarity scores
-
----
-
-## Configuration
-
-Mnemosyne is configured via environment variables and command-line arguments. No config file is used.
-
-| Variable | Default | Description |
-|---|---|---|
-| `MNEMOSYNE_DB` | `~/.mnemosyne/db.sqlite` | Database path |
-| `MNEMOSYNE_PORT` | `8080` | API server port |
-| `RUST_LOG` | `warn,mnemosyne=info` | Logging level |
+- Hybrid / vector / keyword search mode; adjustable weights and score threshold
+- Directory management (add, re-index, real-time watching)
+- File browser and preview (text, PDF, images, audio)
+- Model management (download, switch BERT/CLIP/Whisper models)
+- HuggingFace mirror configuration (direct / hf-mirror.com / custom)
+- Proxy configuration
+- Built-in REST API server toggle (with Swagger UI link)
+- Real-time log viewer
+- **Clear index database** (requires typing a random obscure confirmation word to prevent accidents)
 
 ---
 
 ## Embedding Models
 
-### Default (Stub Mode)
+### Text Models (`candle-backend`)
 
-No model download is required. This mode uses deterministic, hash-based pseudo-vectors. It's suitable for development and testing but does **not** perform true semantic search.
-
-### Text BERT (`candle-backend`)
-
-Enable at compile time:
-```bash
-cargo build --release -p mnemosyne-cli --features mnemosyne-model/candle-backend
-```
-
-The model (~90 MB) is downloaded automatically on first run:
-```bash
-mnemosyne model-download sentence-transformers/all-MiniLM-L6-v2
-```
-
-### Image CLIP (`clip-backend`)
-
-```bash
-cargo build --release -p mnemosyne-cli --features mnemosyne-model/clip-backend
-mnemosyne model-download openai/clip-vit-base-patch32
-```
-
-After indexing an image directory, you can search using natural language:
-```bash
-mnemosyne index ~/Pictures
-mnemosyne search "sunset over mountains"
-```
-
-### Audio Whisper (`whisper-backend`)
-
-```bash
-cargo build --release -p mnemosyne-cli --features mnemosyne-model/whisper-backend
-mnemosyne model-download openai/whisper-tiny
-```
-
-Supports WAV files (16-bit or float, automatically resampled to 16 kHz).
-
-```bash
-mnemosyne index ~/Recordings   # Transcribes and indexes automatically
-mnemosyne search "project meeting notes"
-```
-
-### ANN Vector Search (sqlite-vector + HNSW)
-
-When the index size exceeds **2,000 chunks**, the system automatically switches to HNSW (Hierarchical Navigable Small World) for approximate nearest neighbor search, improving search speed from O(n) to O(log n).
-
-Optionally, install the [sqlite-vector](https://github.com/sqliteai/sqlite-vector) extension to enable vector operations on the SQL side:
-
-```bash
-# macOS
-curl -L https://github.com/sqliteai/sqlite-vector/releases/latest/download/sqlite_vector.dylib \
-  -o ~/.mnemosyne/lib/sqlite_vector.dylib
-```
-
-The system detects and loads it automatically at startup.
-
-**Recommended Models:**
-
-| Use Case | Model | Dimensions | Size |
+| Model | Dim | Size | Languages |
 |---|---|---|---|
-| Text (Lightweight) | `sentence-transformers/all-MiniLM-L6-v2` | 384 | 90 MB |
-| Text (High Quality)| `sentence-transformers/all-mpnet-base-v2` | 768 | 420 MB |
-| Multilingual | `sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2` | 384 | 470 MB |
-| Image | `openai/clip-vit-base-patch32` | 512 | 350 MB |
-| Audio | `openai/whisper-tiny` | — | 75 MB |
-| Audio (High Quality)| `openai/whisper-base` | — | 140 MB |
+| `BAAI/bge-m3` ⭐ | 1024 | 570 MB | Chinese / English / 100+ languages, CLS pooling |
+| `sentence-transformers/all-MiniLM-L6-v2` | 384 | 90 MB | English, lightweight |
+| `sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2` | 384 | 470 MB | 50 languages |
+| `sentence-transformers/all-mpnet-base-v2` | 768 | 420 MB | English, high quality |
+
+### Vision Models (`clip-backend`)
+
+| Model | Dim | Size | Text Language |
+|---|---|---|---|
+| `OFA-Sys/chinese-clip-vit-base-patch16` ⭐ | 512 | 380 MB | **Chinese** (Chinese CLIP) |
+| `openai/clip-vit-base-patch32` | 512 | 340 MB | English (OpenAI CLIP) |
+
+### Audio Models (`whisper-backend`)
+
+| Model | Size | Use Case |
+|---|---|---|
+| `openai/whisper-tiny` | 78 MB | Speed priority |
+| `openai/whisper-base` | 148 MB | Balanced quality/speed |
+| `openai/whisper-small` | 488 MB | High quality, multilingual |
+
+### sqlite-vec KNN Acceleration
+
+Install [asg017/sqlite-vec](https://github.com/asg017/sqlite-vec) to enable HNSW KNN search:
+
+```bash
+# Automatic via build.sh
+./scripts/build.sh --sqlite-vector
+
+# Manual (macOS arm64)
+mkdir -p ~/.mnemosyne/lib
+curl -fsSL https://github.com/asg017/sqlite-vec/releases/latest/download/sqlite-vec-0.1.9-loadable-macos-aarch64.tar.gz \
+  | tar -xzO vec0.dylib > ~/.mnemosyne/lib/vec0.dylib
+```
+
+Automatically detected at startup; silently falls back to pure Rust HNSW if absent.
+
+---
+
+## Directory Filtering (IgnoreConfig)
+
+The following directories are automatically skipped during indexing:
+
+| Category | Includes |
+|---|---|
+| Version control | `.git` `.svn` `.hg` |
+| JS/Node | `node_modules` `bower_components` `.npm` `.yarn` |
+| Python | `__pycache__` `.venv` `venv` `.tox` `.pytest_cache` |
+| Rust | `target` |
+| Java/Android | `.gradle` `.m2` `build` |
+| iOS/Swift | `Pods` `DerivedData` |
+| Frontend build | `dist` `out` `.next` `.nuxt` `.cache` `.parcel-cache` |
+| IDE | `.idea` `.vscode` `.vs` |
+| OS artefacts | `.Spotlight-V100` `.Trashes` `$RECYCLE.BIN` |
+
+Customizable via `IgnoreConfig` in `mnemosyne-retrieval`.
 
 ---
 
 ## Data Storage
 
-All data is stored in a single SQLite file (in WAL mode):
-
 ```
-~/.mnemosyne/db.sqlite
-  ├── files              # File metadata + SHA-256 hash
-  ├── document_chunks    # Content chunks (1500 chars, 150-word overlap)
-  ├── fts_chunks         # FTS5 full-text index (BM25, unicode61 tokenizer)
-  ├── embeddings         # Vectors (f32 little-endian BLOB)
-  └── model_registry     # Records of downloaded models
+~/.mnemosyne/
+  db.sqlite
+    ├── files              # File metadata + SHA-256 hash
+    ├── document_chunks    # Content chunks
+    ├── fts_chunks         # FTS5 full-text index (BM25)
+    ├── embeddings         # Vector BLOBs (f32 little-endian)
+    ├── embedding_vec_384  # sqlite-vec HNSW (BERT 384-dim)
+    ├── embedding_vec_512  # sqlite-vec HNSW (CLIP 512-dim)
+    ├── embedding_vec_1024 # sqlite-vec HNSW (BGE-M3 1024-dim)
+    └── model_registry     # Downloaded model records
+  models/                  # Local model cache
+  lib/vec0.dylib           # sqlite-vec extension (optional)
 ```
 
 ---
@@ -347,61 +299,27 @@ All data is stored in a single SQLite file (in WAL mode):
 ## Development
 
 ```bash
-# Run unit and integration tests (11 tests, including end-to-end pipeline)
 cargo test -p mnemosyne-storage -p mnemosyne-retrieval
-
-# Check all crates without a full compile
 cargo check --workspace
-
-# Format code
 cargo fmt --all
-
-# Lint
 cargo clippy --workspace -- -D warnings
 ```
-
-**Integration Test Coverage:**
-- File indexing and statistics
-- FTS5 keyword search (BM25 ranking validation)
-- Vector search result validation
-- Hybrid RRF search
-- Incremental indexing (skips identical hashes)
-- File listing and deletion
-- Large file chunking
 
 ---
 
 ## Tech Stack
 
-| Component | Choice | Rationale |
-|---|---|---|
-| Language | Rust 1.75+ | Memory safety, zero-cost abstractions |
-| GUI Framework | Tauri 2.x | Native WebView, cross-platform |
-| Async Runtime | Tokio 1.x | Compatible with Tauri, rich ecosystem |
-| Database | SQLite (rusqlite bundled) | No external service dependency |
-| Full-Text Search | SQLite FTS5 | Built-in, BM25, unicode61 |
-| Vector Storage | SQLite BLOB | Simple initial implementation; migratable |
-| Embedding Models | Candle (Optional) | Pure Rust, CPU/Metal, no Python dependency |
-| HTTP Framework | Axum 0.8 | Tower ecosystem, CORS, tracing |
-| PDF Parsing | pdf-extract | Pure Rust |
-| Image Parsing | image crate | Pure Rust, for reading dimensions |
-| File Watching | notify + debouncer | Cross-platform, 500ms debounce |
-| Error Handling | thiserror + anyhow | `thiserror` for libraries, `anyhow` for apps |
-
----
-
-## Roadmap
-
-- [ ] **CLIP Image Embeddings** — Semantic search for images based on visual content.
-- [ ] **Whisper Audio Transcription** — Transcribe MP3/WAV to text for searching.
-- [ ] **Video Keyframe Extraction** — Use ffmpeg + CLIP for frame descriptions.
-- [ ] **`sqlite-vector` Integration** — ANN search for larger-scale indexes.
-- [ ] **Multilingual Tokenizer** — Add `jieba` for Chinese FTS5 tokenization.
-- [ ] **Incremental Sync Daemon** — A background service that runs on system startup.
-- [ ] **Search Result Highlighting** — Pinpoint and highlight matched terms in context.
-
----
-
-## License
-
-MIT License — see the [LICENSE](LICENSE) file for details.
+| Component | Choice |
+|---|---|
+| Language | Rust 1.75+ |
+| GUI | Tauri 2.x + HTML/CSS/JS |
+| Async runtime | Tokio 1.x |
+| Database | SQLite (rusqlite bundled + WAL) |
+| Full-text search | FTS5 (BM25, trigram tokenizer) |
+| Vector KNN | sqlite-vec (HNSW) + Rust HNSW fallback |
+| Embedding inference | HuggingFace Candle (CPU / Metal GPU) |
+| Text models | BERT / BGE-M3 (XLM-RoBERTa architecture) |
+| Vision models | OpenAI CLIP / Chinese CLIP |
+| Audio models | Whisper (via Candle) |
+| HTTP | Axum 0.8 + Tower |
+| File watching | notify-debouncer-mini (500ms debounce) |
