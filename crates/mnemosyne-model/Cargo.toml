@@ -28,6 +28,13 @@ whisper-backend = [
     "dep:candle-core", "dep:candle-nn", "dep:candle-transformers", "dep:tokenizers",
     "dep:symphonia",
 ]
+# metal-backend: accelerate candle inference on Apple Silicon via Metal GPU.
+# Auto-enabled by build.sh on arm64 macOS; safe to leave off on Intel/Linux.
+metal-backend = [
+    "candle-core/metal",
+    "candle-nn/metal",
+    "candle-transformers/metal",
+]
 full = ["candle-backend", "clip-backend", "whisper-backend"]
 
 [dependencies]

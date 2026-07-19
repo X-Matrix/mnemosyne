@@ -13,6 +13,7 @@ path = "src/main.rs"
 candle-backend  = ["mnemosyne-retrieval/candle-backend"]
 clip-backend    = ["mnemosyne-retrieval/clip-backend"]
 whisper-backend = ["mnemosyne-retrieval/whisper-backend"]
+metal-backend   = ["mnemosyne-retrieval/metal-backend"]
 full            = ["candle-backend", "clip-backend", "whisper-backend"]
 
 [dependencies]

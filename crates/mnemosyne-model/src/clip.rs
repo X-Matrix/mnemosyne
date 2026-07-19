@@ -13,7 +13,14 @@ use candle_transformers::models::clip::{self, ClipConfig};
 use hf_hub::api::tokio::Api;
 use mnemosyne_core::Error;
 use std::path::Path;
-use tokenizers::Tokenizer;
+use tokenizers::{
+    models::wordpiece::WordPiece,
+    normalizers::bert::BertNormalizer,
+    pre_tokenizers::bert::BertPreTokenizer,
+    processors::bert::BertProcessing,
+    Model, // needed for WordPiece::get_vocab()
+    Tokenizer,
+};
 use tracing::info;
 
 /// Output embedding dimension for both model variants.
@@ -150,20 +157,10 @@ impl ClipEmbedder {
         };
 
         // ── Tokenizer (Chinese BERT vocab) ────────────────────────────────────
-        let tokenizer_path = match local_model_dir(model_id) {
-            Some(dir) => {
-                let p = dir.join("tokenizer.json");
-                if p.exists() {
-                    p
-                } else {
-                    download_tokenizer(model_id).await?
-                }
-            }
-            None => download_tokenizer(model_id).await?,
-        };
-
-        let tokenizer = Tokenizer::from_file(&tokenizer_path)
-            .map_err(|e| Error::model(format!("Chinese CLIP tokenizer: {e}")))?;
+        // OFA-Sys/chinese-clip-vit-base-patch16 provides `vocab.txt` (standard
+        // Chinese BERT vocabulary) rather than `tokenizer.json`.  We build the
+        // tokenizer programmatically from vocab.txt when tokenizer.json is absent.
+        let tokenizer = load_chinese_clip_tokenizer(model_id).await?;
 
         // PAD token is `[PAD]` (ID 0 in Chinese BERT vocab).
         let pad_id = tokenizer
@@ -278,13 +275,14 @@ fn embed_image_chinese(
     device: &Device,
     path: &Path,
 ) -> Result<Vec<f32>, Error> {
-    let pixels = preprocess_image(path)?;
+    // Use Chinese-CLIP-specific preprocessing (Triangle filter, resize_to_fill)
+    // to match the reference implementation exactly.
+    let pixels = preprocess_image_chinese(path)?;
     let tensor = Tensor::from_vec(pixels, (1usize, 3, 224, 224), device)
         .map_err(|e| Error::model(e.to_string()))?;
     let features = model
         .get_image_features(&tensor)
         .map_err(|e| Error::model(e.to_string()))?;
-    // get_image_features returns un-normalised projection output — L2-normalise.
     let vec: Vec<f32> = features
         .squeeze(0)
         .map_err(|e| Error::model(e.to_string()))?
@@ -297,39 +295,31 @@ fn embed_text_chinese(state: &ChineseState, text: &str) -> Result<Vec<f32>, Erro
     // BERT-style tokenisation: [CLS] tokens... [SEP]
     let encoding = state
         .tokenizer
-        .encode(text, true) // true adds [CLS] / [SEP] automatically
+        .encode(text, true)
         .map_err(|e| Error::model(e.to_string()))?;
 
     // Truncate to CH_CLIP_MAX_SEQ then pad to that length.
-    let raw_ids: Vec<u32> = encoding
-        .get_ids()
-        .iter()
-        .copied()
-        .take(CH_CLIP_MAX_SEQ)
-        .collect();
-    let raw_mask: Vec<u32> = encoding
-        .get_attention_mask()
-        .iter()
-        .copied()
-        .take(CH_CLIP_MAX_SEQ)
-        .collect();
+    let raw_ids:   Vec<u32> = encoding.get_ids().iter().copied().take(CH_CLIP_MAX_SEQ).collect();
+    // type_ids from tokenizer (all-zero for single-segment input, matches reference)
+    let raw_types: Vec<u32> = encoding.get_type_ids().iter().copied().take(CH_CLIP_MAX_SEQ).collect();
+    let raw_mask:  Vec<u32> = encoding.get_attention_mask().iter().copied().take(CH_CLIP_MAX_SEQ).collect();
     let seq_len = raw_ids.len();
 
-    let mut ids  = raw_ids;
-    let mut mask = raw_mask;
+    let mut ids   = raw_ids;
+    let mut types = raw_types;
+    let mut mask  = raw_mask;
     ids.resize(CH_CLIP_MAX_SEQ,  state.pad_id);
-    mask.resize(CH_CLIP_MAX_SEQ, 0u32);
-
-    let type_ids = vec![0u32; CH_CLIP_MAX_SEQ];
+    types.resize(CH_CLIP_MAX_SEQ, 0u32);
+    mask.resize(CH_CLIP_MAX_SEQ,  0u32);
 
     let make = |v: Vec<u32>| {
         Tensor::new(v.as_slice(), &state.device)
             .and_then(|t| t.unsqueeze(0))
             .map_err(|e| Error::model(e.to_string()))
     };
-    let input_ids  = make(ids)?;
-    let token_types = make(type_ids)?;
-    let attn_mask  = make(mask)?;
+    let input_ids   = make(ids)?;
+    let token_types = make(types)?;
+    let attn_mask   = make(mask)?;
 
     tracing::debug!(
         "Chinese CLIP text: {:?}… ({} tokens padded to {})",
@@ -376,6 +366,81 @@ fn load_var_builder(
     }
 }
 
+// ── Chinese CLIP tokenizer helpers ───────────────────────────────────────────
+
+/// Load (or download + build) the tokenizer for a Chinese CLIP model.
+///
+/// OFA-Sys/chinese-clip-vit-base-patch16 provides only `vocab.txt` (no
+/// `tokenizer.json`).  We build the tokenizer programmatically when needed.
+///
+/// Priority:
+/// 1. Local `tokenizer.json` → load directly.
+/// 2. Local `vocab.txt`      → build BertWordPiece tokenizer.
+/// 3. Download `tokenizer.json` from Hub (may return 404 → skip).
+/// 4. Download `vocab.txt`   → build BertWordPiece tokenizer.
+async fn load_chinese_clip_tokenizer(model_id: &str) -> Result<Tokenizer, Error> {
+    if let Some(dir) = local_model_dir(model_id) {
+        let json = dir.join("tokenizer.json");
+        if json.exists() {
+            return Tokenizer::from_file(&json)
+                .map_err(|e| Error::model(format!("tokenizer.json: {e}")));
+        }
+        let vocab = dir.join("vocab.txt");
+        if vocab.exists() {
+            return build_tokenizer_from_vocab(&vocab);
+        }
+    }
+    // Try tokenizer.json from Hub (silently skip 404)
+    if let Ok(p) = download_file(model_id, "tokenizer.json").await {
+        if let Ok(tok) = Tokenizer::from_file(&p) {
+            return Ok(tok);
+        }
+    }
+    // Fall back to vocab.txt
+    let vocab_path = download_file(model_id, "vocab.txt").await?;
+    build_tokenizer_from_vocab(&vocab_path)
+}
+
+/// Build a Chinese BERT WordPiece tokenizer from a raw `vocab.txt` file.
+///
+/// Matches the standard `bert-base-chinese` tokenizer configuration:
+/// - `handle_chinese_chars = true`  (space-pad CJK chars before splitting)
+/// - `lowercase = false`            (Chinese CLIP does NOT lowercase)
+/// - `[CLS]` / `[SEP]` post-processing
+fn build_tokenizer_from_vocab(vocab_path: &std::path::Path) -> Result<Tokenizer, Error> {
+    let vocab_str = vocab_path
+        .to_str()
+        .ok_or_else(|| Error::model("vocab path is not valid UTF-8".to_string()))?;
+
+    let model = WordPiece::from_file(vocab_str)
+        .unk_token("[UNK]".to_string())
+        .build()
+        .map_err(|e| Error::model(format!("WordPiece from vocab.txt: {e}")))?;
+
+    let vocab = model.get_vocab();
+    let cls_id = vocab
+        .get("[CLS]")
+        .copied()
+        .ok_or_else(|| Error::model("[CLS] not found in vocab.txt".to_string()))?;
+    let sep_id = vocab
+        .get("[SEP]")
+        .copied()
+        .ok_or_else(|| Error::model("[SEP] not found in vocab.txt".to_string()))?;
+
+    let mut tokenizer = Tokenizer::new(model);
+    tokenizer.with_normalizer(Some(BertNormalizer::new(true, true, None, false)));
+    tokenizer.with_pre_tokenizer(Some(BertPreTokenizer));
+    tokenizer.with_post_processor(Some(BertProcessing::new(
+        ("[SEP]".to_string(), sep_id),
+        ("[CLS]".to_string(), cls_id),
+    )));
+
+    info!("Built Chinese BERT tokenizer from vocab.txt ({} tokens)", vocab.len());
+    Ok(tokenizer)
+}
+
+// ── Weight / tokenizer download helpers ──────────────────────────────────────
+
 async fn download_weights(model_id: &str) -> Result<std::path::PathBuf, Error> {
     let api  = Api::new().map_err(|e| Error::model(e.to_string()))?;
     let repo = api.model(model_id.to_string());
@@ -389,11 +454,16 @@ async fn download_weights(model_id: &str) -> Result<std::path::PathBuf, Error> {
 }
 
 async fn download_tokenizer(model_id: &str) -> Result<std::path::PathBuf, Error> {
+    download_file(model_id, "tokenizer.json").await
+}
+
+/// Download any single file from a HuggingFace model repo.
+async fn download_file(model_id: &str, filename: &str) -> Result<std::path::PathBuf, Error> {
     let api  = Api::new().map_err(|e| Error::model(e.to_string()))?;
     let repo = api.model(model_id.to_string());
-    repo.get("tokenizer.json")
+    repo.get(filename)
         .await
-        .map_err(|e| Error::model(format!("tokenizer.json: {e}")))
+        .map_err(|e| Error::model(format!("{filename}: {e}")))
 }
 
 // ── Shared image preprocessing (224×224, same normalization for both models) ──
@@ -401,9 +471,38 @@ async fn download_tokenizer(model_id: &str) -> Result<std::path::PathBuf, Error>
 fn preprocess_image(path: &Path) -> Result<Vec<f32>, Error> {
     use image::imageops::FilterType;
 
+    // ── OpenAI CLIP ──────────────────────────────────────────────────────────
+    // Official CLIP preprocessing: resize & crop to 224×224 with bicubic
+    // (CatmullRom is the `image` crate's closest equivalent).
     let img = image::open(path)
         .map_err(|e| Error::parse(e.to_string()))?
-        .resize_exact(224, 224, FilterType::CatmullRom)
+        .resize_to_fill(224, 224, FilterType::CatmullRom)
+        .to_rgb8();
+
+    let mut chw = vec![0.0f32; 3 * 224 * 224];
+    for y in 0..224usize {
+        for x in 0..224usize {
+            let p = img.get_pixel(x as u32, y as u32);
+            for c in 0..3usize {
+                let v = p[c] as f32 / 255.0;
+                chw[c * 224 * 224 + y * 224 + x] = (v - CLIP_MEAN[c]) / CLIP_STD[c];
+            }
+        }
+    }
+    Ok(chw)
+}
+
+/// Image preprocessing for Chinese CLIP.
+///
+/// Matches the reference implementation exactly:
+/// `resize_to_fill(224, 224, Triangle)` → HWC raw bytes → CHW f32 → CLIP normalize.
+fn preprocess_image_chinese(path: &Path) -> Result<Vec<f32>, Error> {
+    use image::imageops::FilterType;
+
+    // Chinese CLIP reference uses Triangle (bilinear) filter + resize_to_fill.
+    let img = image::open(path)
+        .map_err(|e| Error::parse(e.to_string()))?
+        .resize_to_fill(224, 224, FilterType::Triangle)
         .to_rgb8();
 
     let mut chw = vec![0.0f32; 3 * 224 * 224];

@@ -17,6 +17,7 @@ license.workspace   = true
 candle-backend   = ["mnemosyne-model/candle-backend"]
 clip-backend     = ["mnemosyne-model/clip-backend"]
 whisper-backend  = ["mnemosyne-model/whisper-backend"]
+metal-backend    = ["mnemosyne-model/metal-backend"]
 full             = ["candle-backend", "clip-backend", "whisper-backend"]
 
 [dependencies]

@@ -84,6 +84,22 @@ if [[ "$FEAT_WHISPER" == "true" ]]; then
   CLI_FEATURES="${CLI_FEATURES:+$CLI_FEATURES,}whisper-backend"
 fi
 
+# ── Auto-enable Metal on Apple Silicon ───────────────────────────────────────
+# When any candle feature is requested on arm64 macOS, add metal-backend so
+# inference is accelerated on the GPU.  Pass --no-metal to suppress.
+FEAT_METAL=false
+if [[ -n "$CLI_FEATURES" ]] \
+   && [[ "$(uname -s)" == "Darwin" ]] \
+   && [[ "$(uname -m)" == "arm64" ]]; then
+  FEAT_METAL=true
+fi
+# Allow user override via --no-metal flag (parsed before this block)
+for arg in "$@"; do [[ "$arg" == "--no-metal" ]] && FEAT_METAL=false; done
+if [[ "$FEAT_METAL" == "true" ]]; then
+  CLI_FEATURES="${CLI_FEATURES:+$CLI_FEATURES,}metal-backend"
+  info "Apple Silicon detected — Metal GPU acceleration enabled"
+fi
+
 PROFILE_FLAG=""
 [[ "$BUILD_PROFILE" == "release" ]] && PROFILE_FLAG="--release"
 
@@ -95,6 +111,7 @@ echo ""
 echo "${BOLD}Build configuration${RESET}"
 echo "  Profile  : $BUILD_PROFILE"
 echo "  CLI features : ${CLI_FEATURES:-none (stub embedder)}"
+echo "  Metal GPU    : $FEAT_METAL"
 echo "  API features : candle-backend, clip-backend, whisper-backend (always on)"
 echo "  GUI      : $BUILD_GUI"
 echo "  sqlite-vector download : $INSTALL_SQLITE_VECTOR"
