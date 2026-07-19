@@ -193,7 +193,7 @@ async fn main() -> Result<()> {
 
         Commands::ModelDownload { model_id } => {
             println!("Downloading model: {model_id}");
-            engine.download_model(&model_id, None).await?;
+            engine.download_model(&model_id, None, None).await?;
             println!("Done.");
         }
 

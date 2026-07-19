@@ -1681,12 +1681,32 @@
             <!-- HF Mirror / Proxy -->
             <div class="sfm-sec">
               <div class="sfm-title">下载网络 / 代理</div>
-              <div style="font-size:12px;color:var(--mu);margin-bottom:12px;line-height:1.7">
-                默认已切换为 <code style="color:var(--acc)">hf-mirror.com</code> 镜像，并禁用系统代理（避免未运行的 Clash/V2Ray 导致「Connection
-                refused」）。<br>
-                如需走本地代理，请填写代理地址并保存。
+
+              <!-- Mirror selector -->
+              <div class="sfm-row" style="align-items:flex-start;flex-direction:column;gap:10px;padding-bottom:12px">
+                <div style="display:flex;align-items:center;gap:10px;width:100%">
+                  <span class="sfm-label">HF 镜像源</span>
+                  <select id="mirror-select" class="sfm-input" style="flex:1;max-width:280px;cursor:pointer"
+                    onchange="g.onMirrorChange()">
+                    <option value="">不使用镜像（直连 HuggingFace）</option>
+                    <option value="https://hf-mirror.com">hf-mirror.com</option>
+                    <option value="custom">自定义…</option>
+                  </select>
+                </div>
+                <div id="mirror-custom-row" style="display:none;width:100%;padding-left:132px">
+                  <input class="sfm-input" id="mirror-custom-input" type="text"
+                    placeholder="https://your-mirror.example.com" style="width:100%;max-width:380px" />
+                  <div style="font-size:11px;color:var(--mu2);margin-top:4px">输入完整 URL，不含末尾斜杠</div>
+                </div>
+                <div style="padding-left:132px">
+                  <button class="btn bp" onclick="g.saveMirror()" style="font-size:12px">保存</button>
+                  <button class="btn bg" onclick="g.clearMirror()"
+                    style="font-size:12px;margin-left:6px">清除（直连）</button>
+                </div>
               </div>
-              <div class="sfm-row">
+
+              <!-- Proxy -->
+              <div class="sfm-row" style="border-top:1px solid var(--bd);padding-top:12px">
                 <span class="sfm-label">代理地址</span>
                 <input class="sfm-input" id="proxy-input" type="text" placeholder="socks5://127.0.0.1:7890（留空=直连）"
                   style="flex:1" />
@@ -2426,7 +2446,8 @@
         if (prog) prog.style.display = 'block';
         try {
           const proxyUrl = localStorage.getItem('mn-proxy-url') || null;
-          await invoke('download_model', { modelId: id, proxyUrl });
+          const hfEndpoint = getHfEndpoint();
+          await invoke('download_model', { modelId: id, proxyUrl, hfEndpoint });
           const pt = qs(`#prog-t-${key}`);
           if (pt) pt.textContent = '下载完成！';
           toast(`模型下载完成: ${id.split('/').pop()}`, 'ok');
@@ -2467,6 +2488,50 @@
           if (btn) { btn.disabled = false; btn.textContent = '切换为在用'; }
           toast('切换失败: ' + (e?.message ?? e), 'er');
         }
+      };
+
+      // ── HF Mirror settings ────────────────────────────────────────────────────
+      // localStorage keys:
+      //   mn-hf-mirror-mode: "" | "https://hf-mirror.com" | "custom"
+      //   mn-hf-mirror-url : custom URL string
+
+      function getHfEndpoint() {
+        const mode = localStorage.getItem('mn-hf-mirror-mode') || '';
+        if (!mode) return null; // direct connection, no mirror
+        if (mode === 'custom') {
+          return (localStorage.getItem('mn-hf-mirror-url') || '').trim() || null;
+        }
+        return mode; // preset URL like https://hf-mirror.com
+      }
+
+      g.onMirrorChange = () => {
+        const v = qs('#mirror-select')?.value;
+        const customRow = qs('#mirror-custom-row');
+        if (customRow) customRow.style.display = (v === 'custom') ? 'block' : 'none';
+      };
+
+      g.saveMirror = () => {
+        const sel = qs('#mirror-select');
+        if (!sel) return;
+        const mode = sel.value;
+        localStorage.setItem('mn-hf-mirror-mode', mode);
+        if (mode === 'custom') {
+          const url = (qs('#mirror-custom-input')?.value ?? '').trim();
+          localStorage.setItem('mn-hf-mirror-url', url);
+          toast(url ? `镜像已保存: ${url}` : '自定义镜像 URL 为空，将直连', url ? 'ok' : 'wn');
+        } else if (mode) {
+          toast(`镜像已设置: ${mode}`, 'ok');
+        } else {
+          toast('已清除镜像，将直连 HuggingFace', 'in');
+        }
+      };
+
+      g.clearMirror = () => {
+        localStorage.removeItem('mn-hf-mirror-mode');
+        localStorage.removeItem('mn-hf-mirror-url');
+        const sel = qs('#mirror-select');
+        if (sel) { sel.value = ''; g.onMirrorChange(); }
+        toast('镜像已清除，将直连 HuggingFace', 'in');
       };
 
       // ── Proxy settings ────────────────────────────────────────────────────────────
@@ -2683,6 +2748,24 @@
         // Restore proxy input
         const saved = localStorage.getItem('mn-proxy-url') || '';
         if (qs('#proxy-input')) qs('#proxy-input').value = saved;
+
+        // Restore mirror selector
+        const mirrorMode = localStorage.getItem('mn-hf-mirror-mode') || '';
+        const mirrorSel = qs('#mirror-select');
+        if (mirrorSel) {
+          mirrorSel.value = mirrorMode;
+          // If saved value is a custom URL not matching any option, treat as custom
+          if (mirrorMode && mirrorSel.value !== mirrorMode) {
+            mirrorSel.value = 'custom';
+            localStorage.setItem('mn-hf-mirror-mode', 'custom');
+            localStorage.setItem('mn-hf-mirror-url', mirrorMode);
+          }
+          g.onMirrorChange();
+          if (mirrorMode === 'custom') {
+            const cu = qs('#mirror-custom-input');
+            if (cu) cu.value = localStorage.getItem('mn-hf-mirror-url') || '';
+          }
+        }
       }
 
       function updateHelp() {

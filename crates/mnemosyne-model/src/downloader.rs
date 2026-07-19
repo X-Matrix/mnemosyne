@@ -11,10 +11,18 @@ use std::path::{Path, PathBuf};
 use tracing::info;
 
 /// Base URL for HuggingFace Hub.
-/// Override with `HF_ENDPOINT` environment variable to use a different mirror.
-fn hf_endpoint() -> String {
+/// Can be overridden by passing an explicit endpoint or via the `HF_ENDPOINT`
+/// environment variable (env var takes priority over the built-in default).
+fn compute_endpoint(override_url: Option<&str>) -> String {
+    if let Some(url) = override_url {
+        let url = url.trim();
+        if !url.is_empty() {
+            return url.trim_end_matches('/').to_string();
+        }
+    }
+    // Check env var; if not set, use direct HuggingFace (no mirror by default).
     std::env::var("HF_ENDPOINT")
-        .unwrap_or_else(|_| "https://hf-mirror.com".to_string())
+        .unwrap_or_else(|_| "https://huggingface.co".to_string())
         .trim_end_matches('/')
         .to_string()
 }
@@ -45,14 +53,16 @@ impl ModelDownloader {
     }
 
     /// Download all required files for `model_id` and return the local dir.
-    /// `proxy_url` – explicit proxy (e.g. "socks5://127.0.0.1:7890").
-    ///   • `Some("")` or `None` → **no system proxy** (avoids "Connection refused"
-    ///     when a local proxy agent like Clash is configured but not running).
-    ///   • `Some(url)` → use the supplied proxy.
+    ///
+    /// - `proxy_url`   – explicit proxy (e.g. `"socks5://127.0.0.1:7890"`).
+    ///   `None` / empty → no system proxy.
+    /// - `hf_endpoint` – HuggingFace mirror base URL (e.g. `"https://hf-mirror.com"`).
+    ///   `None` / empty → use `HF_ENDPOINT` env var or fall back to `huggingface.co`.
     pub async fn download(
         &self,
         model_id: &str,
         proxy_url: Option<&str>,
+        hf_endpoint: Option<&str>,
     ) -> Result<PathBuf, Error> {
         info!("Downloading model: {model_id}");
 
@@ -63,7 +73,7 @@ impl ModelDownloader {
             .await
             .map_err(Error::Io)?;
 
-        let endpoint = hf_endpoint();
+        let endpoint = compute_endpoint(hf_endpoint);
 
         // Build HTTP client: explicit proxy OR no_proxy (bypass misconfigured system proxy).
         let mut builder = reqwest::Client::builder().user_agent("mnemosyne/0.1");

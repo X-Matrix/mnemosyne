@@ -692,11 +692,13 @@ impl SearchEngine {
     }
 
     /// Download a model from HuggingFace Hub and register it locally.
-    /// `proxy_url` is forwarded to the HTTP client (empty/None = no system proxy).
+    /// - `proxy_url`   – forwarded to the HTTP client (empty/None = no system proxy).
+    /// - `hf_endpoint` – optional mirror URL (e.g. `"https://hf-mirror.com"`).
     pub async fn download_model(
         &self,
         model_id: &str,
         proxy_url: Option<&str>,
+        hf_endpoint: Option<&str>,
     ) -> Result<(), Error> {
         use mnemosyne_model::ModelDownloader;
 
@@ -709,7 +711,7 @@ impl SearchEngine {
             .map_err(Error::Io)?;
 
         let downloader = ModelDownloader::new(cache_dir);
-        let local_path = downloader.download(model_id, proxy_url).await?;
+        let local_path = downloader.download(model_id, proxy_url, hf_endpoint).await?;
 
         let db = self.db.clone();
         let model_id = model_id.to_string();

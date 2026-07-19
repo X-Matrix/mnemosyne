@@ -83,13 +83,14 @@ pub async fn download_model(
     state: State<'_, AppState>,
     model_id: String,
     proxy_url: Option<String>,
+    hf_endpoint: Option<String>,
 ) -> Result<(), CommandError> {
     let lock = state.engine.read().await;
     let engine = lock.as_ref().ok_or_else(|| CommandError {
         message: "engine not ready".into(),
     })?;
     engine
-        .download_model(&model_id, proxy_url.as_deref())
+        .download_model(&model_id, proxy_url.as_deref(), hf_endpoint.as_deref())
         .await
         .map_err(Into::into)
 }
