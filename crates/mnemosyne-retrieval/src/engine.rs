@@ -455,11 +455,18 @@ impl SearchEngine {
                     .retain(|r| !seen.contains(&format!("{}:{}", r.file_record.id, r.chunk_index)));
 
                 if is_hybrid {
-                    // Cap and append AFTER text results (no re-sort — scale mismatch).
+                    // Merge CLIP image results with text/PDF results and sort by
+                    // score globally.  Both RRF hybrid scores and CLIP cosine
+                    // similarities are normalised to [0, 1], so a single sort gives
+                    // correct relevance ordering (e.g. a 69% image beats a 1% text).
                     clip_results.truncate(CLIP_MAX_HYBRID);
-                    let text_slots = query.limit.saturating_sub(clip_results.len());
-                    results.truncate(text_slots);
                     results.extend(clip_results);
+                    results.sort_by(|a, b| {
+                        b.score
+                            .partial_cmp(&a.score)
+                            .unwrap_or(std::cmp::Ordering::Equal)
+                    });
+                    results.truncate(query.limit);
                 } else {
                     // Vector mode: merge and sort by cosine score (same scale).
                     results.extend(clip_results);
