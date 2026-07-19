@@ -1,7 +1,10 @@
-//! Real BERT embedding via HuggingFace Candle.
+//! Real BERT / XLM-RoBERTa text embedding via HuggingFace Candle.
 //!
 //! Compiled only when the `candle-backend` feature is enabled.
-//! Default model: `sentence-transformers/all-MiniLM-L6-v2` (384-dim).
+//!
+//! Supported architectures and pooling strategies:
+//! - `bert`        (e.g. sentence-transformers/all-MiniLM-L6-v2) — mean pooling
+//! - `xlm-roberta` (e.g. BAAI/bge-m3)                           — CLS pooling
 
 use candle_core::{DType, Device, Tensor};
 use candle_nn::VarBuilder;
@@ -11,11 +14,26 @@ use mnemosyne_core::Error;
 use tokenizers::Tokenizer;
 use tracing::{debug, info};
 
+// ── Pooling strategy ──────────────────────────────────────────────────────────
+
+/// How to aggregate per-token hidden states into a single embedding vector.
+pub enum Pooling {
+    /// Arithmetic mean of all non-padding token states.
+    /// Standard for sentence-transformers models (e.g. all-MiniLM-L6-v2).
+    Mean,
+    /// Use only the `[CLS]` / `<s>` token (position 0).
+    /// Recommended for BGE and most RoBERTa-based retrieval models.
+    Cls,
+}
+
+// ── Embedder ──────────────────────────────────────────────────────────────────
+
 pub struct BertEmbedder {
     model: BertModel,
     tokenizer: Tokenizer,
     device: Device,
     pub dim: usize,
+    pooling: Pooling,
 }
 
 /// Return the local model directory `~/.mnemosyne/models/{model_id}` if it exists.
@@ -33,6 +51,11 @@ fn local_model_dir(model_id: &str) -> Option<std::path::PathBuf> {
 
 impl BertEmbedder {
     /// Load from local cache (`~/.mnemosyne/models/`) or download from HuggingFace Hub.
+    ///
+    /// Pooling strategy and weight-key prefix are auto-detected from `model_type`
+    /// in the model's `config.json`:
+    /// - `"bert"`        → mean pooling, root weight prefix
+    /// - `"xlm-roberta"` / `"roberta"` → CLS pooling, `roberta.` weight prefix
     pub async fn load(model_id: &str) -> Result<Self, Error> {
         info!("Loading BERT model '{}' via Candle", model_id);
 
@@ -56,28 +79,56 @@ impl BertEmbedder {
                 download_bert_files(model_id).await?
             };
 
-        let config: BertConfig = {
-            let json = std::fs::read_to_string(&config_path).map_err(Error::Io)?;
-            serde_json::from_str(&json).map_err(|e| Error::model(format!("parse config: {e}")))?
-        };
+        // ── Detect architecture from config ───────────────────────────────────
+        let config_json_str = std::fs::read_to_string(&config_path).map_err(Error::Io)?;
+        let config_json: serde_json::Value = serde_json::from_str(&config_json_str)
+            .map_err(|e| Error::model(format!("parse config json: {e}")))?;
+        let model_type = config_json
+            .get("model_type")
+            .and_then(|v| v.as_str())
+            .unwrap_or("bert")
+            .to_string();
+
+        let config: BertConfig = serde_json::from_str(&config_json_str)
+            .map_err(|e| Error::model(format!("parse config: {e}")))?;
         let dim = config.hidden_size;
 
-        let device = Device::Cpu;
+        // ── Pooling and weight-prefix selection ───────────────────────────────
+        let is_roberta = matches!(model_type.as_str(), "xlm-roberta" | "roberta");
+        let pooling = if is_roberta {
+            info!("BERT: model_type={model_type}, using CLS pooling");
+            Pooling::Cls
+        } else {
+            Pooling::Mean
+        };
 
+        let device = Device::Cpu;
         let vb = load_var_builder(&weights_path, DTYPE, &device)?;
 
-        let model =
-            BertModel::load(vb, &config).map_err(|e| Error::model(format!("build model: {e}")))?;
+        // XLM-RoBERTa safetensors store weights under the `roberta.*` namespace.
+        let model = if is_roberta {
+            BertModel::load(vb.pp("roberta"), &config)
+                .map_err(|e| Error::model(format!("build model (roberta): {e}")))?
+        } else {
+            BertModel::load(vb, &config)
+                .map_err(|e| Error::model(format!("build model: {e}")))?
+        };
 
         let tokenizer = Tokenizer::from_file(tokenizer_path)
             .map_err(|e| Error::model(format!("tokenizer: {e}")))?;
 
-        info!("BERT '{}' ready (dim={dim}, device=CPU)", model_id);
+        info!(
+            "BERT '{}' ready (type={}, dim={dim}, pooling={}, device=CPU)",
+            model_id,
+            model_type,
+            if is_roberta { "cls" } else { "mean" }
+        );
         Ok(Self {
             model,
             tokenizer,
             device,
             dim,
+            pooling,
         })
     }
 
@@ -117,11 +168,26 @@ impl BertEmbedder {
             .map_err(|e| Error::model(e.to_string()))?;
         debug!("BERT forward pass: {:?}", t0.elapsed());
 
-        // Mean-pool over token dimension, then L2-normalise.
-        let pooled = output
-            .mean(1)
-            .and_then(|t| t.squeeze(0))
-            .map_err(|e| Error::model(e.to_string()))?;
+        // Pool the sequence output into a single vector, then L2-normalise.
+        let pooled = match self.pooling {
+            Pooling::Mean => {
+                // Arithmetic mean over all token positions.
+                output
+                    .mean(1)
+                    .and_then(|t| t.squeeze(0))
+                    .map_err(|e| Error::model(e.to_string()))?
+            }
+            Pooling::Cls => {
+                // CLS / <s> token sits at sequence position 0.
+                // output: (1, seq_len, hidden) → narrow to (1, 1, hidden)
+                //         → squeeze seq dim → (1, hidden) → squeeze batch → (hidden,)
+                output
+                    .narrow(1, 0, 1)
+                    .and_then(|t| t.squeeze(1))
+                    .and_then(|t| t.squeeze(0))
+                    .map_err(|e| Error::model(e.to_string()))?
+            }
+        };
 
         let vec: Vec<f32> = pooled.to_vec1().map_err(|e| Error::model(e.to_string()))?;
         let norm = vec.iter().map(|v| v * v).sum::<f32>().sqrt().max(1e-9);

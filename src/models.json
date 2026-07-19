@@ -40,6 +40,28 @@
             "hf_url": "https://huggingface.co/sentence-transformers/all-MiniLM-L6-v2"
         },
         {
+            "id": "BAAI/bge-m3",
+            "name": "BGE-M3",
+            "category": "text",
+            "description": "推荐（中文）：BAAI 发布的多语言嵌入旗舰模型，1024 维，支持中英文等 100+ 语言，检索质量显著优于 MiniLM",
+            "size_mb": 570,
+            "dimensions": 1024,
+            "languages": [
+                "zh",
+                "en",
+                "multi"
+            ],
+            "tags": [
+                "1024维",
+                "570MB",
+                "多语言",
+                "中文",
+                "CLS池化"
+            ],
+            "recommended": true,
+            "hf_url": "https://huggingface.co/BAAI/bge-m3"
+        },
+        {
             "id": "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2",
             "name": "multilingual-MiniLM-L12-v2",
             "category": "text",
