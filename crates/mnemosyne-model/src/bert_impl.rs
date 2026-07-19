@@ -9,7 +9,7 @@ use candle_transformers::models::bert::{BertModel, Config as BertConfig, DTYPE};
 use hf_hub::api::tokio::Api;
 use mnemosyne_core::Error;
 use tokenizers::Tokenizer;
-use tracing::info;
+use tracing::{debug, info};
 
 pub struct BertEmbedder {
     model: BertModel,
@@ -83,10 +83,22 @@ impl BertEmbedder {
 
     /// Encode a single text string into a normalised embedding.
     pub fn embed(&self, text: &str) -> Result<Vec<f32>, Error> {
+        let preview: String = text.chars().take(80).collect();
+        let truncated = text.chars().count() > 80;
+        debug!(
+            "BERT embed: input={:?}{} ({} chars)",
+            preview,
+            if truncated { "…" } else { "" },
+            text.chars().count(),
+        );
+
         let encoding = self
             .tokenizer
             .encode(text, true)
             .map_err(|e| Error::model(e.to_string()))?;
+
+        let n_tokens = encoding.get_ids().len();
+        debug!("BERT tokenised: {} tokens", n_tokens);
 
         let make = |data: &[u32]| {
             Tensor::new(data, &self.device)
@@ -94,14 +106,16 @@ impl BertEmbedder {
                 .map_err(|e| Error::model(e.to_string()))
         };
 
-        let ids = make(encoding.get_ids())?;
+        let ids   = make(encoding.get_ids())?;
         let types = make(encoding.get_type_ids())?;
-        let mask = make(encoding.get_attention_mask())?;
+        let mask  = make(encoding.get_attention_mask())?;
 
+        let t0 = std::time::Instant::now();
         let output = self
             .model
             .forward(&ids, &types, Some(&mask))
             .map_err(|e| Error::model(e.to_string()))?;
+        debug!("BERT forward pass: {:?}", t0.elapsed());
 
         // Mean-pool over token dimension, then L2-normalise.
         let pooled = output
@@ -111,6 +125,11 @@ impl BertEmbedder {
 
         let vec: Vec<f32> = pooled.to_vec1().map_err(|e| Error::model(e.to_string()))?;
         let norm = vec.iter().map(|v| v * v).sum::<f32>().sqrt().max(1e-9);
+        debug!(
+            "BERT output: dim={}, L2_norm_before={:.6}",
+            vec.len(),
+            norm,
+        );
         Ok(vec.into_iter().map(|v| v / norm).collect())
     }
 }

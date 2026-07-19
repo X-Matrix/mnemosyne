@@ -114,6 +114,9 @@ cargo build $CLI_FLAGS -p mnemosyne-cli
 info "Building mnemosyne-api (all ML backends always enabled)..."
 cargo build $PROFILE_FLAG -p mnemosyne-api
 
+info "Building mnemosyne-tauri (desktop app backend)..."
+cargo build $CLI_FLAGS -p mnemosyne-tauri
+
 BIN_DIR="target/$BUILD_PROFILE"
 success "Binaries ready:"
 echo "   CLI    : $BIN_DIR/mnemosyne"
