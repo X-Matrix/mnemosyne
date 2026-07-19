@@ -256,6 +256,54 @@ pub async fn remove_file(state: State<'_, AppState>, id: String) -> Result<(), C
     engine.remove_file(&id).await.map_err(Into::into)
 }
 
+/// Wipe every indexed record from the database.
+///
+/// Deletes all rows from `files` (which cascades to `document_chunks`,
+/// `embeddings`, and the FTS5 table via triggers), then drops any
+/// `embedding_vec_*` virtual tables created by sqlite-vec so that a
+/// subsequent re-index starts completely clean.
+#[tauri::command]
+pub async fn clear_index(state: State<'_, AppState>) -> Result<(), String> {
+    let lock = state.engine.read().await;
+    let engine = lock
+        .as_ref()
+        .ok_or_else(|| "engine not ready".to_string())?;
+
+    let conn = engine.db().conn.clone();
+
+    tokio::task::spawn_blocking(move || -> Result<(), String> {
+        let conn = conn.lock().map_err(|e| e.to_string())?;
+
+        // Cascade deletes chunks + embeddings; FTS5 triggers clean themselves.
+        conn.execute("DELETE FROM files", []).map_err(|e| e.to_string())?;
+
+        // Drop vec0 virtual tables so they are rebuilt cleanly on next search.
+        // Table names are always "embedding_vec_{usize}" — no injection risk.
+        let tables: Vec<String> = conn
+            .prepare(
+                "SELECT name FROM sqlite_master \
+                 WHERE type='table' AND name LIKE 'embedding_vec_%'",
+            )
+            .and_then(|mut stmt| {
+                stmt.query_map([], |r| r.get::<_, String>(0))
+                    .map(|rows| rows.flatten().collect())
+            })
+            .unwrap_or_default();
+
+        for t in &tables {
+            let _ = conn.execute(&format!("DROP TABLE IF EXISTS \"{t}\""), []);
+        }
+
+        tracing::info!(
+            "Index cleared: files/chunks/embeddings deleted, {} vec0 tables dropped",
+            tables.len()
+        );
+        Ok(())
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
 /// Return a preview payload for the given file path.
 ///
 /// - Text files  → `{ type: "text",       content, ext }`

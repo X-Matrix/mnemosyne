@@ -1848,6 +1848,46 @@
       </div>
     </div>
 
+    <!-- ── Clear Index Confirmation Modal ──────────────────────────────────────── -->
+    <div class="ov" id="clear-modal">
+      <div class="mo" style="width:420px">
+        <div class="moh">
+          <h2 style="color:var(--red)">⚠ 清空索引数据库</h2>
+          <button class="ib" onclick="g.closeClear()"><svg width="12" height="12" viewBox="0 0 24 24" fill="none"
+              stroke="currentColor" stroke-width="2.5">
+              <path d="M18 6 6 18M6 6l12 12" />
+            </svg></button>
+        </div>
+        <div class="mob">
+          <p style="font-size:12px;color:var(--mu);line-height:1.7;margin-bottom:14px">
+            此操作将删除所有已索引的文件记录、内容分块和向量嵌入，<b style="color:var(--tx)">不可撤销</b>。<br>
+            原始文件不受影响，但需要重新索引才能搜索。
+          </p>
+          <div
+            style="background:var(--sf2);border:1px solid var(--bd);border-radius:6px;padding:12px 14px;margin-bottom:14px;text-align:center">
+            <div style="font-size:11px;color:var(--mu);margin-bottom:6px">请输入以下单词以确认：</div>
+            <div id="clear-word"
+              style="font-size:22px;font-weight:700;letter-spacing:2px;color:var(--red);font-family:'SF Mono',Menlo,monospace">
+            </div>
+          </div>
+          <div class="fl2">输入验证单词</div>
+          <input class="ti" id="clear-input" type="text" placeholder="在此输入上方单词…" oninput="g.onClearInput()"
+            autocomplete="off" autocorrect="off" spellcheck="false" />
+          <div style="font-size:11px;color:var(--mu2);margin-top:6px" id="clear-hint"></div>
+        </div>
+        <div class="mof">
+          <button class="btn bg" onclick="g.closeClear()">取消</button>
+          <button class="btn br" id="clear-confirm-btn" disabled onclick="g.doClear()" style="opacity:.4">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polyline points="3 6 5 6 21 6" />
+              <path d="M19 6l-1 14H6L5 6" />
+            </svg>
+            清空全部数据
+          </button>
+        </div>
+      </div>
+    </div>
+
     <div id="tw"></div>
 
     <script type="module">
@@ -2721,8 +2761,70 @@ mnemosyne serve --port 8080`;
       };
 
       g.confirmClear = () => {
-        if (!confirm('确认清空所有索引数据？此操作不可撤销！')) return;
-        toast('清空功能需在 CLI 执行：rm ~/.mnemosyne/db.sqlite', 'wn');
+        // Pick a random obscure/funny word and open the modal
+        const words = [
+          'flibbertigibbet', 'kerfuffle', 'brouhaha', 'discombobulate',
+          'cattywampus', 'bumfuzzle', 'taradiddle', 'widdershins',
+          'collywobbles', 'whippersnapper', 'hornswoggle', 'snollygoster',
+          'popinjay', 'scalawag', 'mumpsimus', 'canoodle',
+          'shenanigans', 'hullabaloo', 'bamboozle', 'lollygag',
+          'mollycoddle', 'skedaddle', 'gobsmacked', 'nincompoop',
+          'flummox', 'balderdash', 'ragamuffin', 'persnickety',
+          'dillydally', 'pettifog', 'snickersnee', 'blatherskite',
+          'lollygagging', 'rigmarole', 'skullduggery', 'tomfoolery',
+          'flapdoodle', 'codswallop', 'poppycock', 'malarkey',
+        ];
+        const word = words[Math.floor(Math.random() * words.length)];
+        qs('#clear-word').textContent = word;
+        qs('#clear-input').value = '';
+        qs('#clear-hint').textContent = '';
+        const btn = qs('#clear-confirm-btn');
+        btn.disabled = true;
+        btn.style.opacity = '.4';
+        qs('#clear-modal').classList.add('open');
+        setTimeout(() => qs('#clear-input').focus(), 80);
+      };
+
+      g.closeClear = () => {
+        qs('#clear-modal').classList.remove('open');
+      };
+
+      g.onClearInput = () => {
+        const typed = qs('#clear-input').value;
+        const target = qs('#clear-word').textContent;
+        const btn = qs('#clear-confirm-btn');
+        const hint = qs('#clear-hint');
+        if (typed === target) {
+          btn.disabled = false;
+          btn.style.opacity = '1';
+          hint.textContent = '✓ 匹配';
+          hint.style.color = 'var(--red)';
+        } else {
+          btn.disabled = true;
+          btn.style.opacity = '.4';
+          hint.textContent = typed.length > 0 ? '不匹配，继续输入…' : '';
+          hint.style.color = 'var(--mu2)';
+        }
+      };
+
+      g.doClear = async () => {
+        const btn = qs('#clear-confirm-btn');
+        if (btn.disabled) return;
+        btn.disabled = true;
+        btn.innerHTML = '<div class="sspin"></div> 清空中…';
+        try {
+          await invoke('clear_index');
+          g.closeClear();
+          toast('索引数据库已清空', 'ok');
+          await loadStats();
+          if (curView === 'index') { renderDirs(); g.loadFiles(); }
+          if (curView === 'settings') updateSettings();
+        } catch (e) {
+          btn.disabled = false;
+          btn.innerHTML = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/></svg> 清空全部数据';
+          btn.style.opacity = '1';
+          toast('清空失败: ' + (e?.message ?? e), 'er');
+        }
       };
 
       // ── Stats ──────────────────────────────────────────────────────────────────────
@@ -2863,6 +2965,7 @@ mnemosyne serve --port 8080`;
 
       qs('#add-modal').addEventListener('click', e => { if (e.target === e.currentTarget) g.closeAdd(); });
       qs('#prev-ov').addEventListener('click', e => { if (e.target === e.currentTarget) g.closePreview(); });
+      qs('#clear-modal').addEventListener('click', e => { if (e.target === e.currentTarget) g.closeClear(); });
       qs('#dir-input').addEventListener('keydown', e => { if (e.key === 'Enter') g.doAdd(); });
 
       // ── Boot ──────────────────────────────────────────────────────────────────────

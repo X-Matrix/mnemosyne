@@ -149,6 +149,7 @@ pub fn run() {
             commands::api::get_api_status,
             commands::index::set_force_hnsw,
             commands::index::get_force_hnsw,
+            commands::index::clear_index,
         ])
         .run(tauri::generate_context!())
         .expect("error while running Mnemosyne");
