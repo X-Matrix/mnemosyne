@@ -43,11 +43,11 @@ const TEXT_MODEL_FILES_FALLBACK: &[&str] = &[
 ];
 
 /// Chinese CLIP models (OFA-Sys/chinese-clip-*) use `vocab.txt` instead of
-/// `tokenizer.json`.  The weights are saved as `pytorch_model.bin`.
+/// `tokenizer.json`, and do not have `tokenizer_config.json`.
+/// Available files: config.json, vocab.txt, pytorch_model.bin
 const CHINESE_CLIP_FILES: &[&str] = &[
     "config.json",
     "vocab.txt",
-    "tokenizer_config.json",
     "pytorch_model.bin",
 ];
 
