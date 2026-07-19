@@ -140,13 +140,13 @@ if [[ "$INSTALL_SQLITE_VECTOR" == "true" ]]; then
       ARCH=$(uname -m)
       if [[ "$ARCH" == "arm64" ]]; then
         DOWNLOAD_CANDIDATES=(
-          "$BASE_URL/sqlite-vec-loadable-macos-aarch64.tar.gz"
           "$BASE_URL/sqlite-vec-0.1.9-loadable-macos-aarch64.tar.gz"
+          "$BASE_URL/sqlite-vec-loadable-macos-aarch64.tar.gz"
         )
       else
         DOWNLOAD_CANDIDATES=(
-          "$BASE_URL/sqlite-vec-loadable-macos-x86_64.tar.gz"
           "$BASE_URL/sqlite-vec-0.1.9-loadable-macos-x86_64.tar.gz"
+          "$BASE_URL/sqlite-vec-loadable-macos-x86_64.tar.gz"
         )
       fi
       ;;
@@ -186,28 +186,35 @@ if [[ "$INSTALL_SQLITE_VECTOR" == "true" ]]; then
     [[ -n "${https_proxy:-}" ]] && info "Using proxy: $https_proxy"
 
     # ── Try each candidate URL until one succeeds ────────────────────────────
+    # Download to a temp file first; only replace TARGET on success so that
+    # an existing valid library is never accidentally deleted on failure.
     DOWNLOADED=false
+    TMPFILE="$(mktemp /tmp/mnemosyne_vec_XXXX.dylib)"
     for url in "${DOWNLOAD_CANDIDATES[@]}"; do
       info "Trying: $(basename "$url") ..."
-      # Archives contain vec0.dylib / vec0.so — extract just that file.
       if curl -fsSL --retry 2 --max-time 60 "$url" \
-          | tar -xzO "$EXT_FILE" > "$TARGET" 2>/dev/null; then
-        if [[ -s "$TARGET" ]]; then
-          success "sqlite-vec ($EXT_FILE) saved to $TARGET"
-          echo "   URL: $url"
-          echo "   KNN vector search will be active on next run."
-          DOWNLOADED=true
-          break
-        fi
+          | tar -xzO "$EXT_FILE" > "$TMPFILE" 2>/dev/null \
+         && [[ -s "$TMPFILE" ]]; then
+        mv "$TMPFILE" "$TARGET"
+        success "sqlite-vec ($EXT_FILE) saved to $TARGET"
+        echo "   URL: $url"
+        echo "   KNN vector search will be active on next run."
+        DOWNLOADED=true
+        break
       fi
-      rm -f "$TARGET"   # clean up empty/partial file
+      # Leave TMPFILE in place for the next attempt (it gets overwritten).
     done
+    rm -f "$TMPFILE"   # clean up temp regardless of outcome
 
     if [[ "$DOWNLOADED" == "false" ]]; then
-      warn "All download candidates failed. Install manually:"
-      warn "  mkdir -p ~/.mnemosyne/lib"
-      warn "  # Download from: https://github.com/asg017/sqlite-vec/releases"
-      warn "  # Extract $EXT_FILE and place it at: $TARGET"
+      if [[ -s "$TARGET" ]]; then
+        warn "All download candidates failed — keeping existing $TARGET"
+      else
+        warn "All download candidates failed. Install manually:"
+        warn "  mkdir -p ~/.mnemosyne/lib"
+        warn "  # Download from: https://github.com/asg017/sqlite-vec/releases"
+        warn "  # Extract $EXT_FILE and place it at: $TARGET"
+      fi
     fi
   fi
 fi
