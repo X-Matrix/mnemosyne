@@ -109,8 +109,8 @@ impl BertEmbedder {
         // weights WITHOUT a model-level prefix in the file — keys start directly
         // with `embeddings.*` and `encoder.*` at the root.  The only difference
         // that matters for loading is the pooling strategy.
-        let model = BertModel::load(vb, &config)
-            .map_err(|e| Error::model(format!("build model: {e}")))?;
+        let model =
+            BertModel::load(vb, &config).map_err(|e| Error::model(format!("build model: {e}")))?;
 
         let tokenizer = Tokenizer::from_file(tokenizer_path)
             .map_err(|e| Error::model(format!("tokenizer: {e}")))?;
@@ -155,9 +155,9 @@ impl BertEmbedder {
                 .map_err(|e| Error::model(e.to_string()))
         };
 
-        let ids   = make(encoding.get_ids())?;
+        let ids = make(encoding.get_ids())?;
         let types = make(encoding.get_type_ids())?;
-        let mask  = make(encoding.get_attention_mask())?;
+        let mask = make(encoding.get_attention_mask())?;
 
         let t0 = std::time::Instant::now();
         let output = self
@@ -189,11 +189,7 @@ impl BertEmbedder {
 
         let vec: Vec<f32> = pooled.to_vec1().map_err(|e| Error::model(e.to_string()))?;
         let norm = vec.iter().map(|v| v * v).sum::<f32>().sqrt().max(1e-9);
-        debug!(
-            "BERT output: dim={}, L2_norm_before={:.6}",
-            vec.len(),
-            norm,
-        );
+        debug!("BERT output: dim={}, L2_norm_before={:.6}", vec.len(), norm,);
         Ok(vec.into_iter().map(|v| v / norm).collect())
     }
 }

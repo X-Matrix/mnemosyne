@@ -33,7 +33,7 @@ const CLIP_MAX_SEQ: usize = 77;
 
 /// Normalization constants shared by both variants (ImageNet / CLIP training).
 const CLIP_MEAN: [f32; 3] = [0.481_454_7, 0.457_827_5, 0.408_210_7];
-const CLIP_STD:  [f32; 3] = [0.268_629_5, 0.261_302_6, 0.275_777_1];
+const CLIP_STD: [f32; 3] = [0.268_629_5, 0.261_302_6, 0.275_777_1];
 
 // ── Chinese CLIP constants ────────────────────────────────────────────────────
 
@@ -73,7 +73,11 @@ fn local_model_dir(model_id: &str) -> Option<std::path::PathBuf> {
     let dir = std::path::PathBuf::from(home)
         .join(".mnemosyne/models")
         .join(model_id);
-    if dir.is_dir() { Some(dir) } else { None }
+    if dir.is_dir() {
+        Some(dir)
+    } else {
+        None
+    }
 }
 
 impl ClipEmbedder {
@@ -115,8 +119,7 @@ impl ClipEmbedder {
 
         let config = ClipConfig::vit_base_patch32();
         let vb = load_var_builder(&weights_path, DType::F32, &device)?;
-        let model =
-            clip::ClipModel::new(vb, &config).map_err(|e| Error::model(e.to_string()))?;
+        let model = clip::ClipModel::new(vb, &config).map_err(|e| Error::model(e.to_string()))?;
 
         let tokenizer = local_model_dir(model_id).and_then(|dir| {
             let p = dir.join("tokenizer.json");
@@ -129,7 +132,11 @@ impl ClipEmbedder {
             tokenizer.is_some()
         );
         Ok(Self {
-            variant: ClipVariant::OpenAi(OpenAiState { model, tokenizer, device }),
+            variant: ClipVariant::OpenAi(OpenAiState {
+                model,
+                tokenizer,
+                device,
+            }),
         })
     }
 
@@ -214,7 +221,11 @@ unsafe impl Sync for ClipEmbedder {}
 
 // ── OpenAI CLIP inference ─────────────────────────────────────────────────────
 
-fn embed_image_openai(model: &clip::ClipModel, device: &Device, path: &Path) -> Result<Vec<f32>, Error> {
+fn embed_image_openai(
+    model: &clip::ClipModel,
+    device: &Device,
+    path: &Path,
+) -> Result<Vec<f32>, Error> {
     let pixels = preprocess_image(path)?;
     let tensor = Tensor::from_vec(pixels, (1usize, 3, 224, 224), device)
         .map_err(|e| Error::model(e.to_string()))?;
@@ -299,27 +310,42 @@ fn embed_text_chinese(state: &ChineseState, text: &str) -> Result<Vec<f32>, Erro
         .map_err(|e| Error::model(e.to_string()))?;
 
     // Truncate to CH_CLIP_MAX_SEQ then pad to that length.
-    let raw_ids:   Vec<u32> = encoding.get_ids().iter().copied().take(CH_CLIP_MAX_SEQ).collect();
+    let raw_ids: Vec<u32> = encoding
+        .get_ids()
+        .iter()
+        .copied()
+        .take(CH_CLIP_MAX_SEQ)
+        .collect();
     // type_ids from tokenizer (all-zero for single-segment input, matches reference)
-    let raw_types: Vec<u32> = encoding.get_type_ids().iter().copied().take(CH_CLIP_MAX_SEQ).collect();
-    let raw_mask:  Vec<u32> = encoding.get_attention_mask().iter().copied().take(CH_CLIP_MAX_SEQ).collect();
+    let raw_types: Vec<u32> = encoding
+        .get_type_ids()
+        .iter()
+        .copied()
+        .take(CH_CLIP_MAX_SEQ)
+        .collect();
+    let raw_mask: Vec<u32> = encoding
+        .get_attention_mask()
+        .iter()
+        .copied()
+        .take(CH_CLIP_MAX_SEQ)
+        .collect();
     let seq_len = raw_ids.len();
 
-    let mut ids   = raw_ids;
+    let mut ids = raw_ids;
     let mut types = raw_types;
-    let mut mask  = raw_mask;
-    ids.resize(CH_CLIP_MAX_SEQ,  state.pad_id);
+    let mut mask = raw_mask;
+    ids.resize(CH_CLIP_MAX_SEQ, state.pad_id);
     types.resize(CH_CLIP_MAX_SEQ, 0u32);
-    mask.resize(CH_CLIP_MAX_SEQ,  0u32);
+    mask.resize(CH_CLIP_MAX_SEQ, 0u32);
 
     let make = |v: Vec<u32>| {
         Tensor::new(v.as_slice(), &state.device)
             .and_then(|t| t.unsqueeze(0))
             .map_err(|e| Error::model(e.to_string()))
     };
-    let input_ids   = make(ids)?;
+    let input_ids = make(ids)?;
     let token_types = make(types)?;
-    let attn_mask   = make(mask)?;
+    let attn_mask = make(mask)?;
 
     tracing::debug!(
         "Chinese CLIP text: {:?}… ({} tokens padded to {})",
@@ -435,14 +461,17 @@ fn build_tokenizer_from_vocab(vocab_path: &std::path::Path) -> Result<Tokenizer,
         ("[CLS]".to_string(), cls_id),
     )));
 
-    info!("Built Chinese BERT tokenizer from vocab.txt ({} tokens)", vocab.len());
+    info!(
+        "Built Chinese BERT tokenizer from vocab.txt ({} tokens)",
+        vocab.len()
+    );
     Ok(tokenizer)
 }
 
 // ── Weight / tokenizer download helpers ──────────────────────────────────────
 
 async fn download_weights(model_id: &str) -> Result<std::path::PathBuf, Error> {
-    let api  = Api::new().map_err(|e| Error::model(e.to_string()))?;
+    let api = Api::new().map_err(|e| Error::model(e.to_string()))?;
     let repo = api.model(model_id.to_string());
     match repo.get("model.safetensors").await {
         Ok(p) => Ok(p),
@@ -455,7 +484,7 @@ async fn download_weights(model_id: &str) -> Result<std::path::PathBuf, Error> {
 
 /// Download any single file from a HuggingFace model repo.
 async fn download_file(model_id: &str, filename: &str) -> Result<std::path::PathBuf, Error> {
-    let api  = Api::new().map_err(|e| Error::model(e.to_string()))?;
+    let api = Api::new().map_err(|e| Error::model(e.to_string()))?;
     let repo = api.model(model_id.to_string());
     repo.get(filename)
         .await

@@ -275,7 +275,8 @@ pub async fn clear_index(state: State<'_, AppState>) -> Result<(), String> {
         let conn = conn.lock().map_err(|e| e.to_string())?;
 
         // Cascade deletes chunks + embeddings; FTS5 triggers clean themselves.
-        conn.execute("DELETE FROM files", []).map_err(|e| e.to_string())?;
+        conn.execute("DELETE FROM files", [])
+            .map_err(|e| e.to_string())?;
 
         // Drop vec0 virtual tables so they are rebuilt cleanly on next search.
         // Table names are always "embedding_vec_{usize}" — no injection risk.

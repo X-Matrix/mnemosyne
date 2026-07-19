@@ -97,7 +97,17 @@ impl<'a> ChunkRepo<'a> {
 
     pub fn fts_search(&self, query: &str, limit: usize) -> Result<Vec<FtsRow>, Error> {
         let conn = self.db.conn.lock().unwrap();
-        let char_count = query.chars().count();
+        // Strip FTS5 operator characters (:  *  "  ( )  -  ^) that would be
+        // interpreted as query syntax rather than search terms.
+        let clean: String = query
+            .chars()
+            .map(|c| match c {
+                ':' | '"' | '*' | '(' | ')' | '-' | '^' => ' ',
+                c => c,
+            })
+            .collect();
+        let clean = clean.split_whitespace().collect::<Vec<_>>().join(" ");
+        let char_count = clean.chars().count();
 
         // FTS5 trigram tokenizer requires >= 3 characters.
         // For shorter queries we fall back to a LIKE scan.
@@ -115,7 +125,7 @@ impl<'a> ChunkRepo<'a> {
                 .map_err(|e| Error::storage(e.to_string()))?;
 
             let rows: Vec<(String, String, i64, String, f64)> = stmt
-                .query_map(params![query, limit as i64], |row| {
+                .query_map(params![clean, limit as i64], |row| {
                     Ok((
                         row.get::<_, String>(0)?,
                         row.get::<_, String>(1)?,

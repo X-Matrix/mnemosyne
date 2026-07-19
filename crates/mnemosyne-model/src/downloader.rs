@@ -45,11 +45,7 @@ const TEXT_MODEL_FILES_FALLBACK: &[&str] = &[
 /// Chinese CLIP models (OFA-Sys/chinese-clip-*) use `vocab.txt` instead of
 /// `tokenizer.json`, and do not have `tokenizer_config.json`.
 /// Available files: config.json, vocab.txt, pytorch_model.bin
-const CHINESE_CLIP_FILES: &[&str] = &[
-    "config.json",
-    "vocab.txt",
-    "pytorch_model.bin",
-];
+const CHINESE_CLIP_FILES: &[&str] = &["config.json", "vocab.txt", "pytorch_model.bin"];
 
 /// Returns true for Chinese CLIP model IDs.
 fn is_chinese_clip(model_id: &str) -> bool {

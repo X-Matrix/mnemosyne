@@ -415,7 +415,7 @@ impl SearchEngine {
                 // in EmbeddingRepo::vector_knn).
                 const CLIP_MIN_VECTOR: f32 = 0.15; // permissive — user chose vector
                 const CLIP_MIN_HYBRID: f32 = 0.25; // exclude clearly unrelated images
-                const CLIP_MAX_HYBRID: usize = 8;  // cap images appended in hybrid
+                const CLIP_MAX_HYBRID: usize = 8; // cap images appended in hybrid
 
                 let clip_min_score = if is_hybrid {
                     CLIP_MIN_HYBRID
@@ -436,12 +436,19 @@ impl SearchEngine {
 
                 debug!(
                     "CLIP raw results: {} before threshold {:.2}",
-                    clip_results.len(), clip_min_score
+                    clip_results.len(),
+                    clip_min_score
                 );
                 if let Some(top) = clip_results.first() {
-                    debug!("CLIP top score: {:.4} ({})", top.score,
-                        top.file_record.path.file_name()
-                            .and_then(|n| n.to_str()).unwrap_or("?"));
+                    debug!(
+                        "CLIP top score: {:.4} ({})",
+                        top.score,
+                        top.file_record
+                            .path
+                            .file_name()
+                            .and_then(|n| n.to_str())
+                            .unwrap_or("?")
+                    );
                 }
 
                 clip_results.retain(|r| r.score >= clip_min_score);
@@ -579,7 +586,11 @@ impl SearchEngine {
         for chunk in chunks {
             let emb = match chunk {
                 // ── Image: CLIP vision embedding (clip-backend) or caption text ──
-                ParsedContent::Image { caption: _, .. } => {
+                ParsedContent::Image { caption, .. } => {
+                    // `caption` is used only when clip-backend is NOT active;
+                    // suppress the warning for the clip-backend build.
+                    #[cfg(feature = "clip-backend")]
+                    let _ = &caption;
                     #[cfg(feature = "clip-backend")]
                     {
                         let clip = self.models.get_clip_embedder(&self.vision_model_id).await?;
@@ -718,7 +729,9 @@ impl SearchEngine {
             .map_err(Error::Io)?;
 
         let downloader = ModelDownloader::new(cache_dir);
-        let local_path = downloader.download(model_id, proxy_url, hf_endpoint).await?;
+        let local_path = downloader
+            .download(model_id, proxy_url, hf_endpoint)
+            .await?;
 
         let db = self.db.clone();
         let model_id = model_id.to_string();
