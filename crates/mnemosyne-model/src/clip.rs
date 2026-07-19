@@ -453,10 +453,6 @@ async fn download_weights(model_id: &str) -> Result<std::path::PathBuf, Error> {
     }
 }
 
-async fn download_tokenizer(model_id: &str) -> Result<std::path::PathBuf, Error> {
-    download_file(model_id, "tokenizer.json").await
-}
-
 /// Download any single file from a HuggingFace model repo.
 async fn download_file(model_id: &str, filename: &str) -> Result<std::path::PathBuf, Error> {
     let api  = Api::new().map_err(|e| Error::model(e.to_string()))?;

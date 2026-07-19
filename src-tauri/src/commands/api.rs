@@ -1,7 +1,6 @@
 use crate::state::AppState;
 use axum::{
     extract::State as AxumState,
-    response::Html,
     routing::{delete, get, post},
     Json, Router,
 };
