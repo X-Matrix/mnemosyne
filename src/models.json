@@ -136,10 +136,31 @@
                 "512维",
                 "340MB",
                 "图片",
-                "跨模态"
+                "跨模态",
+                "英文"
             ],
             "recommended": true,
             "hf_url": "https://huggingface.co/openai/clip-vit-base-patch32"
+        },
+        {
+            "id": "OFA-Sys/chinese-clip-vit-base-patch16",
+            "name": "Chinese CLIP ViT-B/16",
+            "category": "vision",
+            "description": "推荐（中文）：OFA-Sys 发布的中文图文跨模态模型，512 维，支持中文自然语言检索图片",
+            "size_mb": 380,
+            "dimensions": 512,
+            "languages": [
+                "zh"
+            ],
+            "tags": [
+                "512维",
+                "380MB",
+                "图片",
+                "中文",
+                "跨模态"
+            ],
+            "recommended": true,
+            "hf_url": "https://huggingface.co/OFA-Sys/chinese-clip-vit-base-patch16"
         },
         {
             "id": "openai/clip-vit-large-patch14",
