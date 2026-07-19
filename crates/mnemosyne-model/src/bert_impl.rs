@@ -105,14 +105,12 @@ impl BertEmbedder {
         let device = Device::Cpu;
         let vb = load_var_builder(&weights_path, DTYPE, &device)?;
 
-        // XLM-RoBERTa safetensors store weights under the `roberta.*` namespace.
-        let model = if is_roberta {
-            BertModel::load(vb.pp("roberta"), &config)
-                .map_err(|e| Error::model(format!("build model (roberta): {e}")))?
-        } else {
-            BertModel::load(vb, &config)
-                .map_err(|e| Error::model(format!("build model: {e}")))?
-        };
+        // Both BERT and XLM-RoBERTa based models (e.g. BAAI/bge-m3) store their
+        // weights WITHOUT a model-level prefix in the file — keys start directly
+        // with `embeddings.*` and `encoder.*` at the root.  The only difference
+        // that matters for loading is the pooling strategy.
+        let model = BertModel::load(vb, &config)
+            .map_err(|e| Error::model(format!("build model: {e}")))?;
 
         let tokenizer = Tokenizer::from_file(tokenizer_path)
             .map_err(|e| Error::model(format!("tokenizer: {e}")))?;
