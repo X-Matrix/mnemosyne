@@ -219,25 +219,25 @@ curl -X POST http://localhost:8080/api/search \
 
 | Model | Dim | Size | Languages |
 |---|---|---|---|
-| `BAAI/bge-m3` ⭐ | 1024 | 570 MB | Chinese / English / 100+ languages, CLS pooling |
-| `sentence-transformers/all-MiniLM-L6-v2` | 384 | 90 MB | English, lightweight |
-| `sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2` | 384 | 470 MB | 50 languages |
-| `sentence-transformers/all-mpnet-base-v2` | 768 | 420 MB | English, high quality |
+| `BAAI/bge-m3` ⭐ | 1024 | 2.1 GB | Chinese / English / 100+ languages, CLS pooling |
+| `sentence-transformers/all-MiniLM-L6-v2` | 384 | 87 MB | English, lightweight |
+| `sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2` | 384 | 458 MB | 50 languages |
+| `sentence-transformers/all-mpnet-base-v2` | 768 | 418 MB | English, high quality |
 
 ### Vision Models (`clip-backend`)
 
 | Model | Dim | Size | Text Language |
 |---|---|---|---|
-| `OFA-Sys/chinese-clip-vit-base-patch16` ⭐ | 512 | 380 MB | **Chinese** (Chinese CLIP) |
-| `openai/clip-vit-base-patch32` | 512 | 340 MB | English (OpenAI CLIP) |
+| `OFA-Sys/chinese-clip-vit-base-patch16` ⭐ | 512 | 718 MB | **Chinese** (Chinese CLIP) |
+| `openai/clip-vit-base-patch32` | 512 | 579 MB | English (OpenAI CLIP) |
 
 ### Audio Models (`whisper-backend`)
 
 | Model | Size | Use Case |
 |---|---|---|
-| `openai/whisper-tiny` | 78 MB | Speed priority |
-| `openai/whisper-base` | 148 MB | Balanced quality/speed |
-| `openai/whisper-small` | 488 MB | High quality, multilingual |
+| `openai/whisper-tiny` | 147 MB | Speed priority |
+| `openai/whisper-base` | 280 MB | Balanced quality/speed |
+| `openai/whisper-small` | ~490 MB | High quality, multilingual |
 
 ### sqlite-vec KNN Acceleration
 
