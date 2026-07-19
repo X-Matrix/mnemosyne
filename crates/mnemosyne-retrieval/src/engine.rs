@@ -407,11 +407,15 @@ impl SearchEngine {
             if let Ok(clip_text_emb) = self.embed_text_with_clip(&query.text).await {
                 let is_hybrid = matches!(&query.mode, SearchMode::Hybrid);
 
-                // Threshold: cosine ≥ 0.50 in hybrid (genuine match only),
-                //            cosine ≥ 0.26 in pure vector (more permissive).
-                const CLIP_MIN_VECTOR: f32 = 0.63;
-                const CLIP_MIN_HYBRID: f32 = 0.75;
-                const CLIP_MAX_HYBRID: usize = 5; // hard cap on images in hybrid
+                // Typical CLIP text-image cosine similarity:
+                //   unrelated pairs  → 0.05-0.15
+                //   somewhat related → 0.20-0.40
+                //   strong match     → 0.40-0.70
+                // Scores here are cosine similarities (after L2→cosine conversion
+                // in EmbeddingRepo::vector_knn).
+                const CLIP_MIN_VECTOR: f32 = 0.15; // permissive — user chose vector
+                const CLIP_MIN_HYBRID: f32 = 0.25; // exclude clearly unrelated images
+                const CLIP_MAX_HYBRID: usize = 8;  // cap images appended in hybrid
 
                 let clip_min_score = if is_hybrid {
                     CLIP_MIN_HYBRID
@@ -429,6 +433,16 @@ impl SearchEngine {
                     .vector_search(&clip_text_emb, clip_fetch)
                     .await
                     .unwrap_or_default();
+
+                debug!(
+                    "CLIP raw results: {} before threshold {:.2}",
+                    clip_results.len(), clip_min_score
+                );
+                if let Some(top) = clip_results.first() {
+                    debug!("CLIP top score: {:.4} ({})", top.score,
+                        top.file_record.path.file_name()
+                            .and_then(|n| n.to_str()).unwrap_or("?"));
+                }
 
                 clip_results.retain(|r| r.score >= clip_min_score);
 

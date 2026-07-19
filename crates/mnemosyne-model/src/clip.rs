@@ -160,7 +160,8 @@ impl ClipEmbedder {
             .to_vec1()
             .map_err(|e| Error::model(e.to_string()))?;
 
-        Ok(l2_normalize(vec))
+        let normalized = l2_normalize(vec);
+        Ok(normalized)
     }
 }
 

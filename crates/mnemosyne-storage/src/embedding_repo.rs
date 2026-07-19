@@ -236,7 +236,14 @@ impl<'a> EmbeddingRepo<'a> {
 
         // Step 2 — resolve metadata for each vec0 rowid.
         let mut results = Vec::with_capacity(hits.len());
-        for (rowid, dist) in hits {
+        for (rowid, l2_dist) in hits {
+            // vec0 uses L2 distance for float vectors.
+            // For L2-normalised unit vectors:
+            //   L2² = 2 * (1 – cos_similarity)
+            //   → cos_distance = 1 – cos_similarity = L2² / 2
+            // Converting to cosine distance keeps the semantics consistent
+            // with the score formula used by callers: score = 1 – cos_distance.
+            let cosine_dist = ((l2_dist as f32 * l2_dist as f32) / 2.0).clamp(0.0, 2.0);
             let row: Option<(String, String, i64, String)> = conn
                 .query_row(
                     "SELECT e.chunk_id, dc.file_id, dc.chunk_index, dc.content
@@ -248,7 +255,7 @@ impl<'a> EmbeddingRepo<'a> {
                 )
                 .ok();
             if let Some((cid, fid, cidx, content)) = row {
-                results.push((cid, fid, cidx, content, dist as f32));
+                results.push((cid, fid, cidx, content, cosine_dist));
             }
         }
 

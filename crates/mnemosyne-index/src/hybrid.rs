@@ -244,7 +244,11 @@ impl SearchIndex for HybridIndex {
             let mut results = Vec::with_capacity(kw_rows.len());
             for (_, file_id, chunk_index, content, bm25) in kw_rows {
                 if let Some(fr) = file_repo.get(&file_id)? {
-                    let score = (-bm25 as f32).max(0.0) / 10.0;
+                    // BM25 from FTS5 is negative (more negative = better match).
+                    // Use a sigmoid-like mapping so the score stays in [0, 1):
+                    //   bm25=-5  → 0.33,  bm25=-10 → 0.50,  bm25=-20 → 0.67
+                    let bm25_abs = (-bm25 as f32).max(0.0);
+                    let score = bm25_abs / (bm25_abs + 10.0);
                     results.push(SearchResult {
                         file_record: fr,
                         score,
