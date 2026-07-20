@@ -111,6 +111,41 @@ impl EmbeddingModel for TextEmbedder {
     }
 }
 
+impl TextEmbedder {
+    /// Returns true if this embedder supports sparse (lexical) encoding.
+    /// Only true for BGE-M3 when `sparse_linear.pt` was successfully loaded.
+    pub fn has_sparse(&self) -> bool {
+        #[cfg(feature = "candle-backend")]
+        {
+            match &*self.backend {
+                Backend::Bert(b) => b.has_sparse(),
+            }
+        }
+        #[cfg(not(feature = "candle-backend"))]
+        false
+    }
+
+    /// Compute BGE-M3 sparse (lexical) weights. Returns `{token_id: weight}`.
+    /// Errors if no sparse_linear head is loaded.
+    pub fn embed_sparse(
+        &self,
+        text: &str,
+    ) -> mnemosyne_core::Result<std::collections::HashMap<u32, f32>> {
+        #[cfg(feature = "candle-backend")]
+        {
+            let text = text.to_string();
+            let backend = Arc::clone(&self.backend);
+            // spawn_blocking is not available without async context here;
+            // call directly (same thread, blocking is acceptable for indexing).
+            match &*backend {
+                Backend::Bert(b) => b.embed_sparse(&text),
+            }
+        }
+        #[cfg(not(feature = "candle-backend"))]
+        Err(Error::model("sparse embedding requires candle-backend".to_string()))
+    }
+}
+
 // ── Stub embedding ────────────────────────────────────────────────────────────
 #[cfg(not(feature = "candle-backend"))]
 fn stub_embed(text: &str, dim: usize) -> Vec<f32> {

@@ -316,3 +316,53 @@ impl SearchIndex for HybridIndex {
         Ok(final_results)
     }
 }
+
+// ── Non-trait extension methods ───────────────────────────────────────────────
+
+impl HybridIndex {
+    /// Sparse lexical keyword search using BGE-M3 `lexical_weights`.
+    ///
+    /// Replaces FTS5/BM25 when the text model provides sparse embeddings.
+    pub async fn sparse_keyword_search(
+        &self,
+        query_sparse: &std::collections::HashMap<u32, f32>,
+        limit: usize,
+    ) -> mnemosyne_core::Result<Vec<SearchResult>> {
+        let db = self.db.clone();
+        let query_sparse = query_sparse.clone();
+
+        tokio::task::spawn_blocking(move || -> mnemosyne_core::Result<Vec<SearchResult>> {
+            use mnemosyne_storage::SparseEmbeddingRepo;
+
+            let hits = SparseEmbeddingRepo::new(&db).search(&query_sparse, limit)?;
+            let file_repo = FileRepo::new(&db);
+            let mut results = Vec::with_capacity(hits.len());
+            for (chunk_id, raw_score) in hits {
+                let score = raw_score / (raw_score + 1.0);
+                let row: Option<(String, i64, String)> = {
+                    let conn = db.conn.lock().unwrap();
+                    conn.query_row(
+                        "SELECT file_id, chunk_index, content FROM document_chunks WHERE id = ?1",
+                        rusqlite::params![chunk_id],
+                        |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)),
+                    )
+                    .ok()
+                };
+                if let Some((file_id, chunk_index, content)) = row {
+                    if let Some(fr) = file_repo.get(&file_id)? {
+                        results.push(SearchResult {
+                            file_record: fr,
+                            score,
+                            snippet: Some(content.chars().take(2000).collect()),
+                            match_type: MatchType::Keyword,
+                            chunk_index: chunk_index as usize,
+                        });
+                    }
+                }
+            }
+            Ok(results)
+        })
+        .await
+        .map_err(|e| Error::index(e.to_string()))?
+    }
+}

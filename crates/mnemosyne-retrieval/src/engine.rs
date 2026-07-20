@@ -323,6 +323,34 @@ impl SearchEngine {
         // text embedder for everything else.
         let embeddings = self.embed_chunks(path, &chunks_content).await?;
 
+        // For BGE-M3: also compute sparse (lexical) embeddings for text chunks.
+        // These replace FTS5/BM25 in the keyword search path.
+        #[cfg(feature = "candle-backend")]
+        let sparse_map: Option<Vec<Option<std::collections::HashMap<u32, f32>>>> = {
+            let model = self.models.get_text_embedder(&self.text_model_id).await.ok();
+            if let Some(m) = model {
+                if m.has_sparse() {
+                    let mut sparsevecs = Vec::with_capacity(chunks_content.len());
+                    for chunk in &chunks_content {
+                        let text = match chunk {
+                            mnemosyne_core::types::ParsedContent::Text { text } => Some(text.as_str()),
+                            mnemosyne_core::types::ParsedContent::AudioTranscript { transcript, .. } => Some(transcript.as_str()),
+                            _ => None,
+                        };
+                        let sv = text.and_then(|t| m.embed_sparse(t).ok());
+                        sparsevecs.push(sv);
+                    }
+                    Some(sparsevecs)
+                } else {
+                    None
+                }
+            } else {
+                None
+            }
+        };
+        #[cfg(not(feature = "candle-backend"))]
+        let sparse_map: Option<Vec<Option<std::collections::HashMap<u32, f32>>>> = None;
+
         // Persist file record.
         {
             let db = self.db.clone();
@@ -332,17 +360,35 @@ impl SearchEngine {
                 .map_err(|e| Error::storage(e.to_string()))??;
         }
 
-        // Persist chunks + embeddings.
+        // Persist chunks + embeddings + optional sparse embeddings.
         for (i, (content, embedding)) in chunks_content.into_iter().zip(embeddings).enumerate() {
             let chunk_id = format!("{file_id}:{i}");
+
+            // ── 1. Upsert the chunk first (document_chunks row must exist before
+            //       sparse_embeddings foreign key can reference it).
             let chunk = IndexedChunk {
-                chunk_id,
+                chunk_id: chunk_id.clone(),
                 file_id: file_id.clone(),
                 chunk_index: i,
                 content,
                 embedding: Some(embedding),
             };
             self.index.upsert(&chunk).await?;
+
+            // ── 2. Now store sparse embedding (foreign key satisfied).
+            if let Some(ref svecs) = sparse_map {
+                if let Some(Some(sparse)) = svecs.get(i) {
+                    let db = self.db.clone();
+                    let cid = chunk_id.clone();
+                    let mid = self.text_model_id.clone();
+                    let sv = sparse.clone();
+                    tokio::task::spawn_blocking(move || {
+                        mnemosyne_storage::SparseEmbeddingRepo::new(&db).upsert(&cid, &mid, &sv)
+                    })
+                    .await
+                    .map_err(|e| Error::storage(e.to_string()))??;
+                }
+            }
         }
 
         Ok(true)
@@ -365,6 +411,15 @@ impl SearchEngine {
         let bert_model = self.models.get_text_embedder(&self.text_model_id).await?;
         let bert_embedding = bert_model.embed_text(&query.text).await?;
 
+        // ── Sparse (lexical) embedding for BGE-M3 keyword path ────────────────
+        // When sparse_linear is loaded, use lexical dot-product instead of FTS5.
+        let query_sparse: Option<std::collections::HashMap<u32, f32>> =
+            if bert_model.has_sparse() {
+                bert_model.embed_sparse(&query.text).ok()
+            } else {
+                None
+            };
+
         use mnemosyne_core::types::SearchMode;
 
         let mut results = match &query.mode {
@@ -373,8 +428,70 @@ impl SearchEngine {
                     .vector_search(&bert_embedding, query.limit)
                     .await?
             }
-            SearchMode::Keyword => self.index.keyword_search(&query.text, query.limit).await?,
-            SearchMode::Hybrid => self.index.hybrid_search(&query, &bert_embedding).await?,
+            SearchMode::Keyword => {
+                if let Some(ref sparse) = query_sparse {
+                    self.index
+                        .sparse_keyword_search(sparse, query.limit)
+                        .await?
+                } else {
+                    self.index.keyword_search(&query.text, query.limit).await?
+                }
+            }
+            SearchMode::Hybrid => {
+                if let Some(ref sparse) = query_sparse {
+                    // Sparse-hybrid: replace the FTS5 arm with sparse dot-product.
+                    let inner = query.limit * 3;
+                    let (vec_res, kw_res) = tokio::join!(
+                        self.index.vector_search(&bert_embedding, inner),
+                        self.index.sparse_keyword_search(sparse, inner),
+                    );
+                    let vec_results = vec_res?;
+                    let kw_results = kw_res?;
+                    // RRF fusion (mirrors HybridIndex::hybrid_search).
+                    let vec_ranked: Vec<(String, f32)> = vec_results
+                        .iter()
+                        .map(|r| {
+                            (
+                                format!("{}:{}", r.file_record.id, r.chunk_index),
+                                r.score,
+                            )
+                        })
+                        .collect();
+                    let kw_ranked: Vec<(String, f32)> = kw_results
+                        .iter()
+                        .map(|r| {
+                            (
+                                format!("{}:{}", r.file_record.id, r.chunk_index),
+                                r.score,
+                            )
+                        })
+                        .collect();
+                    let fused = mnemosyne_index::rrf::fuse(
+                        &vec_ranked,
+                        &kw_ranked,
+                        query.limit,
+                        query.vector_weight,
+                        query.keyword_weight,
+                    );
+                    let mut result_map: std::collections::HashMap<String, SearchResult> =
+                        std::collections::HashMap::new();
+                    for r in vec_results.into_iter().chain(kw_results) {
+                        let key = format!("{}:{}", r.file_record.id, r.chunk_index);
+                        result_map.entry(key).or_insert(r);
+                    }
+                    fused
+                        .into_iter()
+                        .filter_map(|(key, score)| {
+                            let mut r = result_map.remove(&key)?;
+                            r.score = score;
+                            r.match_type = mnemosyne_core::types::MatchType::Hybrid;
+                            Some(r)
+                        })
+                        .collect()
+                } else {
+                    self.index.hybrid_search(&query, &bert_embedding).await?
+                }
+            }
         };
 
         // ── Apply file-type filter ─────────────────────────────────────────────

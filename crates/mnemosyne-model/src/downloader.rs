@@ -42,6 +42,10 @@ const TEXT_MODEL_FILES_FALLBACK: &[&str] = &[
     "pytorch_model.bin",
 ];
 
+/// Extra optional files for BGE-M3: sparse and ColBERT projection heads.
+/// Downloaded after the main weights; silently skipped if absent.
+const BGE_M3_EXTRA_FILES: &[&str] = &["sparse_linear.pt", "colbert_linear.pt"];
+
 /// Chinese CLIP models (OFA-Sys/chinese-clip-*) use `vocab.txt` instead of
 /// `tokenizer.json`, and do not have `tokenizer_config.json`.
 /// Available files: config.json, vocab.txt, pytorch_model.bin
@@ -129,6 +133,28 @@ impl ModelDownloader {
         };
 
         result?;
+
+        // For BGE-M3 models: also fetch the sparse / ColBERT projection heads.
+        // These are tiny (~4 KB each) and stored as separate .pt files.
+        // Failure is non-fatal — dense-only retrieval still works.
+        if model_id.to_lowercase().contains("bge-m3") {
+            for &extra in BGE_M3_EXTRA_FILES {
+                let dest = model_dir.join(extra);
+                if dest.exists() {
+                    continue;
+                }
+                let url = format!("{endpoint}/{model_id}/resolve/main/{extra}");
+                info!("GET {url}");
+                if let Ok(resp) = client.get(&url).send().await {
+                    if resp.status().is_success() {
+                        if let Ok(bytes) = resp.bytes().await {
+                            let _ = tokio::fs::write(&dest, &bytes).await;
+                            info!("Saved extra file {extra} ({} bytes)", bytes.len());
+                        }
+                    }
+                }
+            }
+        }
 
         info!("Model '{}' cached at {}", model_id, model_dir.display());
         Ok(model_dir)

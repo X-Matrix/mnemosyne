@@ -7,11 +7,13 @@ pub mod db;
 pub mod embedding_repo;
 pub mod file_repo;
 pub mod model_repo;
+pub mod sparse_repo;
 
 pub use chunk_repo::{ChunkRepo, FtsRow};
 pub use db::Database;
 pub use embedding_repo::{EmbeddingRepo, EmbeddingRow, KnnRow};
 pub use file_repo::FileRepo;
 pub use model_repo::ModelRepo;
+pub use sparse_repo::SparseEmbeddingRepo;
 
 pub type Result<T> = std::result::Result<T, mnemosyne_core::Error>;

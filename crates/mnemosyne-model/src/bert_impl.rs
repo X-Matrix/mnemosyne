@@ -11,6 +11,7 @@ use candle_nn::VarBuilder;
 use candle_transformers::models::bert::{BertModel, Config as BertConfig, DTYPE};
 use hf_hub::api::tokio::Api;
 use mnemosyne_core::Error;
+use std::collections::HashMap;
 use tokenizers::Tokenizer;
 use tracing::{debug, info};
 
@@ -34,6 +35,9 @@ pub struct BertEmbedder {
     device: Device,
     pub dim: usize,
     pooling: Pooling,
+    /// Sparse projection weight for BGE-M3 lexical retrieval.
+    /// Shape: [1, hidden_size].  `None` for models without sparse_linear.pt.
+    sparse_linear: Option<Tensor>,
 }
 
 /// Return the local model directory `~/.mnemosyne/models/{model_id}` if it exists.
@@ -115,11 +119,31 @@ impl BertEmbedder {
         let tokenizer = Tokenizer::from_file(tokenizer_path)
             .map_err(|e| Error::model(format!("tokenizer: {e}")))?;
 
+        // ── Load sparse_linear.pt for BGE-M3 (lexical retrieval head) ─────────
+        // Shape: [1, hidden_size] stored in fp16.  Non-fatal if absent.
+        let sparse_linear = if is_roberta {
+            local_model_dir(model_id)
+                .map(|dir| dir.join("sparse_linear.pt"))
+                .filter(|p| p.exists())
+                .and_then(|p| {
+                    // The file is a pytorch state_dict with key "weight".
+                    // Stored in fp16; load and immediately cast to f32.
+                    let vb = load_var_builder(&p, DType::F16, &device).ok()?;
+                    let w = vb.get(&[1, dim], "weight").ok()?;
+                    let w = w.to_dtype(DType::F32).ok()?;
+                    info!("BGE-M3 sparse_linear loaded (shape [1, {dim}])");
+                    Some(w)
+                })
+        } else {
+            None
+        };
+
         info!(
-            "BERT '{}' ready (type={}, dim={dim}, pooling={}, device=CPU)",
+            "BERT '{}' ready (type={}, dim={dim}, pooling={}, sparse={}, device=CPU)",
             model_id,
             model_type,
-            if is_roberta { "cls" } else { "mean" }
+            if is_roberta { "cls" } else { "mean" },
+            sparse_linear.is_some(),
         );
         Ok(Self {
             model,
@@ -127,7 +151,122 @@ impl BertEmbedder {
             device,
             dim,
             pooling,
+            sparse_linear,
         })
+    }
+
+    /// Returns true if this embedder supports sparse (lexical) encoding.
+    pub fn has_sparse(&self) -> bool {
+        self.sparse_linear.is_some()
+    }
+
+    /// Compute BGE-M3 lexical weights for `text`.
+    ///
+    /// Returns a map of `token_id → importance_weight` (non-negative).  For each
+    /// unique input token the weight is the max ReLU-activated score across all
+    /// positions where that token appears.
+    ///
+    /// Algorithm (matches the Python FlagEmbedding reference):
+    ///   hidden_states [seq, H] → sparse_linear → [seq, 1] → squeeze → ReLU
+    ///   → aggregate by max per token_id
+    pub fn embed_sparse(&self, text: &str) -> Result<HashMap<u32, f32>, Error> {
+        let w = self
+            .sparse_linear
+            .as_ref()
+            .ok_or_else(|| Error::model("sparse_linear not loaded".to_string()))?;
+
+        let encoding = self
+            .tokenizer
+            .encode(text, true)
+            .map_err(|e| Error::model(e.to_string()))?;
+
+        let token_ids: Vec<u32> = encoding.get_ids().to_vec();
+
+        // ── Debug: input ──────────────────────────────────────────────────────
+        let preview: String = text.chars().take(60).collect();
+        debug!(
+            "sparse embed: input={:?}{} ({} tokens)",
+            preview,
+            if text.chars().count() > 60 { "…" } else { "" },
+            token_ids.len(),
+        );
+        if tracing::enabled!(tracing::Level::DEBUG) {
+            // Print token pieces so we can see how text is segmented.
+            if let Some(tokens) = encoding.get_tokens().get(..token_ids.len().min(20)) {
+                debug!("sparse tokens: {:?}", tokens);
+            }
+        }
+
+        let make = |data: &[u32]| {
+            Tensor::new(data, &self.device)
+                .and_then(|t| t.unsqueeze(0))
+                .map_err(|e| Error::model(e.to_string()))
+        };
+
+        let ids = make(&token_ids)?;
+        let types = make(encoding.get_type_ids())?;
+        let mask = make(encoding.get_attention_mask())?;
+
+        let t0 = std::time::Instant::now();
+
+        // Forward pass → all hidden states [1, seq_len, hidden_size]
+        let hidden = self
+            .model
+            .forward(&ids, &types, Some(&mask))
+            .map_err(|e| Error::model(e.to_string()))?;
+
+        // [1, seq_len, H] → [seq_len, H]
+        let hidden = hidden
+            .squeeze(0)
+            .map_err(|e| Error::model(e.to_string()))?;
+
+        // [seq_len, H] × [H, 1] → [seq_len, 1] → [seq_len]
+        let scores = hidden
+            .matmul(&w.t().map_err(|e| Error::model(e.to_string()))?)
+            .map_err(|e| Error::model(e.to_string()))?
+            .squeeze(1)
+            .map_err(|e| Error::model(e.to_string()))?
+            .relu()
+            .map_err(|e| Error::model(e.to_string()))?;
+
+        let scores_vec: Vec<f32> = scores.to_vec1().map_err(|e| Error::model(e.to_string()))?;
+
+        debug!("sparse forward: {:?}", t0.elapsed());
+
+        // Aggregate: max weight per unique token_id.
+        let mut lexical: HashMap<u32, f32> = HashMap::new();
+        for (&tid, &score) in token_ids.iter().zip(scores_vec.iter()) {
+            if score > 0.0 {
+                lexical.entry(tid).and_modify(|e| *e = e.max(score)).or_insert(score);
+            }
+        }
+
+        // ── Debug: output ─────────────────────────────────────────────────────
+        let nonzero = lexical.len();
+        let max_w = lexical.values().cloned().fold(0.0f32, f32::max);
+        debug!(
+            "sparse output: {} non-zero token weights, max={:.4}",
+            nonzero, max_w
+        );
+        if tracing::enabled!(tracing::Level::DEBUG) {
+            // Show top-5 weighted tokens (token_id + weight).
+            let mut sorted: Vec<(u32, f32)> = lexical.iter().map(|(&k, &v)| (k, v)).collect();
+            sorted.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
+            let top: Vec<_> = sorted
+                .iter()
+                .take(5)
+                .map(|(tid, w)| {
+                    let piece = self
+                        .tokenizer
+                        .id_to_token(*tid)
+                        .unwrap_or_else(|| format!("[{tid}]"));
+                    format!("{:?}:{:.4}", piece, w)
+                })
+                .collect();
+            debug!("sparse top-5: [{}]", top.join(", "));
+        }
+
+        Ok(lexical)
     }
 
     /// Encode a single text string into a normalised embedding.

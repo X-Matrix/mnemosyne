@@ -175,6 +175,14 @@ CREATE TABLE IF NOT EXISTS embeddings (
     embedding BLOB NOT NULL
 );
 
+-- ── Sparse (lexical) embeddings for BGE-M3 ───────────────────────────────────
+-- JSON object: {"token_id": weight, ...}  Non-negative f32 values only.
+CREATE TABLE IF NOT EXISTS sparse_embeddings (
+    chunk_id TEXT PRIMARY KEY REFERENCES document_chunks(id) ON DELETE CASCADE,
+    model_id TEXT NOT NULL,
+    data     TEXT NOT NULL
+);
+
 -- ── Downloaded model registry ─────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS model_registry (
     model_id      TEXT PRIMARY KEY,
