@@ -1812,6 +1812,13 @@
         <div class="prev-hd">
           <span class="prev-title" id="prev-title">文件预览</span>
           <span class="badge badge-stub" id="prev-badge"></span>
+          <!-- Tab toggle: shown only when a search snippet is available -->
+          <span id="prev-tabs" style="display:none;gap:4px;display:none">
+            <button class="pill on" id="prev-tab-chunk" onclick="g.showPreviewTab('chunk')"
+              style="font-size:10px;padding:3px 10px">📍 片段</button>
+            <button class="pill" id="prev-tab-file" onclick="g.showPreviewTab('file')"
+              style="font-size:10px;padding:3px 10px">📄 文件</button>
+          </span>
           <button class="btn bg" onclick="g.openPreviewFile()"
             style="font-size:11px;padding:3px 9px;flex-shrink:0">Finder 打开</button>
           <button class="ib" onclick="g.closePreview()">
@@ -2070,13 +2077,17 @@
           const cls = { text: 'tb-t', pdf: 'tb-p', image: 'tb-i', audio: 'tb-a', video: 'tb-v', unknown: 'tb-u' }[ft] ?? 'tb-u';
           const lbl = { text: 'TXT', pdf: 'PDF', image: 'IMG', audio: 'AUDIO', video: 'VIDEO', unknown: '?' }[ft] ?? ft.toUpperCase();
           const pct = ((r.score ?? 0) * 100).toFixed(0);
-          const sn = r.snippet ? esc(r.snippet.slice(0, 200)) : '';
+          const sn = r.snippet ?? '';
+          const snPreview = sn ? esc(sn.slice(0, 200)) : '';
           const rPath = String(r.file_record?.path ?? '');
-          return `<div class="rc" onclick="g.previewFile('${esc(rPath)}')">
+          // Pass snippet as a JSON-encoded data attribute so the preview overlay
+          // can show the matched chunk without an extra network round-trip.
+          const snAttr = sn ? ` data-snippet="${esc(sn)}"` : '';
+          return `<div class="rc" onclick="g.previewFile('${esc(rPath)}', this)"${snAttr}>
       <div class="rt"><span class="tb ${cls}">${lbl}</span>
         <span class="rn" title="${esc(rPath)}">${esc(nm)}</span>
         <span class="rsc">${pct}%</span></div>
-      ${sn ? `<div class="rs2">${sn}</div>` : ''}
+      ${snPreview ? `<div class="rs2">${snPreview}</div>` : ''}
       <div class="rp">${esc(rPath)}</div>
     </div>`;
         }).join('');
@@ -2639,94 +2650,142 @@
 
       // ── File Preview ──────────────────────────────────────────────────────────────
       let prevPath = '';
+      let prevSnippet = '';   // matched chunk text from search result
       let prevBlobUrl = null; // tracked for cleanup
+      let prevActiveTab = 'file'; // 'chunk' | 'file'
 
       function releasePrevBlob() {
         if (prevBlobUrl) { URL.revokeObjectURL(prevBlobUrl); prevBlobUrl = null; }
       }
 
-      g.previewFile = async (path) => {
+      // Show/hide the tab toggle based on whether a snippet is available.
+      function updatePreviewTabs(hasSnippet, activeTab) {
+        const tabs = qs('#prev-tabs');
+        if (!tabs) return;
+        tabs.style.display = hasSnippet ? 'flex' : 'none';
+        qs('#prev-tab-chunk')?.classList.toggle('on', activeTab === 'chunk');
+        qs('#prev-tab-file')?.classList.toggle('on', activeTab === 'file');
+      }
+
+      // Switch between chunk and file views without re-fetching.
+      g.showPreviewTab = async (tab) => {
+        prevActiveTab = tab;
+        updatePreviewTabs(!!prevSnippet, tab);
+        if (tab === 'chunk') {
+          qs('#prev-body').innerHTML =
+            `<pre class="prev-txt" style="white-space:pre-wrap;word-break:break-word">${esc(prevSnippet)}</pre>`;
+        } else {
+          await loadFilePreview(prevPath);
+        }
+      };
+
+      // Called when a search result card is clicked (passes the card element).
+      g.previewFile = async (path, cardEl) => {
         if (!path) return;
         releasePrevBlob();
-        // Stop any audio currently playing
         const oldAudio = qs('#prev-body audio');
         if (oldAudio) { oldAudio.pause(); oldAudio.src = ''; }
 
         prevPath = path;
+        prevSnippet = cardEl?.dataset?.snippet ?? '';
+        // Default: show chunk tab if snippet is available, else file tab.
+        prevActiveTab = prevSnippet ? 'chunk' : 'file';
+
         const nm = path.split('/').pop() ?? path;
         qs('#prev-title').textContent = nm;
         qs('#prev-badge').textContent = '';
-        qs('#prev-body').innerHTML = '<div class="em"><div class="spin"></div></div>';
+        updatePreviewTabs(!!prevSnippet, prevActiveTab);
         qs('#prev-ov').classList.add('open');
 
+        if (prevActiveTab === 'chunk') {
+          qs('#prev-body').innerHTML =
+            `<pre class="prev-txt" style="white-space:pre-wrap;word-break:break-word">${esc(prevSnippet)}</pre>`;
+        } else {
+          qs('#prev-body').innerHTML = '<div class="em"><div class="spin"></div></div>';
+          await loadFilePreview(path);
+        }
+      };
+
+      async function loadFilePreview(path) {
+        qs('#prev-body').innerHTML = '<div class="em"><div class="spin"></div></div>';
         try {
           const data = await invoke('preview_file', { path });
           if (!data) { qs('#prev-body').innerHTML = '<div class="em"><p>无法预览</p></div>'; return; }
+          renderPreviewData(data, path);
+        } catch (e) {
+          qs('#prev-body').innerHTML = `<div class="em"><p style="color:var(--red)">预览错误: ${esc(e?.message ?? String(e))}</p></div>`;
+        }
+      }
 
-          if (data.type === 'text') {
-            qs('#prev-badge').textContent = (data.ext || 'TXT').toUpperCase();
-            qs('#prev-body').innerHTML = `<pre class="prev-txt">${esc(data.content)}</pre>`;
+      function renderPreviewData(data, path) {
+        const nm = path.split('/').pop() ?? path;
 
-          } else if (data.type === 'image') {
-            qs('#prev-badge').textContent = (data.ext || 'IMG').toUpperCase();
-            qs('#prev-body').innerHTML = `<div class="prev-img-wrap"><img class="prev-img" src="${data.data_url}" alt="${esc(nm)}"/></div>`;
+        try {
+          const data2 = data; // alias for clarity below
 
-          } else if (data.type === 'image_large') {
-            qs('#prev-badge').textContent = (data.ext || 'IMG').toUpperCase();
+          if (data2.type === 'text') {
+            qs('#prev-badge').textContent = (data2.ext || 'TXT').toUpperCase();
+            qs('#prev-body').innerHTML = `<pre class="prev-txt">${esc(data2.content)}</pre>`;
+
+          } else if (data2.type === 'image') {
+            qs('#prev-badge').textContent = (data2.ext || 'IMG').toUpperCase();
+            qs('#prev-body').innerHTML = `<div class="prev-img-wrap"><img class="prev-img" src="${data2.data_url}" alt="${esc(nm)}"/></div>`;
+
+          } else if (data2.type === 'image_large') {
+            qs('#prev-badge').textContent = (data2.ext || 'IMG').toUpperCase();
             qs('#prev-body').innerHTML = `<div class="prev-meta">
-              <div class="prev-mr"><span class="prev-mk">大小</span><span>${fmtSz(data.size)}</span></div>
+              <div class="prev-mr"><span class="prev-mk">大小</span><span>${fmtSz(data2.size)}</span></div>
               <div class="prev-mr"><span class="prev-mk">说明</span><span>图片超过 6 MB，无法内联预览，请用 Finder 打开</span></div>
             </div>`;
 
-          } else if (data.type === 'pdf') {
+          } else if (data2.type === 'pdf') {
             qs('#prev-badge').textContent = 'PDF';
-            // Convert base64 → Blob URL so WKWebView can render natively
-            const bytes = Uint8Array.from(atob(data.b64), c => c.charCodeAt(0));
+            const bytes = Uint8Array.from(atob(data2.b64), c => c.charCodeAt(0));
             const blob = new Blob([bytes], { type: 'application/pdf' });
             prevBlobUrl = URL.createObjectURL(blob);
             qs('#prev-body').innerHTML =
               `<iframe class="prev-pdf" src="${prevBlobUrl}" title="${esc(nm)}"></iframe>`;
 
-          } else if (data.type === 'pdf_large') {
+          } else if (data2.type === 'pdf_large') {
             qs('#prev-badge').textContent = 'PDF';
             qs('#prev-body').innerHTML = `<div class="prev-meta">
-              <div class="prev-mr"><span class="prev-mk">大小</span><span>${fmtSz(data.size)}</span></div>
+              <div class="prev-mr"><span class="prev-mk">大小</span><span>${fmtSz(data2.size)}</span></div>
               <div class="prev-mr"><span class="prev-mk">说明</span><span>PDF 超过 20 MB，无法内联预览，请用 Finder 打开</span></div>
             </div>`;
 
-          } else if (data.type === 'audio') {
-            qs('#prev-badge').textContent = (data.ext || 'MP3').toUpperCase();
+          } else if (data2.type === 'audio') {
+            qs('#prev-badge').textContent = (data2.ext || 'MP3').toUpperCase();
             qs('#prev-body').innerHTML = `<div class="prev-audio-wrap">
               <div class="prev-audio-icon">🎵</div>
-              <audio class="prev-audio" controls autoplay src="${data.data_url}"></audio>
+              <audio class="prev-audio" controls autoplay src="${data2.data_url}"></audio>
               <div class="prev-meta" style="width:100%;max-width:460px;padding:0">
-                <div class="prev-mr"><span class="prev-mk">格式</span><span>${(data.ext || '').toUpperCase()} · ${esc(data.mime || '')}</span></div>
-                <div class="prev-mr"><span class="prev-mk">大小</span><span>${fmtSz(data.size)}</span></div>
+                <div class="prev-mr"><span class="prev-mk">格式</span><span>${(data2.ext || '').toUpperCase()} · ${esc(data2.mime || '')}</span></div>
+                <div class="prev-mr"><span class="prev-mk">大小</span><span>${fmtSz(data2.size)}</span></div>
                 <div class="prev-mr"><span class="prev-mk">路径</span><span style="font-family:monospace;font-size:11px;word-break:break-all">${esc(path)}</span></div>
               </div>
             </div>`;
 
-          } else if (data.type === 'audio_large') {
-            qs('#prev-badge').textContent = (data.ext || 'AUDIO').toUpperCase();
+          } else if (data2.type === 'audio_large') {
+            qs('#prev-badge').textContent = (data2.ext || 'AUDIO').toUpperCase();
             qs('#prev-body').innerHTML = `<div class="prev-meta">
-              <div class="prev-mr"><span class="prev-mk">大小</span><span>${fmtSz(data.size)}</span></div>
+              <div class="prev-mr"><span class="prev-mk">大小</span><span>${fmtSz(data2.size)}</span></div>
               <div class="prev-mr"><span class="prev-mk">说明</span><span>音频超过 50 MB，无法内联预览，请用 Finder 打开</span></div>
               <div class="prev-mr"><span class="prev-mk">路径</span><span style="font-family:monospace;font-size:11px;word-break:break-all">${esc(path)}</span></div>
             </div>`;
 
           } else {
-            qs('#prev-badge').textContent = (data.ext || data.file_type || '?').toUpperCase();
-            const ftLabel = { audio: '🎵 音频', video: '🎬 视频', unknown: '📄 文件' }[data.file_type?.toLowerCase()] ?? data.file_type ?? '未知';
+            qs('#prev-badge').textContent = (data2.ext || data2.file_type || '?').toUpperCase();
+            const ftLabel = { audio: '🎵 音频', video: '🎬 视频', unknown: '📄 文件' }[data2.file_type?.toLowerCase()] ?? data2.file_type ?? '未知';
             qs('#prev-body').innerHTML = `<div class="prev-meta">
               <div class="prev-mr"><span class="prev-mk">类型</span><span>${esc(ftLabel)}</span></div>
-              <div class="prev-mr"><span class="prev-mk">大小</span><span>${fmtSz(data.size || 0)}</span></div>
+              <div class="prev-mr"><span class="prev-mk">大小</span><span>${fmtSz(data2.size || 0)}</span></div>
               <div class="prev-mr"><span class="prev-mk">路径</span><span style="font-family:monospace;font-size:11px;word-break:break-all">${esc(path)}</span></div>
             </div>`;
           }
         } catch (e) {
           qs('#prev-body').innerHTML = `<div class="em"><p style="color:var(--red)">预览错误: ${esc(e?.message ?? String(e))}</p></div>`;
         }
-      };
+      } // end renderPreviewData
 
       g.closePreview = () => {
         const audio = qs('#prev-body audio');
@@ -2734,6 +2793,8 @@
         releasePrevBlob();
         qs('#prev-ov').classList.remove('open');
         prevPath = '';
+        prevSnippet = '';
+        updatePreviewTabs(false, 'file');
       };
       g.openPreviewFile = () => { if (prevPath) openFile(prevPath); };
 

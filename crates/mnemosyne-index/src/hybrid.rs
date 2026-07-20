@@ -123,7 +123,7 @@ impl SearchIndex for HybridIndex {
                         results.push(SearchResult {
                             file_record: fr,
                             score,
-                            snippet: Some(content.chars().take(200).collect()),
+                            snippet: Some(content.chars().take(2000).collect()),
                             match_type: MatchType::Vector,
                             chunk_index: chunk_index as usize,
                         });
@@ -176,7 +176,7 @@ impl SearchIndex for HybridIndex {
                         results.push(SearchResult {
                             file_record: fr,
                             score,
-                            snippet: Some(content.chars().take(200).collect()),
+                            snippet: Some(content.chars().take(2000).collect()),
                             match_type: MatchType::Vector,
                             chunk_index: cidx as usize,
                         });
@@ -215,7 +215,7 @@ impl SearchIndex for HybridIndex {
                     results.push(SearchResult {
                         file_record: fr,
                         score,
-                        snippet: Some(content.chars().take(200).collect()),
+                        snippet: Some(content.chars().take(2000).collect()),
                         match_type: MatchType::Vector,
                         chunk_index,
                     });
@@ -252,7 +252,7 @@ impl SearchIndex for HybridIndex {
                     results.push(SearchResult {
                         file_record: fr,
                         score,
-                        snippet: Some(content.chars().take(200).collect()),
+                        snippet: Some(content.chars().take(2000).collect()),
                         match_type: MatchType::Keyword,
                         chunk_index: chunk_index as usize,
                     });

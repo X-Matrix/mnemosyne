@@ -453,6 +453,14 @@ impl SearchEngine {
 
                 clip_results.retain(|r| r.score >= clip_min_score);
 
+                // Apply the same file-type filter to CLIP results.
+                if let Some(ref types) = query.file_types {
+                    if !types.is_empty() {
+                        clip_results
+                            .retain(|r| types.contains(&r.file_record.file_type));
+                    }
+                }
+
                 // Deduplicate against existing results.
                 let seen: std::collections::HashSet<String> = results
                     .iter()
