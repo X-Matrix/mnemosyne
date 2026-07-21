@@ -166,9 +166,28 @@ impl<'a> EmbeddingRepo<'a> {
             )
             .map_err(|e| Error::storage(e.to_string()))?;
 
-        let vec_count: i64 = conn
+        // Query vec0 table count.  If the shadow table is missing (sqlite-vec
+        // internal corruption / database was replaced without the extension),
+        // DROP and recreate the vec0 table so it starts clean.
+        let vec_count: i64 = match conn
             .query_row(&format!("SELECT COUNT(*) FROM {table}"), [], |r| r.get(0))
-            .map_err(|e| Error::storage(e.to_string()))?;
+        {
+            Ok(n) => n,
+            Err(e) => {
+                let msg = e.to_string();
+                if msg.contains("rowids") || msg.contains("no such table") {
+                    tracing::warn!(
+                        "vec0 table {table} is corrupt (missing shadow table): {msg} — recreating"
+                    );
+                    conn.execute(&format!("DROP TABLE IF EXISTS \"{table}\""), [])
+                        .map_err(|e| Error::storage(e.to_string()))?;
+                    ensure_vec0_for_dim(&conn, dim)?;
+                    0
+                } else {
+                    return Err(Error::storage(msg));
+                }
+            }
+        };
 
         if emb_count == vec_count {
             return Ok(()); // already in sync

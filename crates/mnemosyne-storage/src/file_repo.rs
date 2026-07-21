@@ -109,6 +109,20 @@ impl<'a> FileRepo<'a> {
             .map_err(|e| Error::storage(e.to_string()))?;
         Ok(n as u64)
     }
+
+    /// Count files whose path starts with `prefix` (e.g. `/home/user/docs/`).
+    pub fn count_by_prefix(&self, prefix: &str) -> Result<u64, Error> {
+        let conn = self.db.conn.lock().unwrap();
+        let pattern = format!("{prefix}%");
+        let n: i64 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM files WHERE path LIKE ?1",
+                params![pattern],
+                |r| r.get(0),
+            )
+            .map_err(|e| Error::storage(e.to_string()))?;
+        Ok(n as u64)
+    }
 }
 
 fn row_to_file_record(row: &rusqlite::Row<'_>) -> rusqlite::Result<FileRecord> {

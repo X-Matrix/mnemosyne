@@ -693,6 +693,17 @@ impl SearchEngine {
             .map_err(|e| Error::storage(e.to_string()))?
     }
 
+    /// Count files whose path starts with `dir_path` (direct children + subdirs).
+    pub async fn count_files_in_dir(&self, dir_path: &str) -> Result<u64, Error> {
+        let db = self.db.clone();
+        let prefix = format!("{}/", dir_path.trim_end_matches('/'));
+        tokio::task::spawn_blocking(move || {
+            FileRepo::new(&db).count_by_prefix(&prefix)
+        })
+        .await
+        .map_err(|e| Error::storage(e.to_string()))?
+    }
+
     pub async fn remove_file(&self, file_id: &str) -> Result<(), Error> {
         self.index.remove_file(file_id).await
     }

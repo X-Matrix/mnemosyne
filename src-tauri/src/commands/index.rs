@@ -231,6 +231,19 @@ pub async fn get_stats(state: State<'_, AppState>) -> Result<IndexStats, Command
     engine.get_stats().await.map_err(Into::into)
 }
 
+/// Count how many indexed files live under `dir_path` (prefix match on `path`).
+#[tauri::command]
+pub async fn count_files_in_dir(
+    state: State<'_, AppState>,
+    dir_path: String,
+) -> Result<u64, CommandError> {
+    let lock = state.engine.read().await;
+    let engine = lock.as_ref().ok_or_else(|| CommandError {
+        message: "engine not ready".into(),
+    })?;
+    engine.count_files_in_dir(&dir_path).await.map_err(Into::into)
+}
+
 #[tauri::command]
 pub async fn list_files(
     state: State<'_, AppState>,

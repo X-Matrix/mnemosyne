@@ -150,6 +150,7 @@ pub fn run() {
             commands::index::set_force_hnsw,
             commands::index::get_force_hnsw,
             commands::index::clear_index,
+            commands::index::count_files_in_dir,
         ])
         .run(tauri::generate_context!())
         .expect("error while running Mnemosyne");

@@ -1967,7 +1967,7 @@
         qs('#tsw').style.display = view === 'search' ? 'flex' : 'none';
         qs('#filter-sec').style.display = view === 'search' ? 'block' : 'none';
 
-        if (view === 'index') { renderDirs(); g.loadFiles(); }
+        if (view === 'index') { refreshDirCounts().then(renderDirs); g.loadFiles(); }
         if (view === 'settings') { updateSettings(); loadApiStatus(); loadHnswStatus(); }
         if (view === 'help') { updateHelp(); }
         if (view === 'models') loadModelList();
@@ -2153,6 +2153,18 @@
           btn.innerHTML = '重试';
         }
       };
+
+      // Query the backend for the actual file count per directory and update
+      // the in-memory dirs array.  Always reflects the real DB state.
+      async function refreshDirCounts() {
+        await Promise.all(dirs.map(async (d, i) => {
+          try {
+            const n = await invoke('count_files_in_dir', { dirPath: d.path });
+            dirs[i].files = n ?? 0;
+          } catch (_) { /* engine may not be ready yet */ }
+        }));
+        saveDirs();
+      }
 
       function renderDirs() {
         const el = qs('#dirs-list');
@@ -3034,7 +3046,15 @@ mnemosyne serve --port 8080`;
 
             for (const j of (jobs || []).filter(j => !j.running)) {
               const idx = dirs.findIndex(d => d.path === j.path);
-              if (idx >= 0) { dirs[idx].files = (dirs[idx].files ?? 0) + (j.new_files ?? 0); dirs[idx].state = 'done'; saveDirs(); }
+              if (idx >= 0) { dirs[idx].state = 'done'; }
+              // Refresh real count from backend (new_files only counts new files, not total)
+              if (idx >= 0) {
+                try {
+                  const n = await invoke('count_files_in_dir', { dirPath: j.path });
+                  dirs[idx].files = n ?? 0;
+                } catch (_) { }
+              }
+              saveDirs();
               if (j.error) toast(`索引失败: ${j.error}`, 'er');
               else if (j.new_files > 0) toast(`索引完成 · +${j.new_files} 个文件`, 'ok');
               else toast('索引完成 · 文件均已是最新', 'in');
