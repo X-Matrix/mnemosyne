@@ -179,9 +179,9 @@ impl<'a> EmbeddingRepo<'a> {
                     tracing::warn!(
                         "vec0 table {table} is corrupt (missing shadow table): {msg} — recreating"
                     );
-                    conn.execute(&format!("DROP TABLE IF EXISTS \"{table}\""), [])
-                        .map_err(|e| Error::storage(e.to_string()))?;
-                    ensure_vec0_for_dim(&conn, dim)?;
+                    // Use recreate (not ensure) to guarantee a fresh table
+                    // even when IF NOT EXISTS would otherwise be a no-op.
+                    recreate_vec0_for_dim(&conn, dim)?;
                     0
                 } else {
                     return Err(Error::storage(msg));
@@ -240,9 +240,18 @@ impl<'a> EmbeddingRepo<'a> {
              LIMIT ?2"
         );
         let hits: Vec<(i64, f64)> = {
-            let mut stmt = conn
-                .prepare(&knn_sql)
-                .map_err(|e| Error::storage(e.to_string()))?;
+            let mut stmt = match conn.prepare(&knn_sql) {
+                Ok(s) => s,
+                Err(e) => {
+                    let msg = e.to_string();
+                    if msg.contains("rowids") || msg.contains("no such table") {
+                        // Shadow table missing — caller should re-run sync_to_vec0.
+                        tracing::warn!("vector_knn: vec0 table {table} is corrupt: {msg}");
+                        return Ok(vec![]);
+                    }
+                    return Err(Error::storage(msg));
+                }
+            };
             let collected: Vec<(i64, f64)> = stmt
                 .query_map(params![query_bytes, limit as i64], |r| {
                     Ok((r.get::<_, i64>(0)?, r.get::<_, f64>(1)?))
@@ -297,10 +306,24 @@ fn bytes_to_f32_vec(bytes: &[u8]) -> Vec<f32> {
 
 /// Create `embedding_vec_{dim}` as a vec0 virtual table if it doesn't exist.
 fn ensure_vec0_for_dim(conn: &Connection, dim: usize) -> Result<(), Error> {
-    // dim is always a usize (numeric), so the format string is injection-safe.
     conn.execute_batch(&format!(
         "CREATE VIRTUAL TABLE IF NOT EXISTS embedding_vec_{dim} \
          USING vec0(embedding float[{dim}]);"
     ))
     .map_err(|e| Error::storage(format!("failed to create vec0 table dim={dim}: {e}")))
+}
+
+/// Force-drop and recreate `embedding_vec_{dim}`.
+/// Used when the table is in a corrupt state (shadow tables missing).
+fn recreate_vec0_for_dim(conn: &Connection, dim: usize) -> Result<(), Error> {
+    // Drop the virtual table; sqlite-vec also drops its shadow tables.
+    // Use a plain DROP (not IF EXISTS) so errors are surfaced, but swallow
+    // "no such table" since the shadow tables may already be partially gone.
+    let _ = conn.execute_batch(&format!("DROP TABLE IF EXISTS embedding_vec_{dim};"));
+    // CREATE without IF NOT EXISTS to guarantee a fresh table.
+    conn.execute_batch(&format!(
+        "CREATE VIRTUAL TABLE embedding_vec_{dim} \
+         USING vec0(embedding float[{dim}]);"
+    ))
+    .map_err(|e| Error::storage(format!("failed to recreate vec0 table dim={dim}: {e}")))
 }
