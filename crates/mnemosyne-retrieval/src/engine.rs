@@ -321,35 +321,63 @@ impl SearchEngine {
 
         // Generate embeddings — route to CLIP for images, Whisper transcript text for audio,
         // text embedder for everything else.
-        let embeddings = self.embed_chunks(path, &chunks_content).await?;
-
-        // For BGE-M3: also compute sparse (lexical) embeddings for text chunks.
-        // These replace FTS5/BM25 in the keyword search path.
+        //
+        // For BGE-M3 (has sparse_linear), use embed_combined() to compute dense +
+        // sparse in a SINGLE forward pass per text chunk instead of two passes.
+        // This halves computation time compared to embed_chunks + embed_sparse.
         #[cfg(feature = "candle-backend")]
-        let sparse_map: Option<Vec<Option<std::collections::HashMap<u32, f32>>>> = {
-            let model = self.models.get_text_embedder(&self.text_model_id).await.ok();
-            if let Some(m) = model {
-                if m.has_sparse() {
-                    let mut sparsevecs = Vec::with_capacity(chunks_content.len());
-                    for chunk in &chunks_content {
-                        let text = match chunk {
-                            mnemosyne_core::types::ParsedContent::Text { text } => Some(text.as_str()),
-                            mnemosyne_core::types::ParsedContent::AudioTranscript { transcript, .. } => Some(transcript.as_str()),
-                            _ => None,
-                        };
-                        let sv = text.and_then(|t| m.embed_sparse(t).ok());
-                        sparsevecs.push(sv);
+        let (embeddings, sparse_map) = {
+            let text_model = self.models.get_text_embedder(&self.text_model_id).await?;
+            if text_model.has_sparse() {
+                // Combined path: one forward pass → (dense, Option<sparse>)
+                let mut dense_vecs: Vec<mnemosyne_core::types::Embedding> =
+                    Vec::with_capacity(chunks_content.len());
+                let mut sparse_vecs: Vec<Option<std::collections::HashMap<u32, f32>>> =
+                    Vec::with_capacity(chunks_content.len());
+
+                for chunk in &chunks_content {
+                    let text_opt = match chunk {
+                        mnemosyne_core::types::ParsedContent::Text { text } => Some(text.clone()),
+                        mnemosyne_core::types::ParsedContent::AudioTranscript { transcript, .. } => {
+                            Some(transcript.clone())
+                        }
+                        _ => None,
+                    };
+
+                    if let Some(text) = text_opt {
+                        let m = text_model.clone();
+                        let (dense, sparse) =
+                            tokio::task::spawn_blocking(move || m.embed_combined(&text))
+                                .await
+                                .map_err(|e| Error::model(e.to_string()))??;
+                        dense_vecs.push(dense);
+                        sparse_vecs.push(sparse);
+                    } else {
+                        // Non-text chunk (image, video): dense via normal path, no sparse.
+                        let emb = self.embed_single_chunk(path, chunk).await?;
+                        dense_vecs.push(emb);
+                        sparse_vecs.push(None);
                     }
-                    Some(sparsevecs)
-                } else {
-                    None
                 }
+                (dense_vecs, Some(sparse_vecs))
             } else {
-                None
+                // Standard path: dense only.
+                let embs = self.embed_chunks(path, &chunks_content).await?;
+                (
+                    embs,
+                    None::<Vec<Option<std::collections::HashMap<u32, f32>>>>,
+                )
             }
         };
+
         #[cfg(not(feature = "candle-backend"))]
-        let sparse_map: Option<Vec<Option<std::collections::HashMap<u32, f32>>>> = None;
+        let (embeddings, sparse_map) = {
+            let embs = self.embed_chunks(path, &chunks_content).await?;
+            (
+                embs,
+                None::<Vec<Option<std::collections::HashMap<u32, f32>>>>,
+            )
+        };
 
         // Persist file record.
         {
@@ -759,6 +787,18 @@ impl SearchEngine {
     }
 
     // ── CLIP image embedding (requires clip-backend feature) ──────────────────
+
+    /// Embed a single chunk (image / video / audio-stub) using the normal routing.
+    /// Used by the combined-path when a non-text chunk is encountered.
+    async fn embed_single_chunk(
+        &self,
+        file_path: &Path,
+        chunk: &mnemosyne_core::types::ParsedContent,
+    ) -> Result<mnemosyne_core::types::Embedding, Error> {
+        let chunks = std::slice::from_ref(chunk);
+        let mut embs = self.embed_chunks(file_path, chunks).await?;
+        embs.pop().ok_or_else(|| Error::model("no embedding produced".to_string()))
+    }
 
     /// Embed an image file using the CLIP vision encoder.
     /// Falls back to filename-based text embedding if feature is not enabled.

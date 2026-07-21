@@ -331,6 +331,108 @@ impl BertEmbedder {
         debug!("BERT output: dim={}, L2_norm_before={:.6}", vec.len(), norm,);
         Ok(vec.into_iter().map(|v| v / norm).collect())
     }
+
+    /// Encode text and return **both** the dense embedding and (if available)
+    /// the sparse lexical weights in a **single forward pass**.
+    ///
+    /// Using this instead of calling `embed()` + `embed_sparse()` separately
+    /// halves the computation time for BGE-M3 models.
+    pub fn embed_combined(
+        &self,
+        text: &str,
+    ) -> Result<(Vec<f32>, Option<HashMap<u32, f32>>), Error> {
+        let preview: String = text.chars().take(80).collect();
+        let truncated = text.chars().count() > 80;
+        debug!(
+            "BERT embed_combined: input={:?}{} ({} chars)",
+            preview,
+            if truncated { "…" } else { "" },
+            text.chars().count(),
+        );
+
+        let encoding = self
+            .tokenizer
+            .encode(text, true)
+            .map_err(|e| Error::model(e.to_string()))?;
+
+        let token_ids: Vec<u32> = encoding.get_ids().to_vec();
+        debug!("BERT tokenised: {} tokens", token_ids.len());
+
+        let make = |data: &[u32]| {
+            Tensor::new(data, &self.device)
+                .and_then(|t| t.unsqueeze(0))
+                .map_err(|e| Error::model(e.to_string()))
+        };
+
+        let ids   = make(&token_ids)?;
+        let types = make(encoding.get_type_ids())?;
+        let mask  = make(encoding.get_attention_mask())?;
+
+        let t0 = std::time::Instant::now();
+        // ── Single forward pass ───────────────────────────────────────────────
+        let output = self
+            .model
+            .forward(&ids, &types, Some(&mask))
+            .map_err(|e| Error::model(e.to_string()))?;
+        debug!("BERT forward pass: {:?}", t0.elapsed());
+
+        // ── Dense embedding (pool + L2 normalise) ─────────────────────────────
+        let pooled = match self.pooling {
+            Pooling::Mean => output
+                .mean(1)
+                .and_then(|t| t.squeeze(0))
+                .map_err(|e| Error::model(e.to_string()))?,
+            Pooling::Cls => output
+                .narrow(1, 0, 1)
+                .and_then(|t| t.squeeze(1))
+                .and_then(|t| t.squeeze(0))
+                .map_err(|e| Error::model(e.to_string()))?,
+        };
+        let dense_raw: Vec<f32> = pooled.to_vec1().map_err(|e| Error::model(e.to_string()))?;
+        let norm = dense_raw.iter().map(|v| v * v).sum::<f32>().sqrt().max(1e-9);
+        debug!("BERT output: dim={}, L2_norm_before={:.6}", dense_raw.len(), norm);
+        let dense: Vec<f32> = dense_raw.into_iter().map(|v| v / norm).collect();
+
+        // ── Sparse weights (reuse hidden states if sparse_linear is loaded) ───
+        let sparse: Option<HashMap<u32, f32>> = if let Some(w) = &self.sparse_linear {
+            // output: [1, seq_len, H] → [seq_len, H]
+            let hidden = output
+                .squeeze(0)
+                .map_err(|e| Error::model(e.to_string()))?;
+            // [seq_len, H] × [H, 1] → [seq_len, 1] → [seq_len] → ReLU
+            let scores = hidden
+                .matmul(&w.t().map_err(|e| Error::model(e.to_string()))?)
+                .map_err(|e| Error::model(e.to_string()))?
+                .squeeze(1)
+                .map_err(|e| Error::model(e.to_string()))?
+                .relu()
+                .map_err(|e| Error::model(e.to_string()))?;
+            let scores_vec: Vec<f32> =
+                scores.to_vec1().map_err(|e| Error::model(e.to_string()))?;
+
+            let mut lexical: HashMap<u32, f32> = HashMap::new();
+            for (&tid, &score) in token_ids.iter().zip(scores_vec.iter()) {
+                if score > 0.0 {
+                    lexical
+                        .entry(tid)
+                        .and_modify(|e| *e = e.max(score))
+                        .or_insert(score);
+                }
+            }
+
+            let nonzero = lexical.len();
+            let max_w = lexical.values().cloned().fold(0.0f32, f32::max);
+            debug!(
+                "sparse output: {} non-zero token weights, max={:.4}",
+                nonzero, max_w
+            );
+            Some(lexical)
+        } else {
+            None
+        };
+
+        Ok((dense, sparse))
+    }
 }
 
 // SAFETY: candle CPU tensors are read-only after construction; no interior

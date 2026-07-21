@@ -135,14 +135,41 @@ impl TextEmbedder {
         {
             let text = text.to_string();
             let backend = Arc::clone(&self.backend);
-            // spawn_blocking is not available without async context here;
-            // call directly (same thread, blocking is acceptable for indexing).
             match &*backend {
                 Backend::Bert(b) => b.embed_sparse(&text),
             }
         }
         #[cfg(not(feature = "candle-backend"))]
         Err(Error::model("sparse embedding requires candle-backend".to_string()))
+    }
+
+    /// Compute dense + sparse embeddings in a **single forward pass**.
+    ///
+    /// Significantly faster than calling `embed_text` + `embed_sparse` separately.
+    pub fn embed_combined(
+        &self,
+        text: &str,
+    ) -> mnemosyne_core::Result<(
+        mnemosyne_core::types::Embedding,
+        Option<std::collections::HashMap<u32, f32>>,
+    )> {
+        #[cfg(feature = "candle-backend")]
+        {
+            let text = text.to_string();
+            let backend = Arc::clone(&self.backend);
+            match &*backend {
+                Backend::Bert(b) => b.embed_combined(&text),
+            }
+        }
+        #[cfg(not(feature = "candle-backend"))]
+        {
+            use std::collections::hash_map::DefaultHasher;
+            use std::hash::{Hash, Hasher};
+            let dense = stub_embed(text, match &*self.backend {
+                Backend::Stub { dim } => *dim,
+            });
+            Ok((dense, None))
+        }
     }
 }
 
