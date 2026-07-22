@@ -3,7 +3,7 @@ use mnemosyne_core::{traits::FileParser, types::ParsedContent, Error, Result};
 use std::path::Path;
 use tracing::debug;
 
-use crate::chunking::{Chunker, CodeStrategy, MarkdownStrategy, ProseStrategy};
+use crate::chunking::{filter_quality, Chunker, CodeStrategy, MarkdownStrategy, ProseStrategy};
 
 /// Plain-text, Markdown, CSV and source-code parser.
 ///
@@ -40,16 +40,19 @@ impl FileParser for TextParser {
             .unwrap_or("")
             .to_lowercase();
 
-        let chunks: Vec<String> = match ext.as_str() {
+        let raw_chunks: Vec<String> = match ext.as_str() {
             "md" | "markdown" => Chunker::new(MarkdownStrategy).chunk(&text),
             "py" | "rs" | "js" | "ts" | "go" | "java" | "c" | "cpp" | "h"
             | "css" | "sh" | "sql" => Chunker::new(CodeStrategy).chunk(&text),
             _ => Chunker::new(ProseStrategy).chunk(&text),
         };
 
+        // Remove symbol-heavy / escape-table fragments that produce noisy
+        // embeddings and pollute search results (e.g. markdown escape tables).
+        let chunks = filter_quality(raw_chunks);
+
         Ok(chunks
             .into_iter()
-            .filter(|c| !c.trim().is_empty())
             .map(|c| ParsedContent::Text { text: c })
             .collect())
     }

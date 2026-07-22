@@ -23,6 +23,13 @@ pub const CHUNK_TARGET: usize = 1200;
 pub const CHUNK_MAX: usize = 1800;
 /// Sentences to carry over from the previous chunk for context continuity.
 pub const OVERLAP_SENTENCES: usize = 2;
+/// A chunk must have at least this many characters to be worth indexing.
+/// Set low so CJK-dense sentences (1 char ≈ 1 word) are never rejected by
+/// length alone; the [`MIN_WORD_CHARS`] check handles noise.
+pub const MIN_CHUNK_LEN: usize = 30;
+/// Minimum "word-characters" in runs of ≥ 2 consecutive informative chars.
+/// Prevents symbol-table / escape-sequence snippets from polluting the index.
+pub const MIN_WORD_CHARS: usize = 30;
 
 // ── Public trait ──────────────────────────────────────────────────────────────
 
@@ -356,6 +363,62 @@ pub fn last_n_sentences(text: &str, n: usize) -> String {
         .join("")
 }
 
+// ── Chunk quality filter ──────────────────────────────────────────────────────
+
+/// Return `true` for a character that conveys semantic information:
+/// Latin letters, digits, CJK, Japanese kana, Korean hangul.
+fn is_informative(c: char) -> bool {
+    c.is_alphabetic()
+        || c.is_ascii_digit()
+        || ('\u{4E00}'..='\u{9FFF}').contains(&c) // CJK unified
+        || ('\u{3040}'..='\u{30FF}').contains(&c) // hiragana + katakana
+        || ('\u{AC00}'..='\u{D7AF}').contains(&c) // hangul syllables
+}
+
+/// Count characters that belong to *runs* of ≥ 2 consecutive informative chars.
+///
+/// A single stray letter in the middle of symbols (e.g. the `r` in `\r\n`) does
+/// not count; only genuine "word tokens" do.
+fn word_chars(text: &str) -> usize {
+    let mut total = 0usize;
+    let mut run = 0usize;
+    for c in text.chars() {
+        if is_informative(c) {
+            run += 1;
+        } else {
+            if run >= 2 {
+                total += run;
+            }
+            run = 0;
+        }
+    }
+    if run >= 2 {
+        total += run;
+    }
+    total
+}
+
+/// Return `true` if `text` has enough natural-language content to be worth
+/// embedding and indexing.
+///
+/// Filters out:
+/// * Very short fragments (< [`MIN_CHUNK_LEN`] chars after trimming).
+/// * Symbol / escape-sequence tables where almost no "word" characters exist
+///   (e.g. `html2markdown 转义 \`\\\` \`\[\` \`\]\` \`\=\`` — only 19 word
+///   chars).
+///
+/// Deliberately **not** filtering source code: a function body easily exceeds
+/// [`MIN_WORD_CHARS`] via identifiers and keywords.
+pub fn is_quality_chunk(text: &str) -> bool {
+    let stripped = text.trim();
+    stripped.chars().count() >= MIN_CHUNK_LEN && word_chars(stripped) >= MIN_WORD_CHARS
+}
+
+/// Remove low-quality chunks from a list (see [`is_quality_chunk`]).
+pub fn filter_quality(chunks: Vec<String>) -> Vec<String> {
+    chunks.into_iter().filter(|c| is_quality_chunk(c)).collect()
+}
+
 // ── Tests ─────────────────────────────────────────────────────────────────────
 
 #[cfg(test)]
@@ -402,6 +465,40 @@ mod tests {
         for c in &chunks {
             assert!(!c.trim().is_empty());
         }
+    }
+
+    #[test]
+    fn quality_filter_rejects_escape_table() {
+        // The exact snippet that triggered the bug report.
+        let bad = "## 转义字符\nhtml2markdown 转义 `\\\\` `\\[` `\\]` `\\=`";
+        assert!(!is_quality_chunk(bad), "escape table should be filtered");
+    }
+
+    #[test]
+    fn quality_filter_keeps_prose() {
+        let good =
+            "Mnemosyne 是一个本地优先的智能文件搜索引擎，支持语义向量检索与关键词混合搜索。";
+        assert!(is_quality_chunk(good), "Chinese prose should pass quality check");
+    }
+
+    #[test]
+    fn quality_filter_keeps_code_body() {
+        let code = r#"pub fn is_quality_chunk(text: &str) -> bool {
+    let stripped = text.trim();
+    stripped.chars().count() >= MIN_CHUNK_LEN && word_chars(stripped) >= MIN_WORD_CHARS
+}"#;
+        assert!(is_quality_chunk(code), "Rust function body should pass quality check");
+    }
+
+    #[test]
+    fn filter_quality_removes_short_chunks() {
+        let chunks = vec![
+            "OK".to_string(),
+            "This sentence is long enough to pass the quality filter easily.".to_string(),
+        ];
+        let filtered = filter_quality(chunks);
+        assert_eq!(filtered.len(), 1);
+        assert!(filtered[0].contains("long enough"));
     }
 
     #[test]

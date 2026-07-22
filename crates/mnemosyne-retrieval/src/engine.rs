@@ -450,11 +450,30 @@ impl SearchEngine {
 
         use mnemosyne_core::types::SearchMode;
 
+        // Minimum cosine similarity for pure-vector results.
+        // Below this the match is considered noise (< 45 % semantic overlap).
+        // If the entire result set is below the floor (corpus mismatch), we
+        // still return the top FLOOR_FALLBACK items so the UI isn't empty.
+        const MIN_VECTOR_SCORE: f32 = 0.45;
+        const FLOOR_FALLBACK: usize = 5;
+
         let mut results = match &query.mode {
             SearchMode::Vector => {
-                self.index
-                    .vector_search(&bert_embedding, query.limit)
-                    .await?
+                // Fetch extra candidates so we have room to filter.
+                let inner = (query.limit * 3).max(30);
+                let raw = self.index.vector_search(&bert_embedding, inner).await?;
+                let above: Vec<SearchResult> = raw
+                    .iter()
+                    .filter(|r| r.score >= MIN_VECTOR_SCORE)
+                    .take(query.limit)
+                    .cloned()
+                    .collect();
+                if above.is_empty() {
+                    // Nothing confident — fall back to top-N so UI stays useful.
+                    raw.into_iter().take(FLOOR_FALLBACK).collect()
+                } else {
+                    above
+                }
             }
             SearchMode::Keyword => {
                 if let Some(ref sparse) = query_sparse {
