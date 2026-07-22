@@ -315,46 +315,37 @@ fn ensure_vec0_for_dim(conn: &Connection, dim: usize) -> Result<(), Error> {
 
 /// Force-drop and recreate `embedding_vec_{dim}`.
 ///
-/// When sqlite-vec shadow tables are missing, the standard `DROP TABLE IF EXISTS`
-/// fails silently (the VT implementation's xDestroy returns an error that we
-/// can't see) and the entry stays in `sqlite_master`.  We handle this by:
-///  1. Trying the normal DROP first.
-///  2. Checking if the table is still in `sqlite_master`.
-///  3. If so, using `PRAGMA writable_schema` to delete the stale VT entry and
-///     all associated shadow-table entries.
-///  4. Creating the table fresh.
+/// Root cause of "already exists" after DROP:
+///   sqlite-vec's xDestroy callback returns an error when shadow tables are
+///   already missing.  SQLite rolls back the DROP, leaving the entry in its
+///   **in-memory schema cache**.  Directly deleting from sqlite_master
+///   (writable_schema) only fixes the on-disk file; the cache remains stale.
+///
+/// Fix: bump `schema_version` after the sqlite_master deletion.  SQLite
+/// compares the cached schema cookie against the database header at the start
+/// of every statement.  When they differ it reloads the schema from disk,
+/// clearing the stale VT entry before the CREATE is attempted.
 fn recreate_vec0_for_dim(conn: &Connection, dim: usize) -> Result<(), Error> {
     let table = format!("embedding_vec_{dim}");
 
-    // Step 1 — standard DROP (might silently fail when shadow tables are gone)
+    // 1 — Best-effort standard DROP (usually fails silently for broken VTs)
     let _ = conn.execute_batch(&format!("DROP TABLE IF EXISTS \"{table}\";"));
 
-    // Step 2 — check if the entry still exists in sqlite_master
-    let still_exists: bool = conn
-        .query_row(
-            "SELECT 1 FROM sqlite_master WHERE name = ?1",
-            params![table],
-            |_| Ok(true),
-        )
-        .unwrap_or(false);
+    // 2 — Remove all traces from on-disk sqlite_master AND bump schema_version
+    //     so SQLite invalidates its in-memory schema cache before the CREATE.
+    conn.execute_batch(&format!(
+        "PRAGMA writable_schema = ON;
+         DELETE FROM sqlite_master
+           WHERE name = '{table}' OR name LIKE '{table}_%';
+         PRAGMA schema_version =
+           (SELECT schema_version + 1 FROM pragma_schema_version);
+         PRAGMA writable_schema = OFF;"
+    ))
+    .map_err(|e| Error::storage(format!("force-clean {table}: {e}")))?;
 
-    // Step 3 — if DROP didn't clean up, remove manually via writable_schema
-    if still_exists {
-        tracing::warn!(
-            "DROP TABLE did not remove {table} from sqlite_master; \
-             using writable_schema to force-clean"
-        );
-        conn.execute_batch(&format!(
-            "PRAGMA writable_schema = ON;
-             DELETE FROM sqlite_master WHERE name = '{table}' OR name LIKE '{table}_%';
-             PRAGMA writable_schema = OFF;"
-        ))
-        .map_err(|e| Error::storage(format!("failed to force-clean {table}: {e}")))?;
-    }
-
-    // Step 4 — create fresh (without IF NOT EXISTS to surface any remaining issues)
+    // 3 — Create fresh (schema cache is now stale → SQLite reloads before exec)
     conn.execute_batch(&format!(
         "CREATE VIRTUAL TABLE \"{table}\" USING vec0(embedding float[{dim}]);"
     ))
-    .map_err(|e| Error::storage(format!("failed to recreate vec0 table dim={dim}: {e}")))
+    .map_err(|e| Error::storage(format!("recreate {table}: {e}")))
 }
