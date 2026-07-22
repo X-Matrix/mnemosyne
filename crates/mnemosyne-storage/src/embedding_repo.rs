@@ -314,16 +314,47 @@ fn ensure_vec0_for_dim(conn: &Connection, dim: usize) -> Result<(), Error> {
 }
 
 /// Force-drop and recreate `embedding_vec_{dim}`.
-/// Used when the table is in a corrupt state (shadow tables missing).
+///
+/// When sqlite-vec shadow tables are missing, the standard `DROP TABLE IF EXISTS`
+/// fails silently (the VT implementation's xDestroy returns an error that we
+/// can't see) and the entry stays in `sqlite_master`.  We handle this by:
+///  1. Trying the normal DROP first.
+///  2. Checking if the table is still in `sqlite_master`.
+///  3. If so, using `PRAGMA writable_schema` to delete the stale VT entry and
+///     all associated shadow-table entries.
+///  4. Creating the table fresh.
 fn recreate_vec0_for_dim(conn: &Connection, dim: usize) -> Result<(), Error> {
-    // Drop the virtual table; sqlite-vec also drops its shadow tables.
-    // Use a plain DROP (not IF EXISTS) so errors are surfaced, but swallow
-    // "no such table" since the shadow tables may already be partially gone.
-    let _ = conn.execute_batch(&format!("DROP TABLE IF EXISTS embedding_vec_{dim};"));
-    // CREATE without IF NOT EXISTS to guarantee a fresh table.
+    let table = format!("embedding_vec_{dim}");
+
+    // Step 1 — standard DROP (might silently fail when shadow tables are gone)
+    let _ = conn.execute_batch(&format!("DROP TABLE IF EXISTS \"{table}\";"));
+
+    // Step 2 — check if the entry still exists in sqlite_master
+    let still_exists: bool = conn
+        .query_row(
+            "SELECT 1 FROM sqlite_master WHERE name = ?1",
+            params![table],
+            |_| Ok(true),
+        )
+        .unwrap_or(false);
+
+    // Step 3 — if DROP didn't clean up, remove manually via writable_schema
+    if still_exists {
+        tracing::warn!(
+            "DROP TABLE did not remove {table} from sqlite_master; \
+             using writable_schema to force-clean"
+        );
+        conn.execute_batch(&format!(
+            "PRAGMA writable_schema = ON;
+             DELETE FROM sqlite_master WHERE name = '{table}' OR name LIKE '{table}_%';
+             PRAGMA writable_schema = OFF;"
+        ))
+        .map_err(|e| Error::storage(format!("failed to force-clean {table}: {e}")))?;
+    }
+
+    // Step 4 — create fresh (without IF NOT EXISTS to surface any remaining issues)
     conn.execute_batch(&format!(
-        "CREATE VIRTUAL TABLE embedding_vec_{dim} \
-         USING vec0(embedding float[{dim}]);"
+        "CREATE VIRTUAL TABLE \"{table}\" USING vec0(embedding float[{dim}]);"
     ))
     .map_err(|e| Error::storage(format!("failed to recreate vec0 table dim={dim}: {e}")))
 }
