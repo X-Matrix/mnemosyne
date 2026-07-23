@@ -106,7 +106,10 @@ pub fn run() {
             tracing::info!("Using database: {}", db_path.display());
 
             tauri::async_runtime::spawn(async move {
-                let mut builder = mnemosyne_retrieval::SearchEngine::builder().db_path(&db_path);
+                let initial_batch = commands::models::read_persisted_batch_size();
+                let mut builder = mnemosyne_retrieval::SearchEngine::builder()
+                    .db_path(&db_path)
+                    .batch_size(initial_batch);
                 if let Some(m) = initial.text {
                     builder = builder.text_model(m);
                 }
@@ -118,8 +121,12 @@ pub fn run() {
                 }
                 match builder.build().await {
                     Ok(engine) => {
+                        tracing::info!(
+                            "SearchEngine ready (db: {}, batch_size={})",
+                            db_path.display(),
+                            engine.batch_size
+                        );
                         *engine_lock.write().await = Some(engine);
-                        tracing::info!("SearchEngine ready (db: {})", db_path.display());
                     }
                     Err(e) => tracing::error!("Failed to initialise SearchEngine: {e}"),
                 }
@@ -142,6 +149,8 @@ pub fn run() {
             commands::models::list_models,
             commands::models::switch_model,
             commands::models::get_active_models,
+            commands::models::get_batch_size,
+            commands::models::set_batch_size,
             commands::logs::get_logs,
             commands::logs::clear_logs,
             commands::api::start_api_server,

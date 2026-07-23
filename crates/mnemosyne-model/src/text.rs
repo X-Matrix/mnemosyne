@@ -176,6 +176,35 @@ impl TextEmbedder {
             Ok((dense, None))
         }
     }
+
+    /// Compute dense + sparse embeddings for a **batch** of texts.
+    ///
+    /// Internally splits into mini-batches of `batch_size` and forwards each
+    /// mini-batch in a single pass, then reassembles results in input order.
+    /// Falls back to sequential `embed_combined` when `candle-backend` is off.
+    pub fn embed_batch_combined(
+        &self,
+        texts: &[String],
+        batch_size: usize,
+    ) -> mnemosyne_core::Result<
+        Vec<(
+            mnemosyne_core::types::Embedding,
+            Option<std::collections::HashMap<u32, f32>>,
+        )>,
+    > {
+        #[cfg(feature = "candle-backend")]
+        {
+            let backend = Arc::clone(&self.backend);
+            match &*backend {
+                Backend::Bert(b) => b.embed_batch_combined(texts, batch_size),
+            }
+        }
+        #[cfg(not(feature = "candle-backend"))]
+        {
+            // Stub: delegate to sequential embed_combined
+            texts.iter().map(|t| self.embed_combined(t)).collect()
+        }
+    }
 }
 
 // ── Stub embedding ────────────────────────────────────────────────────────────

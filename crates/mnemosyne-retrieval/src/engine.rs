@@ -22,6 +22,8 @@ use walkdir::WalkDir;
 pub const DEFAULT_CLIP_MODEL: &str = "openai/clip-vit-base-patch32";
 /// Default Whisper model used when `whisper-backend` feature is enabled.
 pub const DEFAULT_WHISPER_MODEL: &str = "openai/whisper-tiny";
+/// Default number of texts to embed in a single forward pass.
+pub const DEFAULT_BATCH_SIZE: usize = 8;
 
 pub struct SearchEngine {
     pub(crate) db: Database,
@@ -32,6 +34,9 @@ pub struct SearchEngine {
     pub(crate) vision_model_id: String,
     pub(crate) audio_model_id: String,
     pub(crate) ignore_config: Arc<IgnoreConfig>,
+    /// How many text chunks are forwarded through the model in one batch.
+    /// Larger values improve GPU utilisation but use more memory.
+    pub batch_size: usize,
 }
 
 impl SearchEngine {
@@ -44,6 +49,7 @@ impl SearchEngine {
         vision_model_id: String,
         audio_model_id: String,
         ignore_config: Arc<IgnoreConfig>,
+        batch_size: usize,
     ) -> Self {
         Self {
             db,
@@ -54,6 +60,7 @@ impl SearchEngine {
             vision_model_id,
             audio_model_id,
             ignore_config,
+            batch_size: batch_size.max(1),
         }
     }
 
@@ -322,53 +329,66 @@ impl SearchEngine {
         // Generate embeddings — route to CLIP for images, Whisper transcript text for audio,
         // text embedder for everything else.
         //
-        // For BGE-M3 (has sparse_linear), use embed_combined() to compute dense +
-        // sparse in a SINGLE forward pass per text chunk instead of two passes.
-        // This halves computation time compared to embed_chunks + embed_sparse.
+        // For BGE-M3 (has sparse_linear), use embed_batch_combined() to compute
+        // dense + sparse in a single batched forward pass per mini-batch.
+        // This is significantly faster than one-chunk-at-a-time.
         #[cfg(feature = "candle-backend")]
         let (embeddings, sparse_map) = {
             let text_model = self.models.get_text_embedder(&self.text_model_id).await?;
-            if text_model.has_sparse() {
-                // Combined path: one forward pass → (dense, Option<sparse>)
-                let mut dense_vecs: Vec<mnemosyne_core::types::Embedding> =
-                    Vec::with_capacity(chunks_content.len());
-                let mut sparse_vecs: Vec<Option<std::collections::HashMap<u32, f32>>> =
-                    Vec::with_capacity(chunks_content.len());
+            let n = chunks_content.len();
 
-                for chunk in &chunks_content {
-                    let text_opt = match chunk {
-                        mnemosyne_core::types::ParsedContent::Text { text } => Some(text.clone()),
-                        mnemosyne_core::types::ParsedContent::AudioTranscript {
-                            transcript,
-                            ..
-                        } => Some(transcript.clone()),
-                        _ => None,
-                    };
+            // ── Partition: text/transcript vs image/video (non-batchable) ────
+            let mut text_indices: Vec<usize> = Vec::new();
+            let mut text_strs: Vec<String> = Vec::new();
+            let mut dense_vecs: Vec<mnemosyne_core::types::Embedding> = vec![vec![]; n];
+            let mut sparse_vecs: Vec<Option<std::collections::HashMap<u32, f32>>> = vec![None; n];
 
-                    if let Some(text) = text_opt {
-                        let m = text_model.clone();
-                        let (dense, sparse) =
-                            tokio::task::spawn_blocking(move || m.embed_combined(&text))
-                                .await
-                                .map_err(|e| Error::model(e.to_string()))??;
-                        dense_vecs.push(dense);
-                        sparse_vecs.push(sparse);
-                    } else {
-                        // Non-text chunk (image, video): dense via normal path, no sparse.
+            for (i, chunk) in chunks_content.iter().enumerate() {
+                match chunk {
+                    mnemosyne_core::types::ParsedContent::Text { text } => {
+                        text_indices.push(i);
+                        text_strs.push(text.clone());
+                    }
+                    mnemosyne_core::types::ParsedContent::AudioTranscript {
+                        transcript, ..
+                    } => {
+                        text_indices.push(i);
+                        text_strs.push(transcript.clone());
+                    }
+                    _ => {
+                        // Images / video: individual CLIP or stub embedding
                         let emb = self.embed_single_chunk(path, chunk).await?;
-                        dense_vecs.push(emb);
-                        sparse_vecs.push(None);
+                        dense_vecs[i] = emb;
                     }
                 }
-                (dense_vecs, Some(sparse_vecs))
-            } else {
-                // Standard path: dense only.
-                let embs = self.embed_chunks(path, &chunks_content).await?;
-                (
-                    embs,
-                    None::<Vec<Option<std::collections::HashMap<u32, f32>>>>,
-                )
             }
+
+            // ── Batch-embed all text chunks ───────────────────────────────────
+            if !text_strs.is_empty() {
+                let batch_sz = self.batch_size;
+                let m = text_model.clone();
+                let ts = text_strs;
+                let batch = if text_model.has_sparse() {
+                    tokio::task::spawn_blocking(move || m.embed_batch_combined(&ts, batch_sz))
+                        .await
+                        .map_err(|e| Error::model(e.to_string()))??
+                } else {
+                    // Non-sparse model: batch embed returns (dense, None) for each
+                    tokio::task::spawn_blocking(move || m.embed_batch_combined(&ts, batch_sz))
+                        .await
+                        .map_err(|e| Error::model(e.to_string()))??
+                };
+                for (idx, (dense, sparse)) in text_indices.iter().zip(batch.into_iter()) {
+                    dense_vecs[*idx] = dense;
+                    sparse_vecs[*idx] = sparse;
+                }
+            }
+
+            let has_sparse = text_model.has_sparse();
+            (
+                dense_vecs,
+                if has_sparse { Some(sparse_vecs) } else { None },
+            )
         };
 
         #[cfg(not(feature = "candle-backend"))]

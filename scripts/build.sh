@@ -132,6 +132,8 @@ info "Building mnemosyne-api (all ML backends always enabled)..."
 cargo build $PROFILE_FLAG -p mnemosyne-api
 
 info "Building mnemosyne-tauri (desktop app backend)..."
+# metal-backend is already declared in src-tauri/Cargo.toml features list;
+# on non-Apple or x86 builds candle will simply ignore the Metal code paths.
 cargo build $PROFILE_FLAG -p mnemosyne-tauri
 
 BIN_DIR="target/$BUILD_PROFILE"

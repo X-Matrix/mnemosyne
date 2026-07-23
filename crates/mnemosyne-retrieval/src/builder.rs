@@ -1,4 +1,4 @@
-use crate::engine::SearchEngine;
+use crate::engine::{SearchEngine, DEFAULT_BATCH_SIZE};
 use crate::ignore::IgnoreConfig;
 use mnemosyne_core::Error;
 use mnemosyne_index::HybridIndex;
@@ -20,6 +20,7 @@ pub struct SearchEngineBuilder {
     vision_model_id: String,
     audio_model_id: String,
     ignore_config: IgnoreConfig,
+    batch_size: usize,
 }
 
 impl SearchEngineBuilder {
@@ -30,6 +31,7 @@ impl SearchEngineBuilder {
             vision_model_id: DEFAULT_VISION_MODEL.to_string(),
             audio_model_id: DEFAULT_AUDIO_MODEL.to_string(),
             ignore_config: IgnoreConfig::default(),
+            batch_size: DEFAULT_BATCH_SIZE,
         }
     }
 
@@ -55,6 +57,15 @@ impl SearchEngineBuilder {
     /// Defaults to [`IgnoreConfig::default`] which covers the most common cases.
     pub fn ignore_config(mut self, config: IgnoreConfig) -> Self {
         self.ignore_config = config;
+        self
+    }
+
+    /// Set the number of texts to embed per forward pass (default: [`DEFAULT_BATCH_SIZE`]).
+    ///
+    /// Larger values improve throughput (especially on Metal GPU) but require
+    /// more memory.  Tune based on available RAM / VRAM and average chunk length.
+    pub fn batch_size(mut self, n: usize) -> Self {
+        self.batch_size = n.max(1);
         self
     }
 
@@ -85,6 +96,7 @@ impl SearchEngineBuilder {
             self.vision_model_id,
             self.audio_model_id,
             Arc::new(self.ignore_config),
+            self.batch_size,
         ))
     }
 }

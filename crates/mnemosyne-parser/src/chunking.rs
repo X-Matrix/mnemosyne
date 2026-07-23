@@ -24,12 +24,11 @@ pub const CHUNK_MAX: usize = 1800;
 /// Sentences to carry over from the previous chunk for context continuity.
 pub const OVERLAP_SENTENCES: usize = 2;
 /// A chunk must have at least this many characters to be worth indexing.
-/// Set low so CJK-dense sentences (1 char ≈ 1 word) are never rejected by
-/// length alone; the [`MIN_WORD_CHARS`] check handles noise.
-pub const MIN_CHUNK_LEN: usize = 30;
-/// Minimum "word-characters" in runs of ≥ 2 consecutive informative chars.
-/// Prevents symbol-table / escape-sequence snippets from polluting the index.
-pub const MIN_WORD_CHARS: usize = 30;
+/// Set low so even very short files are retained; the ratio check handles noise.
+pub const MIN_CHUNK_LEN: usize = 5;
+/// Minimum ratio of informative (letter/digit/CJK) chars to all non-whitespace chars.
+/// Natural prose scores ≥ 0.90; symbol-heavy escape tables score ~0.50.
+pub const MIN_INFORMATIVE_RATIO: f32 = 0.55;
 
 // ── Public trait ──────────────────────────────────────────────────────────────
 
@@ -379,27 +378,20 @@ fn is_informative(c: char) -> bool {
         || ('\u{AC00}'..='\u{D7AF}').contains(&c) // hangul syllables
 }
 
-/// Count characters that belong to *runs* of ≥ 2 consecutive informative chars.
-///
-/// A single stray letter in the middle of symbols (e.g. the `r` in `\r\n`) does
-/// not count; only genuine "word tokens" do.
-fn word_chars(text: &str) -> usize {
-    let mut total = 0usize;
-    let mut run = 0usize;
-    for c in text.chars() {
-        if is_informative(c) {
-            run += 1;
-        } else {
-            if run >= 2 {
-                total += run;
-            }
-            run = 0;
-        }
+/// Compute the ratio of informative characters to total non-whitespace characters.
+/// Returns 0.0 for empty / all-whitespace text.
+pub fn informative_ratio(text: &str) -> f32 {
+    let (non_ws, info) = text
+        .chars()
+        .filter(|c| !c.is_whitespace())
+        .fold((0usize, 0usize), |(nw, inf), c| {
+            (nw + 1, inf + usize::from(is_informative(c)))
+        });
+    if non_ws == 0 {
+        0.0
+    } else {
+        info as f32 / non_ws as f32
     }
-    if run >= 2 {
-        total += run;
-    }
-    total
 }
 
 /// Return `true` if `text` has enough natural-language content to be worth
@@ -407,15 +399,13 @@ fn word_chars(text: &str) -> usize {
 ///
 /// Filters out:
 /// * Very short fragments (< [`MIN_CHUNK_LEN`] chars after trimming).
-/// * Symbol / escape-sequence tables where almost no "word" characters exist
-///   (e.g. `html2markdown 转义 \`\\\` \`\[\` \`\]\` \`\=\`` — only 19 word
-///   chars).
-///
-/// Deliberately **not** filtering source code: a function body easily exceeds
-/// [`MIN_WORD_CHARS`] via identifiers and keywords.
+/// * Symbol / escape-sequence tables whose informative-char ratio is below
+///   [`MIN_INFORMATIVE_RATIO`] (e.g. markdown escape tables score ~0.51;
+///   ordinary prose scores ≥ 0.90).
 pub fn is_quality_chunk(text: &str) -> bool {
     let stripped = text.trim();
-    stripped.chars().count() >= MIN_CHUNK_LEN && word_chars(stripped) >= MIN_WORD_CHARS
+    stripped.chars().count() >= MIN_CHUNK_LEN
+        && informative_ratio(stripped) >= MIN_INFORMATIVE_RATIO
 }
 
 /// Remove low-quality chunks from a list (see [`is_quality_chunk`]).
@@ -495,7 +485,7 @@ mod tests {
     fn quality_filter_keeps_code_body() {
         let code = r#"pub fn is_quality_chunk(text: &str) -> bool {
     let stripped = text.trim();
-    stripped.chars().count() >= MIN_CHUNK_LEN && word_chars(stripped) >= MIN_WORD_CHARS
+    stripped.chars().count() >= MIN_CHUNK_LEN
 }"#;
         assert!(
             is_quality_chunk(code),
@@ -506,12 +496,19 @@ mod tests {
     #[test]
     fn filter_quality_removes_short_chunks() {
         let chunks = vec![
-            "OK".to_string(),
-            "This sentence is long enough to pass the quality filter easily.".to_string(),
+            "OK".to_string(),                               // too short (< 10 chars)
+            "apple banana cherry dog and cat.".to_string(), // ratio=1.0
         ];
         let filtered = filter_quality(chunks);
         assert_eq!(filtered.len(), 1);
-        assert!(filtered[0].contains("long enough"));
+        assert!(filtered[0].contains("apple"));
+    }
+
+    #[test]
+    fn informative_ratio_all_letters() {
+        // pure letter text → ratio 1.0
+        let r = informative_ratio("dog cat mouse");
+        assert!((r - 1.0).abs() < 0.01, "ratio={r}");
     }
 
     #[test]

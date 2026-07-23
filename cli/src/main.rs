@@ -22,6 +22,11 @@ enum Commands {
     Index {
         /// Directory to index.
         path: String,
+
+        /// Number of text chunks to embed per forward pass.
+        /// Larger batches are faster but use more memory.
+        #[arg(long, default_value = "8")]
+        batch_size: usize,
     },
 
     /// Search indexed files.
@@ -73,6 +78,10 @@ enum Commands {
     Watch {
         /// Directory to watch.
         path: String,
+
+        /// Batch size for embedding (same as `index --batch-size`).
+        #[arg(long, default_value = "8")]
+        batch_size: usize,
     },
 
     /// Download a model from HuggingFace Hub.
@@ -101,11 +110,17 @@ async fn main() -> Result<()> {
     if let Some(ref db) = db_path {
         builder = builder.db_path(db);
     }
+    // batch_size is extracted from the subcommand if present; default to 8
+    let batch_sz: usize = match &cli.command {
+        Commands::Index { batch_size, .. } | Commands::Watch { batch_size, .. } => *batch_size,
+        _ => mnemosyne_retrieval::DEFAULT_BATCH_SIZE,
+    };
+    builder = builder.batch_size(batch_sz);
     let engine = builder.build().await?;
 
     match cli.command {
-        Commands::Index { path } => {
-            println!("Indexing: {path}");
+        Commands::Index { path, .. } => {
+            println!("Indexing: {path} (batch_size={})", batch_sz);
             let stats = engine.index_directory(&path).await?;
             println!(
                 "Done: {} files indexed, {} total chunks",
@@ -181,7 +196,7 @@ async fn main() -> Result<()> {
             mnemosyne_api::run().await?;
         }
 
-        Commands::Watch { path } => {
+        Commands::Watch { path, .. } => {
             use mnemosyne_retrieval::watcher::FileWatcher;
             use std::sync::Arc;
             println!("Watching: {path} (Ctrl-C to stop)");

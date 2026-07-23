@@ -68,6 +68,30 @@ fn write_persisted_models(cfg: &ActiveModelsConfig) {
     }
 }
 
+// ── Batch-size persistence ────────────────────────────────────────────────────
+// Stored separately in ~/.mnemosyne/.batch_size  (plain integer, one line)
+
+fn batch_size_path() -> PathBuf {
+    let home = std::env::var("HOME").unwrap_or_else(|_| ".".into());
+    PathBuf::from(home).join(".mnemosyne").join(".batch_size")
+}
+
+/// Read the persisted batch-size preference (default: 8).
+pub fn read_persisted_batch_size() -> usize {
+    std::fs::read_to_string(batch_size_path())
+        .ok()
+        .and_then(|s| s.trim().parse::<usize>().ok())
+        .unwrap_or(mnemosyne_retrieval::DEFAULT_BATCH_SIZE)
+}
+
+fn write_persisted_batch_size(n: usize) {
+    let p = batch_size_path();
+    if let Some(dir) = p.parent() {
+        let _ = std::fs::create_dir_all(dir);
+    }
+    let _ = std::fs::write(&p, n.to_string());
+}
+
 /// All three currently active model IDs (returned to the frontend).
 #[derive(Debug, Serialize)]
 pub struct ActiveModels {
@@ -156,5 +180,37 @@ pub async fn switch_model(
     }
     write_persisted_models(&cfg);
     tracing::info!("Active {} model switched to: {}", category, model_id);
+    Ok(())
+}
+
+/// Return the current batch size (read from the live engine, or from disk).
+#[tauri::command]
+pub async fn get_batch_size(state: State<'_, AppState>) -> Result<usize, CommandError> {
+    let lock = state.engine.read().await;
+    if let Some(engine) = lock.as_ref() {
+        Ok(engine.batch_size)
+    } else {
+        Ok(read_persisted_batch_size())
+    }
+}
+
+/// Update the batch size for the live engine and persist the preference.
+///
+/// The new value takes effect on the **next** `index_directory` call.
+/// A restart is not required.
+#[tauri::command]
+pub async fn set_batch_size(
+    state: State<'_, AppState>,
+    batch_size: usize,
+) -> Result<(), CommandError> {
+    let n = batch_size.max(1);
+    {
+        let mut lock = state.engine.write().await;
+        if let Some(engine) = lock.as_mut() {
+            engine.batch_size = n;
+            tracing::info!("Batch size updated to {n}");
+        }
+    }
+    write_persisted_batch_size(n);
     Ok(())
 }

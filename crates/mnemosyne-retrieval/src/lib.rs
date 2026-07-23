@@ -31,7 +31,7 @@ pub mod watcher;
 
 pub use background::BackgroundIndexer;
 pub use builder::SearchEngineBuilder;
-pub use engine::SearchEngine;
+pub use engine::{SearchEngine, DEFAULT_BATCH_SIZE};
 pub use ignore::IgnoreConfig;
 
 pub type Result<T> = std::result::Result<T, mnemosyne_core::Error>;
