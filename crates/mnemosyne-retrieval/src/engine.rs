@@ -329,6 +329,17 @@ impl SearchEngine {
         // Generate embeddings — route to CLIP for images, Whisper transcript text for audio,
         // text embedder for everything else.
         //
+        // Prepend a title chunk (filename + meaningful parent directories) so the
+        // file is discoverable by name even if the body never repeats the title.
+        // e.g.  苏轼/菩萨蛮·回文春闺怨.md  →  "苏轼 菩萨蛮·回文春闺怨"
+        let title_str = build_title_chunk(path, &chunks_content);
+        if !title_str.is_empty() {
+            chunks_content.insert(
+                0,
+                mnemosyne_core::types::ParsedContent::Text { text: title_str },
+            );
+        }
+        //
         // For BGE-M3 (has sparse_linear), use embed_batch_combined() to compute
         // dense + sparse in a single batched forward pass per mini-batch.
         // This is significantly faster than one-chunk-at-a-time.
@@ -949,4 +960,106 @@ impl SearchEngine {
 
         Ok(())
     }
+}
+
+// ── Title-chunk helper ────────────────────────────────────────────────────────
+
+/// Generic directory names that carry no useful search signal.
+const GENERIC_DIRS: &[&str] = &[
+    // English
+    "Documents",
+    "Desktop",
+    "Downloads",
+    "Library",
+    "Home",
+    "iCloud",
+    "vault",
+    "Notes",
+    "Obsidian",
+    "Archive",
+    "Attachments",
+    "assets",
+    "images",
+    "files",
+    "data",
+    // Chinese
+    "文档",
+    "桌面",
+    "下载",
+    "笔记",
+    "附件",
+    "资料",
+];
+
+/// Build a short text snippet that names the file so it can be found by title.
+///
+/// Returns an empty string when the file has no meaningful name (e.g. `index.html`
+/// in a top-level directory).  The snippet format is:
+///   `"<meaningful_parent>* <file_stem>"` (up to 2 meaningful parent dirs)
+///
+/// For Markdown files the first `# Heading` is appended when it differs from
+/// the file stem, giving extra surface area for title searches.
+fn build_title_chunk(
+    path: &std::path::Path,
+    chunks: &[mnemosyne_core::types::ParsedContent],
+) -> String {
+    use mnemosyne_core::types::ParsedContent;
+
+    let stem = match path.file_stem().and_then(|s| s.to_str()) {
+        Some(s) if !s.is_empty() => s.to_owned(),
+        _ => return String::new(),
+    };
+
+    // Collect up to 2 meaningful ancestor directory names (nearest first).
+    let mut parents: Vec<&str> = Vec::new();
+    let mut dir = path.parent();
+    while let Some(d) = dir {
+        if parents.len() >= 2 {
+            break;
+        }
+        if let Some(name) = d.file_name().and_then(|n| n.to_str()) {
+            // Skip iCloud container IDs (contain `~`), hidden dirs, and generics.
+            let skip = name.contains('~') || name.starts_with('.') || GENERIC_DIRS.contains(&name);
+            if !skip && !name.is_empty() {
+                parents.push(name);
+            }
+        }
+        dir = d.parent();
+    }
+    // Reverse so the order is grandparent → parent → stem.
+    parents.reverse();
+
+    let mut title = parents.join(" ");
+    if !title.is_empty() {
+        title.push(' ');
+    }
+    title.push_str(&stem);
+
+    // For Markdown: append the first `# Heading` if it adds info beyond the stem.
+    let ext = path
+        .extension()
+        .and_then(|e| e.to_str())
+        .unwrap_or("")
+        .to_lowercase();
+    if matches!(ext.as_str(), "md" | "markdown" | "rst") {
+        'outer: for chunk in chunks {
+            if let ParsedContent::Text { text } = chunk {
+                for line in text.lines() {
+                    let t = line.trim();
+                    let heading = t
+                        .strip_prefix("# ")
+                        .or_else(|| t.strip_prefix("## "))
+                        .map(str::trim)
+                        .unwrap_or("");
+                    if !heading.is_empty() && heading != stem {
+                        title.push_str(": ");
+                        title.push_str(heading);
+                        break 'outer;
+                    }
+                }
+            }
+        }
+    }
+
+    title
 }
