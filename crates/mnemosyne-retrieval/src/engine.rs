@@ -338,9 +338,10 @@ impl SearchEngine {
                 for chunk in &chunks_content {
                     let text_opt = match chunk {
                         mnemosyne_core::types::ParsedContent::Text { text } => Some(text.clone()),
-                        mnemosyne_core::types::ParsedContent::AudioTranscript { transcript, .. } => {
-                            Some(transcript.clone())
-                        }
+                        mnemosyne_core::types::ParsedContent::AudioTranscript {
+                            transcript,
+                            ..
+                        } => Some(transcript.clone()),
                         _ => None,
                     };
 
@@ -441,20 +442,38 @@ impl SearchEngine {
 
         // ── Sparse (lexical) embedding for BGE-M3 keyword path ────────────────
         // When sparse_linear is loaded, use lexical dot-product instead of FTS5.
-        let query_sparse: Option<std::collections::HashMap<u32, f32>> =
-            if bert_model.has_sparse() {
-                bert_model.embed_sparse(&query.text).ok()
-            } else {
-                None
-            };
+        let query_sparse: Option<std::collections::HashMap<u32, f32>> = if bert_model.has_sparse() {
+            bert_model.embed_sparse(&query.text).ok()
+        } else {
+            None
+        };
 
         use mnemosyne_core::types::SearchMode;
 
+        // Minimum cosine similarity for pure-vector results.
+        // Below this the match is considered noise (< 45 % semantic overlap).
+        // If the entire result set is below the floor (corpus mismatch), we
+        // still return the top FLOOR_FALLBACK items so the UI isn't empty.
+        const MIN_VECTOR_SCORE: f32 = 0.45;
+        const FLOOR_FALLBACK: usize = 5;
+
         let mut results = match &query.mode {
             SearchMode::Vector => {
-                self.index
-                    .vector_search(&bert_embedding, query.limit)
-                    .await?
+                // Fetch extra candidates so we have room to filter.
+                let inner = (query.limit * 3).max(30);
+                let raw = self.index.vector_search(&bert_embedding, inner).await?;
+                let above: Vec<SearchResult> = raw
+                    .iter()
+                    .filter(|r| r.score >= MIN_VECTOR_SCORE)
+                    .take(query.limit)
+                    .cloned()
+                    .collect();
+                if above.is_empty() {
+                    // Nothing confident — fall back to top-N so UI stays useful.
+                    raw.into_iter().take(FLOOR_FALLBACK).collect()
+                } else {
+                    above
+                }
             }
             SearchMode::Keyword => {
                 if let Some(ref sparse) = query_sparse {
@@ -478,21 +497,11 @@ impl SearchEngine {
                     // RRF fusion (mirrors HybridIndex::hybrid_search).
                     let vec_ranked: Vec<(String, f32)> = vec_results
                         .iter()
-                        .map(|r| {
-                            (
-                                format!("{}:{}", r.file_record.id, r.chunk_index),
-                                r.score,
-                            )
-                        })
+                        .map(|r| (format!("{}:{}", r.file_record.id, r.chunk_index), r.score))
                         .collect();
                     let kw_ranked: Vec<(String, f32)> = kw_results
                         .iter()
-                        .map(|r| {
-                            (
-                                format!("{}:{}", r.file_record.id, r.chunk_index),
-                                r.score,
-                            )
-                        })
+                        .map(|r| (format!("{}:{}", r.file_record.id, r.chunk_index), r.score))
                         .collect();
                     let fused = mnemosyne_index::rrf::fuse(
                         &vec_ranked,
@@ -601,8 +610,7 @@ impl SearchEngine {
                 // Apply the same file-type filter to CLIP results.
                 if let Some(ref types) = query.file_types {
                     if !types.is_empty() {
-                        clip_results
-                            .retain(|r| types.contains(&r.file_record.file_type));
+                        clip_results.retain(|r| types.contains(&r.file_record.file_type));
                     }
                 }
 
@@ -697,11 +705,9 @@ impl SearchEngine {
     pub async fn count_files_in_dir(&self, dir_path: &str) -> Result<u64, Error> {
         let db = self.db.clone();
         let prefix = format!("{}/", dir_path.trim_end_matches('/'));
-        tokio::task::spawn_blocking(move || {
-            FileRepo::new(&db).count_by_prefix(&prefix)
-        })
-        .await
-        .map_err(|e| Error::storage(e.to_string()))?
+        tokio::task::spawn_blocking(move || FileRepo::new(&db).count_by_prefix(&prefix))
+            .await
+            .map_err(|e| Error::storage(e.to_string()))?
     }
 
     pub async fn remove_file(&self, file_id: &str) -> Result<(), Error> {
@@ -808,7 +814,8 @@ impl SearchEngine {
     ) -> Result<mnemosyne_core::types::Embedding, Error> {
         let chunks = std::slice::from_ref(chunk);
         let mut embs = self.embed_chunks(file_path, chunks).await?;
-        embs.pop().ok_or_else(|| Error::model("no embedding produced".to_string()))
+        embs.pop()
+            .ok_or_else(|| Error::model("no embedding produced".to_string()))
     }
 
     /// Embed an image file using the CLIP vision encoder.

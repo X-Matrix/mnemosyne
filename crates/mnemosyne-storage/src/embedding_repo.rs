@@ -169,25 +169,24 @@ impl<'a> EmbeddingRepo<'a> {
         // Query vec0 table count.  If the shadow table is missing (sqlite-vec
         // internal corruption / database was replaced without the extension),
         // DROP and recreate the vec0 table so it starts clean.
-        let vec_count: i64 = match conn
-            .query_row(&format!("SELECT COUNT(*) FROM {table}"), [], |r| r.get(0))
-        {
-            Ok(n) => n,
-            Err(e) => {
-                let msg = e.to_string();
-                if msg.contains("rowids") || msg.contains("no such table") {
-                    tracing::warn!(
+        let vec_count: i64 =
+            match conn.query_row(&format!("SELECT COUNT(*) FROM {table}"), [], |r| r.get(0)) {
+                Ok(n) => n,
+                Err(e) => {
+                    let msg = e.to_string();
+                    if msg.contains("rowids") || msg.contains("no such table") {
+                        tracing::warn!(
                         "vec0 table {table} is corrupt (missing shadow table): {msg} — recreating"
                     );
-                    // Use recreate (not ensure) to guarantee a fresh table
-                    // even when IF NOT EXISTS would otherwise be a no-op.
-                    recreate_vec0_for_dim(&conn, dim)?;
-                    0
-                } else {
-                    return Err(Error::storage(msg));
+                        // Use recreate (not ensure) to guarantee a fresh table
+                        // even when IF NOT EXISTS would otherwise be a no-op.
+                        recreate_vec0_for_dim(&conn, dim)?;
+                        0
+                    } else {
+                        return Err(Error::storage(msg));
+                    }
                 }
-            }
-        };
+            };
 
         if emb_count == vec_count {
             return Ok(()); // already in sync
@@ -314,16 +313,38 @@ fn ensure_vec0_for_dim(conn: &Connection, dim: usize) -> Result<(), Error> {
 }
 
 /// Force-drop and recreate `embedding_vec_{dim}`.
-/// Used when the table is in a corrupt state (shadow tables missing).
+///
+/// Root cause of "already exists" after DROP:
+///   sqlite-vec's xDestroy callback returns an error when shadow tables are
+///   already missing.  SQLite rolls back the DROP, leaving the entry in its
+///   **in-memory schema cache**.  Directly deleting from sqlite_master
+///   (writable_schema) only fixes the on-disk file; the cache remains stale.
+///
+/// Fix: bump `schema_version` after the sqlite_master deletion.  SQLite
+/// compares the cached schema cookie against the database header at the start
+/// of every statement.  When they differ it reloads the schema from disk,
+/// clearing the stale VT entry before the CREATE is attempted.
 fn recreate_vec0_for_dim(conn: &Connection, dim: usize) -> Result<(), Error> {
-    // Drop the virtual table; sqlite-vec also drops its shadow tables.
-    // Use a plain DROP (not IF EXISTS) so errors are surfaced, but swallow
-    // "no such table" since the shadow tables may already be partially gone.
-    let _ = conn.execute_batch(&format!("DROP TABLE IF EXISTS embedding_vec_{dim};"));
-    // CREATE without IF NOT EXISTS to guarantee a fresh table.
+    let table = format!("embedding_vec_{dim}");
+
+    // 1 — Best-effort standard DROP (usually fails silently for broken VTs)
+    let _ = conn.execute_batch(&format!("DROP TABLE IF EXISTS \"{table}\";"));
+
+    // 2 — Remove all traces from on-disk sqlite_master AND bump schema_version
+    //     so SQLite invalidates its in-memory schema cache before the CREATE.
     conn.execute_batch(&format!(
-        "CREATE VIRTUAL TABLE embedding_vec_{dim} \
-         USING vec0(embedding float[{dim}]);"
+        "PRAGMA writable_schema = ON;
+         DELETE FROM sqlite_master
+           WHERE name = '{table}' OR name LIKE '{table}_%';
+         PRAGMA schema_version =
+           (SELECT schema_version + 1 FROM pragma_schema_version);
+         PRAGMA writable_schema = OFF;"
     ))
-    .map_err(|e| Error::storage(format!("failed to recreate vec0 table dim={dim}: {e}")))
+    .map_err(|e| Error::storage(format!("force-clean {table}: {e}")))?;
+
+    // 3 — Create fresh (schema cache is now stale → SQLite reloads before exec)
+    conn.execute_batch(&format!(
+        "CREATE VIRTUAL TABLE \"{table}\" USING vec0(embedding float[{dim}]);"
+    ))
+    .map_err(|e| Error::storage(format!("recreate {table}: {e}")))
 }

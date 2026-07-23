@@ -216,9 +216,7 @@ impl BertEmbedder {
             .map_err(|e| Error::model(e.to_string()))?;
 
         // [1, seq_len, H] → [seq_len, H]
-        let hidden = hidden
-            .squeeze(0)
-            .map_err(|e| Error::model(e.to_string()))?;
+        let hidden = hidden.squeeze(0).map_err(|e| Error::model(e.to_string()))?;
 
         // [seq_len, H] × [H, 1] → [seq_len, 1] → [seq_len]
         let scores = hidden
@@ -237,7 +235,10 @@ impl BertEmbedder {
         let mut lexical: HashMap<u32, f32> = HashMap::new();
         for (&tid, &score) in token_ids.iter().zip(scores_vec.iter()) {
             if score > 0.0 {
-                lexical.entry(tid).and_modify(|e| *e = e.max(score)).or_insert(score);
+                lexical
+                    .entry(tid)
+                    .and_modify(|e| *e = e.max(score))
+                    .or_insert(score);
             }
         }
 
@@ -364,9 +365,9 @@ impl BertEmbedder {
                 .map_err(|e| Error::model(e.to_string()))
         };
 
-        let ids   = make(&token_ids)?;
+        let ids = make(&token_ids)?;
         let types = make(encoding.get_type_ids())?;
-        let mask  = make(encoding.get_attention_mask())?;
+        let mask = make(encoding.get_attention_mask())?;
 
         let t0 = std::time::Instant::now();
         // ── Single forward pass ───────────────────────────────────────────────
@@ -389,16 +390,23 @@ impl BertEmbedder {
                 .map_err(|e| Error::model(e.to_string()))?,
         };
         let dense_raw: Vec<f32> = pooled.to_vec1().map_err(|e| Error::model(e.to_string()))?;
-        let norm = dense_raw.iter().map(|v| v * v).sum::<f32>().sqrt().max(1e-9);
-        debug!("BERT output: dim={}, L2_norm_before={:.6}", dense_raw.len(), norm);
+        let norm = dense_raw
+            .iter()
+            .map(|v| v * v)
+            .sum::<f32>()
+            .sqrt()
+            .max(1e-9);
+        debug!(
+            "BERT output: dim={}, L2_norm_before={:.6}",
+            dense_raw.len(),
+            norm
+        );
         let dense: Vec<f32> = dense_raw.into_iter().map(|v| v / norm).collect();
 
         // ── Sparse weights (reuse hidden states if sparse_linear is loaded) ───
         let sparse: Option<HashMap<u32, f32>> = if let Some(w) = &self.sparse_linear {
             // output: [1, seq_len, H] → [seq_len, H]
-            let hidden = output
-                .squeeze(0)
-                .map_err(|e| Error::model(e.to_string()))?;
+            let hidden = output.squeeze(0).map_err(|e| Error::model(e.to_string()))?;
             // [seq_len, H] × [H, 1] → [seq_len, 1] → [seq_len] → ReLU
             let scores = hidden
                 .matmul(&w.t().map_err(|e| Error::model(e.to_string()))?)
@@ -407,8 +415,7 @@ impl BertEmbedder {
                 .map_err(|e| Error::model(e.to_string()))?
                 .relu()
                 .map_err(|e| Error::model(e.to_string()))?;
-            let scores_vec: Vec<f32> =
-                scores.to_vec1().map_err(|e| Error::model(e.to_string()))?;
+            let scores_vec: Vec<f32> = scores.to_vec1().map_err(|e| Error::model(e.to_string()))?;
 
             let mut lexical: HashMap<u32, f32> = HashMap::new();
             for (&tid, &score) in token_ids.iter().zip(scores_vec.iter()) {

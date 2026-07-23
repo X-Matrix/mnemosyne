@@ -3,12 +3,12 @@ use mnemosyne_core::{traits::FileParser, types::ParsedContent, Error, Result};
 use std::path::Path;
 use tracing::debug;
 
-/// Chunk size in characters for splitting large text files.
-const CHUNK_SIZE: usize = 1500;
-/// Overlap between consecutive chunks.
-const CHUNK_OVERLAP: usize = 150;
+use crate::chunking::{filter_quality, Chunker, CodeStrategy, MarkdownStrategy, ProseStrategy};
 
-/// Parses plain-text, Markdown, CSV, and source-code files.
+/// Plain-text, Markdown, CSV and source-code parser.
+///
+/// Chunking is delegated to [`crate::chunking`] strategies so that PDF, audio
+/// transcripts, and other formats can reuse the same splitting logic.
 pub struct TextParser;
 
 #[async_trait]
@@ -25,8 +25,6 @@ impl FileParser for TextParser {
         debug!("TextParser: {}", path.display());
 
         let raw = tokio::fs::read(path).await.map_err(Error::Io)?;
-
-        // Attempt UTF-8; fall back to lossy conversion.
         let text = match String::from_utf8(raw.clone()) {
             Ok(s) => s,
             Err(_) => String::from_utf8_lossy(&raw).into_owned(),
@@ -36,7 +34,23 @@ impl FileParser for TextParser {
             return Ok(vec![]);
         }
 
-        let chunks = split_into_chunks(&text, CHUNK_SIZE, CHUNK_OVERLAP);
+        let ext = path
+            .extension()
+            .and_then(|e| e.to_str())
+            .unwrap_or("")
+            .to_lowercase();
+
+        let raw_chunks: Vec<String> = match ext.as_str() {
+            "md" | "markdown" => Chunker::new(MarkdownStrategy).chunk(&text),
+            "py" | "rs" | "js" | "ts" | "go" | "java" | "c" | "cpp" | "h" | "css" | "sh"
+            | "sql" => Chunker::new(CodeStrategy).chunk(&text),
+            _ => Chunker::new(ProseStrategy).chunk(&text),
+        };
+
+        // Remove symbol-heavy / escape-table fragments that produce noisy
+        // embeddings and pollute search results (e.g. markdown escape tables).
+        let chunks = filter_quality(raw_chunks);
+
         Ok(chunks
             .into_iter()
             .map(|c| ParsedContent::Text { text: c })
@@ -44,48 +58,23 @@ impl FileParser for TextParser {
     }
 }
 
-/// Split `text` into overlapping chunks of up to `size` characters.
-fn split_into_chunks(text: &str, size: usize, overlap: usize) -> Vec<String> {
-    if text.len() <= size {
-        return vec![text.to_string()];
-    }
-
-    let chars: Vec<char> = text.chars().collect();
-    let mut chunks = Vec::new();
-    let mut start = 0;
-
-    while start < chars.len() {
-        let end = (start + size).min(chars.len());
-        let chunk: String = chars[start..end].iter().collect();
-        chunks.push(chunk);
-
-        if end == chars.len() {
-            break;
-        }
-        start += size - overlap;
-    }
-
-    chunks
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::chunking::{Chunker, ProseStrategy, CHUNK_MAX};
 
     #[test]
-    fn test_split_short_text() {
-        let chunks = split_into_chunks("hello world", 1500, 150);
-        assert_eq!(chunks.len(), 1);
-        assert_eq!(chunks[0], "hello world");
+    fn parse_empty_returns_empty() {
+        let chunks: Vec<String> = Chunker::no_overlap(ProseStrategy).chunk("   ");
+        assert!(chunks.is_empty());
     }
 
     #[test]
-    fn test_split_long_text() {
-        let text = "a".repeat(4000);
-        let chunks = split_into_chunks(&text, 1500, 150);
-        assert!(chunks.len() > 1);
+    fn parse_long_text_respects_max() {
+        let text = "This is a sentence. ".repeat(200);
+        let chunks = Chunker::new(ProseStrategy).chunk(&text);
         for c in &chunks {
-            assert!(c.len() <= 1500);
+            assert!(c.chars().count() <= CHUNK_MAX);
         }
     }
 }

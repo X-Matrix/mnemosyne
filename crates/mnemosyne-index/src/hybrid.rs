@@ -102,37 +102,51 @@ impl SearchIndex for HybridIndex {
         let query_dim = query_emb.len(); // BERT=384, CLIP=512 — never mix!
 
         // ── sqlite-vector KNN path (when extension is loaded) ─────────────────
-        // Uses the vec0 virtual table HNSW index via SQL; falls through to the
-        // pure-Rust paths below only when the extension is absent.
+        // Falls through to pure-Rust HNSW / brute-force when sqlite-vec fails
+        // (e.g. corrupt shadow tables).  The user never sees an error.
         if db.sqlite_vector_loaded() {
-            return tokio::task::spawn_blocking(move || {
-                let emb_repo = EmbeddingRepo::new(&db);
-                let file_repo = FileRepo::new(&db);
+            let result = tokio::task::spawn_blocking({
+                let db = db.clone();
+                let query_emb = query_emb.clone();
+                move || -> mnemosyne_core::Result<Option<Vec<SearchResult>>> {
+                    let emb_repo = EmbeddingRepo::new(&db);
+                    let file_repo = FileRepo::new(&db);
 
-                // Ensure the vec0 table exists and is in sync with the BLOB store.
-                emb_repo.sync_to_vec0(query_dim)?;
-
-                let hits = emb_repo.vector_knn(&query_emb, limit)?;
-
-                let mut results = Vec::with_capacity(hits.len());
-                for (_, file_id, chunk_index, content, dist) in hits {
-                    // vec0 returns cosine distance (0 = identical, 2 = opposite).
-                    // Convert to a [0, 1] similarity score.
-                    let score = (1.0_f32 - dist).clamp(0.0, 1.0);
-                    if let Some(fr) = file_repo.get(&file_id)? {
-                        results.push(SearchResult {
-                            file_record: fr,
-                            score,
-                            snippet: Some(content.chars().take(2000).collect()),
-                            match_type: MatchType::Vector,
-                            chunk_index: chunk_index as usize,
-                        });
+                    // sync_to_vec0 is best-effort: if it fails (e.g. corrupt
+                    // shadow table that couldn't be fixed), return None so the
+                    // caller falls through to the pure-Rust HNSW path.
+                    if let Err(e) = emb_repo.sync_to_vec0(query_dim) {
+                        tracing::warn!(
+                            "sqlite-vec sync failed (dim={query_dim}), \
+                             falling back to Rust HNSW: {e}"
+                        );
+                        return Ok(None);
                     }
+
+                    let hits = emb_repo.vector_knn(&query_emb, limit)?;
+                    let mut results = Vec::with_capacity(hits.len());
+                    for (_, file_id, chunk_index, content, dist) in hits {
+                        let score = (1.0_f32 - dist).clamp(0.0, 1.0);
+                        if let Some(fr) = file_repo.get(&file_id)? {
+                            results.push(SearchResult {
+                                file_record: fr,
+                                score,
+                                snippet: Some(content.chars().take(2000).collect()),
+                                match_type: MatchType::Vector,
+                                chunk_index: chunk_index as usize,
+                            });
+                        }
+                    }
+                    Ok(Some(results))
                 }
-                Ok(results)
             })
             .await
             .map_err(|e| Error::index(e.to_string()))?;
+
+            if let Some(results) = result? {
+                return Ok(results);
+            }
+            // Fall through to pure-Rust path below.
         }
 
         // ── Try ANN path first ────────────────────────────────────────────────

@@ -10,6 +10,7 @@
 //! - [`VideoParser`] — stub (frame extraction planned)
 
 pub mod audio;
+pub mod chunking;
 pub mod image;
 #[cfg(feature = "pdf")]
 pub mod pdf;
