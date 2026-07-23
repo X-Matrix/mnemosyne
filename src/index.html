@@ -2856,10 +2856,17 @@
           }
         }
 
-        // Load batch size from engine
+        // Load batch size — show localStorage value immediately (sync),
+        // then overwrite with the live engine value once the async call returns.
+        const cachedBs = parseInt(localStorage.getItem('mn-batch-size') || '', 10);
+        if (!isNaN(cachedBs)) {
+          const bsEl = qs('#batch-size-input');
+          if (bsEl) bsEl.value = cachedBs;
+        }
         invoke('get_batch_size').then(n => {
           const el = qs('#batch-size-input');
           if (el) el.value = n;
+          localStorage.setItem('mn-batch-size', String(n));
         }).catch(() => { });
       }
 
@@ -2868,6 +2875,9 @@
         if (!el) return;
         const n = Math.max(1, Math.min(64, parseInt(el.value, 10) || 8));
         el.value = n;
+        // Persist to localStorage immediately so it survives restarts
+        // even if the Tauri backend call is delayed.
+        localStorage.setItem('mn-batch-size', String(n));
         try {
           await invoke('set_batch_size', { batchSize: n });
           const st = qs('#batch-size-status');
