@@ -16,11 +16,25 @@ impl<'a> FileRepo<'a> {
         Self { db }
     }
 
-    pub fn upsert(&self, record: &FileRecord) -> Result<(), Error> {
+    /// Insert or update a file record, returning the **id that is stored** in the
+    /// database after the operation.
+    ///
+    /// If the path already exists under a *different* id (e.g. because a previous
+    /// lookup missed due to a unicode-normalisation mismatch on macOS), the
+    /// existing id is preserved so that associated chunks remain valid.  The
+    /// caller should use the returned id when creating chunk records.
+    pub fn upsert(&self, record: &FileRecord) -> Result<String, Error> {
         let conn = self.db.conn.lock().unwrap();
+        let path = record.path.to_string_lossy().to_string();
+
+        // Use COALESCE to prefer the id already stored for this path.
+        // This avoids "UNIQUE constraint failed: files.path" when find_by_path
+        // previously returned None (e.g. unicode NFD/NFC mismatch on macOS).
         conn.execute(
             r#"INSERT INTO files (id, path, file_type, size, modified_at, indexed_at, content_hash)
-               VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)
+               SELECT
+                   COALESCE((SELECT id FROM files WHERE path = ?2), ?1),
+                   ?2, ?3, ?4, ?5, ?6, ?7
                ON CONFLICT(id) DO UPDATE SET
                    path         = excluded.path,
                    file_type    = excluded.file_type,
@@ -30,7 +44,7 @@ impl<'a> FileRepo<'a> {
                    content_hash = excluded.content_hash"#,
             params![
                 record.id,
-                record.path.to_string_lossy().to_string(),
+                path,
                 serde_json::to_string(&record.file_type).unwrap_or_default(),
                 record.size as i64,
                 record.modified_at.map(|t| t.timestamp()),
@@ -39,7 +53,15 @@ impl<'a> FileRepo<'a> {
             ],
         )
         .map_err(|e| Error::storage(e.to_string()))?;
-        Ok(())
+
+        // Return the id that is now in the DB for this path (may differ from
+        // record.id when a path conflict was silently resolved above).
+        conn.query_row(
+            "SELECT id FROM files WHERE path = ?1",
+            params![path],
+            |row| row.get::<_, String>(0),
+        )
+        .map_err(|e| Error::storage(e.to_string()))
     }
 
     pub fn get(&self, id: &str) -> Result<Option<FileRecord>, Error> {

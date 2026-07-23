@@ -400,14 +400,16 @@ impl SearchEngine {
             )
         };
 
-        // Persist file record.
-        {
+        // Persist file record.  `upsert` returns the id that is actually stored
+        // (may differ from `file_id` when a unicode path-lookup miss caused a
+        // conflict — the existing id is reused to keep chunk FK refs valid).
+        let file_id = {
             let db = self.db.clone();
             let fr = file_record.clone();
             tokio::task::spawn_blocking(move || FileRepo::new(&db).upsert(&fr))
                 .await
-                .map_err(|e| Error::storage(e.to_string()))??;
-        }
+                .map_err(|e| Error::storage(e.to_string()))??
+        };
 
         // Persist chunks + embeddings + optional sparse embeddings.
         for (i, (content, embedding)) in chunks_content.into_iter().zip(embeddings).enumerate() {
