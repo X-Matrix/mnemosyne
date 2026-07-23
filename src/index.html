@@ -1646,6 +1646,22 @@
               </div>
             </div>
 
+            <!-- 推理性能 -->
+            <div class="sfm-sec">
+              <div class="sfm-title">推理性能</div>
+              <div class="sfm-row" style="align-items:center;gap:10px">
+                <span class="sfm-label">批处理大小</span>
+                <input class="sfm-input" id="batch-size-input" type="number" value="8" min="1" max="64" step="1"
+                  style="width:72px;text-align:center" />
+                <button class="btn bp" onclick="g.saveBatchSize()" style="font-size:12px">保存</button>
+                <span id="batch-size-status" style="font-size:11px;color:var(--mu2)"></span>
+              </div>
+              <div style="font-size:11px;color:var(--mu2);margin-top:6px;line-height:1.7">
+                每次模型前向传播处理的文本块数量。值越大吞吐量越高，但占用内存也越多。<br>
+                推荐值：<strong>Metal GPU</strong> → 16–32，<strong>CPU</strong> → 4–8。
+              </div>
+            </div>
+
             <!-- API Server -->
             <div class="sfm-sec">
               <div class="sfm-title">REST API 服务器</div>
@@ -2839,7 +2855,27 @@
             if (cu) cu.value = localStorage.getItem('mn-hf-mirror-url') || '';
           }
         }
+
+        // Load batch size from engine
+        invoke('get_batch_size').then(n => {
+          const el = qs('#batch-size-input');
+          if (el) el.value = n;
+        }).catch(() => { });
       }
+
+      g.saveBatchSize = async function () {
+        const el = qs('#batch-size-input');
+        if (!el) return;
+        const n = Math.max(1, Math.min(64, parseInt(el.value, 10) || 8));
+        el.value = n;
+        try {
+          await invoke('set_batch_size', { batchSize: n });
+          const st = qs('#batch-size-status');
+          if (st) { st.textContent = '已保存'; st.style.color = 'var(--green)'; setTimeout(() => { st.textContent = ''; }, 2000); }
+        } catch (e) {
+          toast('保存失败: ' + e, 'err');
+        }
+      };
 
       function updateHelp() {
         const el = qs('#cli-ref');
