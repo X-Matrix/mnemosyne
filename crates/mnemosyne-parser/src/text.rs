@@ -15,9 +15,9 @@ pub struct TextParser;
 impl FileParser for TextParser {
     fn supported_extensions(&self) -> &[&'static str] {
         &[
-            "txt", "md", "markdown", "csv", "json", "xml", "html", "htm", "rst",
-            "toml", "yaml", "yml", "log", "ini", "conf", "py", "rs", "js", "ts",
-            "go", "java", "c", "cpp", "h", "css", "sh", "bat", "sql",
+            "txt", "md", "markdown", "csv", "json", "xml", "html", "htm", "rst", "toml", "yaml",
+            "yml", "log", "ini", "conf", "py", "rs", "js", "ts", "go", "java", "c", "cpp", "h",
+            "css", "sh", "bat", "sql",
         ]
     }
 
@@ -42,8 +42,8 @@ impl FileParser for TextParser {
 
         let raw_chunks: Vec<String> = match ext.as_str() {
             "md" | "markdown" => Chunker::new(MarkdownStrategy).chunk(&text),
-            "py" | "rs" | "js" | "ts" | "go" | "java" | "c" | "cpp" | "h"
-            | "css" | "sh" | "sql" => Chunker::new(CodeStrategy).chunk(&text),
+            "py" | "rs" | "js" | "ts" | "go" | "java" | "c" | "cpp" | "h" | "css" | "sh"
+            | "sql" => Chunker::new(CodeStrategy).chunk(&text),
             _ => Chunker::new(ProseStrategy).chunk(&text),
         };
 

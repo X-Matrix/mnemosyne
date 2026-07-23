@@ -338,9 +338,10 @@ impl SearchEngine {
                 for chunk in &chunks_content {
                     let text_opt = match chunk {
                         mnemosyne_core::types::ParsedContent::Text { text } => Some(text.clone()),
-                        mnemosyne_core::types::ParsedContent::AudioTranscript { transcript, .. } => {
-                            Some(transcript.clone())
-                        }
+                        mnemosyne_core::types::ParsedContent::AudioTranscript {
+                            transcript,
+                            ..
+                        } => Some(transcript.clone()),
                         _ => None,
                     };
 
@@ -441,12 +442,11 @@ impl SearchEngine {
 
         // ── Sparse (lexical) embedding for BGE-M3 keyword path ────────────────
         // When sparse_linear is loaded, use lexical dot-product instead of FTS5.
-        let query_sparse: Option<std::collections::HashMap<u32, f32>> =
-            if bert_model.has_sparse() {
-                bert_model.embed_sparse(&query.text).ok()
-            } else {
-                None
-            };
+        let query_sparse: Option<std::collections::HashMap<u32, f32>> = if bert_model.has_sparse() {
+            bert_model.embed_sparse(&query.text).ok()
+        } else {
+            None
+        };
 
         use mnemosyne_core::types::SearchMode;
 
@@ -497,21 +497,11 @@ impl SearchEngine {
                     // RRF fusion (mirrors HybridIndex::hybrid_search).
                     let vec_ranked: Vec<(String, f32)> = vec_results
                         .iter()
-                        .map(|r| {
-                            (
-                                format!("{}:{}", r.file_record.id, r.chunk_index),
-                                r.score,
-                            )
-                        })
+                        .map(|r| (format!("{}:{}", r.file_record.id, r.chunk_index), r.score))
                         .collect();
                     let kw_ranked: Vec<(String, f32)> = kw_results
                         .iter()
-                        .map(|r| {
-                            (
-                                format!("{}:{}", r.file_record.id, r.chunk_index),
-                                r.score,
-                            )
-                        })
+                        .map(|r| (format!("{}:{}", r.file_record.id, r.chunk_index), r.score))
                         .collect();
                     let fused = mnemosyne_index::rrf::fuse(
                         &vec_ranked,
@@ -620,8 +610,7 @@ impl SearchEngine {
                 // Apply the same file-type filter to CLIP results.
                 if let Some(ref types) = query.file_types {
                     if !types.is_empty() {
-                        clip_results
-                            .retain(|r| types.contains(&r.file_record.file_type));
+                        clip_results.retain(|r| types.contains(&r.file_record.file_type));
                     }
                 }
 
@@ -716,11 +705,9 @@ impl SearchEngine {
     pub async fn count_files_in_dir(&self, dir_path: &str) -> Result<u64, Error> {
         let db = self.db.clone();
         let prefix = format!("{}/", dir_path.trim_end_matches('/'));
-        tokio::task::spawn_blocking(move || {
-            FileRepo::new(&db).count_by_prefix(&prefix)
-        })
-        .await
-        .map_err(|e| Error::storage(e.to_string()))?
+        tokio::task::spawn_blocking(move || FileRepo::new(&db).count_by_prefix(&prefix))
+            .await
+            .map_err(|e| Error::storage(e.to_string()))?
     }
 
     pub async fn remove_file(&self, file_id: &str) -> Result<(), Error> {
@@ -827,7 +814,8 @@ impl SearchEngine {
     ) -> Result<mnemosyne_core::types::Embedding, Error> {
         let chunks = std::slice::from_ref(chunk);
         let mut embs = self.embed_chunks(file_path, chunks).await?;
-        embs.pop().ok_or_else(|| Error::model("no embedding produced".to_string()))
+        embs.pop()
+            .ok_or_else(|| Error::model("no embedding produced".to_string()))
     }
 
     /// Embed an image file using the CLIP vision encoder.

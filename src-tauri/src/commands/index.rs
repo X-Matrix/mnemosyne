@@ -241,7 +241,10 @@ pub async fn count_files_in_dir(
     let engine = lock.as_ref().ok_or_else(|| CommandError {
         message: "engine not ready".into(),
     })?;
-    engine.count_files_in_dir(&dir_path).await.map_err(Into::into)
+    engine
+        .count_files_in_dir(&dir_path)
+        .await
+        .map_err(Into::into)
 }
 
 #[tauri::command]

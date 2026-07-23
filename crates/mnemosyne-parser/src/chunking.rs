@@ -56,12 +56,18 @@ pub struct Chunker<S: ChunkStrategy> {
 impl<S: ChunkStrategy> Chunker<S> {
     /// Create a `Chunker` that applies overlap (default).
     pub fn new(strategy: S) -> Self {
-        Self { strategy, with_overlap: true }
+        Self {
+            strategy,
+            with_overlap: true,
+        }
     }
 
     /// Create a `Chunker` that does NOT apply overlap (useful for testing).
     pub fn no_overlap(strategy: S) -> Self {
-        Self { strategy, with_overlap: false }
+        Self {
+            strategy,
+            with_overlap: false,
+        }
     }
 
     /// Split `text` into chunks, optionally with sentence overlap.
@@ -337,9 +343,7 @@ pub fn apply_overlap(chunks: Vec<String>) -> Vec<String> {
         let tail = last_n_sentences(&chunks[i - 1], OVERLAP_SENTENCES);
         let tail = tail.trim();
         // Only prepend if the combined length stays within CHUNK_MAX.
-        if tail.is_empty()
-            || tail.chars().count() + 1 + chunk.chars().count() > CHUNK_MAX
-        {
+        if tail.is_empty() || tail.chars().count() + 1 + chunk.chars().count() > CHUNK_MAX {
             result.push(chunk.clone());
         } else {
             let mut with_ctx = tail.to_string();
@@ -437,7 +441,11 @@ mod tests {
         let chunks = Chunker::new(ProseStrategy).chunk(&para);
         assert!(chunks.len() > 1);
         for c in &chunks {
-            assert!(c.chars().count() <= CHUNK_MAX, "chunk too long: {}", c.chars().count());
+            assert!(
+                c.chars().count() <= CHUNK_MAX,
+                "chunk too long: {}",
+                c.chars().count()
+            );
         }
     }
 
@@ -476,9 +484,11 @@ mod tests {
 
     #[test]
     fn quality_filter_keeps_prose() {
-        let good =
-            "Mnemosyne 是一个本地优先的智能文件搜索引擎，支持语义向量检索与关键词混合搜索。";
-        assert!(is_quality_chunk(good), "Chinese prose should pass quality check");
+        let good = "Mnemosyne 是一个本地优先的智能文件搜索引擎，支持语义向量检索与关键词混合搜索。";
+        assert!(
+            is_quality_chunk(good),
+            "Chinese prose should pass quality check"
+        );
     }
 
     #[test]
@@ -487,7 +497,10 @@ mod tests {
     let stripped = text.trim();
     stripped.chars().count() >= MIN_CHUNK_LEN && word_chars(stripped) >= MIN_WORD_CHARS
 }"#;
-        assert!(is_quality_chunk(code), "Rust function body should pass quality check");
+        assert!(
+            is_quality_chunk(code),
+            "Rust function body should pass quality check"
+        );
     }
 
     #[test]

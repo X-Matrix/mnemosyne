@@ -36,12 +36,10 @@ pub fn fuse(
     let mut raw: HashMap<String, f32> = HashMap::new();
 
     for (rank, (id, score)) in vector_results.iter().enumerate() {
-        *raw.entry(id.clone()).or_default() +=
-            vector_weight * score / (RRF_K + rank as f32 + 1.0);
+        *raw.entry(id.clone()).or_default() += vector_weight * score / (RRF_K + rank as f32 + 1.0);
     }
     for (rank, (id, score)) in keyword_results.iter().enumerate() {
-        *raw.entry(id.clone()).or_default() +=
-            keyword_weight * score / (RRF_K + rank as f32 + 1.0);
+        *raw.entry(id.clone()).or_default() += keyword_weight * score / (RRF_K + rank as f32 + 1.0);
     }
 
     // Theoretical ceiling: rank=1 (denominator = k+1) with score=1.0 in every list.
@@ -71,7 +69,7 @@ mod tests {
     fn score_aware_gives_interpretable_percentage() {
         // vector=47%, keyword=9%, both rank-1, equal weights → expect ~28%
         let vec = vec![(id("a"), 0.47_f32)];
-        let kw  = vec![(id("a"), 0.09_f32)];
+        let kw = vec![(id("a"), 0.09_f32)];
         let result = fuse(&vec, &kw, 10, 1.0, 1.0);
         assert_eq!(result.len(), 1);
         let score = result[0].1;
@@ -85,9 +83,12 @@ mod tests {
     #[test]
     fn perfect_match_reaches_one() {
         let vec = vec![(id("a"), 1.0_f32)];
-        let kw  = vec![(id("a"), 1.0_f32)];
+        let kw = vec![(id("a"), 1.0_f32)];
         let result = fuse(&vec, &kw, 10, 1.0, 1.0);
-        assert!((result[0].1 - 1.0).abs() < 1e-6, "rank-1 perfect-match must be 1.0");
+        assert!(
+            (result[0].1 - 1.0).abs() < 1e-6,
+            "rank-1 perfect-match must be 1.0"
+        );
     }
 
     #[test]
@@ -106,13 +107,16 @@ mod tests {
         let vec = vec![(id("b"), 0.30_f32), (id("a"), 0.90_f32)];
         let kw: Vec<(String, f32)> = vec![];
         let result = fuse(&vec, &kw, 10, 1.0, 1.0);
-        assert_eq!(result[0].0, "a", "high-score rank-2 must beat low-score rank-1");
+        assert_eq!(
+            result[0].0, "a",
+            "high-score rank-2 must beat low-score rank-1"
+        );
     }
 
     #[test]
     fn order_is_descending() {
         let vec = vec![(id("a"), 0.9), (id("b"), 0.5), (id("c"), 0.2)];
-        let kw  = vec![(id("b"), 0.8), (id("a"), 0.3)];
+        let kw = vec![(id("b"), 0.8), (id("a"), 0.3)];
         let result = fuse(&vec, &kw, 10, 1.0, 1.0);
         for w in result.windows(2) {
             assert!(w[0].1 >= w[1].1, "scores must be non-increasing");

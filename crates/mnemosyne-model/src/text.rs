@@ -140,7 +140,9 @@ impl TextEmbedder {
             }
         }
         #[cfg(not(feature = "candle-backend"))]
-        Err(Error::model("sparse embedding requires candle-backend".to_string()))
+        Err(Error::model(
+            "sparse embedding requires candle-backend".to_string(),
+        ))
     }
 
     /// Compute dense + sparse embeddings in a **single forward pass**.
@@ -165,9 +167,12 @@ impl TextEmbedder {
         {
             use std::collections::hash_map::DefaultHasher;
             use std::hash::{Hash, Hasher};
-            let dense = stub_embed(text, match &*self.backend {
-                Backend::Stub { dim } => *dim,
-            });
+            let dense = stub_embed(
+                text,
+                match &*self.backend {
+                    Backend::Stub { dim } => *dim,
+                },
+            );
             Ok((dense, None))
         }
     }
